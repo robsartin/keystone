@@ -196,7 +196,7 @@ red then green) so the discipline is visible in `git log`.
 | # | Test class | Behaviour |
 |---|---|---|
 | 1 | `MoneyTest` | construction, equality, `plus`/`minus` returning `Result`, currency mismatch produces `Failure(CurrencyMismatch)`, overflow via `addExact` produces `Failure(Overflow)` |
-| 2 | `PostingTest` | `Posting(AccountCode, Side, Money)`; rejects zero or negative amounts |
+| 2 | `PostingTest` | `Posting(AccountCode, Side, Money)`; allows zero (memo postings); rejects negative amounts (sign is carried by `Side`, never by `Money`) |
 | 3 | `JournalEntryTest` | `JournalEntry.of(...)` returns `Failure(NoPostings)`, `Failure(MixedCurrencies)`, `Failure(Unbalanced)`, or `Success` |
 | 4 | `PostJournalEntryServiceTest` | service calls port; on `Success` persists and returns `Success`; on `Failure` returns it untouched |
 | 5 | `JournalEntryControllerTest` | MockMvc; 201 + Location on Success; 400 + ProblemDetails on each failure variant |
@@ -272,7 +272,11 @@ Single Maven build. `./mvnw -B verify` runs the full gate, in order:
 6. `jacoco:report` and `jacoco:check` — fail under 85% line coverage on
    production code (excluding generated, DTOs, Spring `@Configuration`).
 7. `pitest:mutationCoverage` — fail under 60% mutation score on
-   `domain..` and `application..` only.
+   `domain..` and `application..` only. The 60% floor is provisional;
+   mutation scores on a small codebase are noisy. The first PR after the
+   keystone lands may tune the threshold (down to ~40% or up to ~80%) once
+   we see real numbers from the walking-skeleton slice. Lower it explicitly
+   in `pom.xml` rather than disabling the check.
 8. `springdoc-openapi-maven-plugin` — boots app, dumps `target/openapi.yaml`.
 9. Spectral lint of `target/openapi.yaml` against `.spectral.yaml` ruleset
    (operationId, summary, 4xx response, $ref-only schemas, ProblemDetails on
