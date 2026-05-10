@@ -15,4 +15,7 @@ public sealed interface JournalError {
 
   /** Sum of debits does not equal sum of credits. */
   record Unbalanced(Money debits, Money credits) implements JournalError {}
+
+  /** Same-side posting sum overflowed Long.MAX_VALUE. */
+  record Overflow(Side side) implements JournalError {}
 }

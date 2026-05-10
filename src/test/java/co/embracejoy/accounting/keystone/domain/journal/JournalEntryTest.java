@@ -120,4 +120,22 @@ class JournalEntryTest {
     assertThrows(
         UnsupportedOperationException.class, () -> je.postings().add(debit(CASH, 5L, USD)));
   }
+
+  @Test
+  @DisplayName("of() returns Failure(Overflow) when same-side postings sum past Long.MAX_VALUE")
+  void shouldReturnOverflowWhenSameSidePostingsExceedLongRange() {
+    long half = Long.MAX_VALUE / 2 + 1;
+    Posting bigDebit1 = new Posting(CASH, Side.DEBIT, new Money(half, USD));
+    AccountCode receivable = new AccountCode("1100");
+    Posting bigDebit2 = new Posting(receivable, Side.DEBIT, new Money(half, USD));
+    Posting smallCredit = new Posting(EQUITY, Side.CREDIT, new Money(1L, USD));
+
+    Result<JournalEntry, JournalError> r =
+        JournalEntry.of(TODAY, "overflow", List.of(bigDebit1, bigDebit2, smallCredit));
+
+    assertInstanceOf(Result.Failure.class, r);
+    JournalError e = ((Result.Failure<JournalEntry, JournalError>) r).error();
+    assertInstanceOf(JournalError.Overflow.class, e);
+    assertEquals(Side.DEBIT, ((JournalError.Overflow) e).side());
+  }
 }
