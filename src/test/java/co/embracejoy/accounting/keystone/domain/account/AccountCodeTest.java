@@ -34,9 +34,14 @@ class AccountCodeTest {
   }
 
   @Test
-  @DisplayName("equality is case-sensitive on the trimmed value")
-  void shouldDifferByCaseWhenComparedAfterTrim() {
+  @DisplayName("equality is case-sensitive: same case after trim is equal")
+  void shouldBeEqualWhenSameCaseAfterTrim() {
     assertEquals(new AccountCode("AR-CASH"), new AccountCode("AR-CASH"));
+  }
+
+  @Test
+  @DisplayName("equality is case-sensitive: different case is not equal")
+  void shouldDifferByCaseWhenComparedAfterTrim() {
     org.junit.jupiter.api.Assertions.assertNotEquals(
         new AccountCode("AR-CASH"), new AccountCode("ar-cash"));
   }
