@@ -24,9 +24,9 @@ See [ADR-0001](0001-record-decisions-in-adrs.md) for the meta-decision.
 
 ## Numbering
 
-- Sequential. The next free number is the smallest integer N such that no
-  ADR-N exists and N is not in the "Reserved" rows above.
-- Reservations exist when an ADR is planned for an upcoming PR/plan but
-  not yet written. Update this table the same commit you write the
-  reserved ADR.
+ADRs are numbered sequentially. The next free number is the smallest integer N
+such that no `ADR-N` file exists and N does not appear in a "Reserved" row above.
+
+- Reservations exist when an ADR is planned for an upcoming PR/plan but not yet
+  written. Update this table in the same commit that writes the reserved ADR.
 - See [`0000-template.md`](0000-template.md) for the starting structure.
