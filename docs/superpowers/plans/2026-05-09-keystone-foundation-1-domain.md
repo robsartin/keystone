@@ -161,7 +161,8 @@ Create `~/code/keystone/pom.xml`:
         <archunit.version>1.4.1</archunit.version>
         <jacoco.version>0.8.13</jacoco.version>
         <checkstyle.version>10.25.0</checkstyle.version>
-        <spotless.version>2.46.0</spotless.version>
+        <maven-checkstyle-plugin.version>3.6.0</maven-checkstyle-plugin.version>
+        <spotless.version>2.46.1</spotless.version>
     </properties>
 
     <dependencies>
@@ -288,10 +289,11 @@ Create `~/code/keystone/checkstyle.xml`:
         <module name="PackageName"/>
         <module name="TypeName"/>
         <module name="ConstantName"/>
-        <module name="WhitespaceAround"/>
+        <module name="WhitespaceAround">
+            <property name="allowEmptyTypes" value="true"/>
+        </module>
         <module name="EmptyStatement"/>
         <module name="EqualsHashCode"/>
-        <module name="MissingSwitchDefault"/>
         <module name="SimplifyBooleanExpression"/>
         <module name="SimplifyBooleanReturn"/>
         <module name="OneStatementPerLine"/>
@@ -311,7 +313,7 @@ Open `pom.xml`. Inside `<build><plugins>...</plugins></build>`, **append** these
                 <configuration>
                     <java>
                         <googleJavaFormat>
-                            <version>1.22.0</version>
+                            <version>1.27.0</version>
                             <style>GOOGLE</style>
                         </googleJavaFormat>
                         <removeUnusedImports/>
@@ -330,6 +332,7 @@ Open `pom.xml`. Inside `<build><plugins>...</plugins></build>`, **append** these
             <plugin>
                 <groupId>org.apache.maven.plugins</groupId>
                 <artifactId>maven-checkstyle-plugin</artifactId>
+                <version>${maven-checkstyle-plugin.version}</version>
                 <configuration>
                     <configLocation>${project.basedir}/checkstyle.xml</configLocation>
                     <consoleOutput>true</consoleOutput>
@@ -1080,7 +1083,11 @@ class MoneyTest {
     void shouldReturnCurrencyMismatchWhenMinusOnDifferentCurrencies() {
         Result<Money, MoneyError> r = new Money(100L, USD).minus(new Money(50L, EUR));
         assertInstanceOf(Result.Failure.class, r);
-        assertInstanceOf(MoneyError.CurrencyMismatch.class, ((Result.Failure<Money, MoneyError>) r).error());
+        MoneyError e = ((Result.Failure<Money, MoneyError>) r).error();
+        assertInstanceOf(MoneyError.CurrencyMismatch.class, e);
+        MoneyError.CurrencyMismatch cm = (MoneyError.CurrencyMismatch) e;
+        assertEquals(USD, cm.expected());
+        assertEquals(EUR, cm.actual());
     }
 
     @Test
