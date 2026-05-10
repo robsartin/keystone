@@ -152,40 +152,50 @@
                     </execution>
                 </executions>
             </plugin>
-            <plugin>
-                <groupId>org.pitest</groupId>
-                <artifactId>pitest-maven</artifactId>
-                <version>${pitest.version}</version>
-                <dependencies>
-                    <dependency>
-                        <groupId>org.pitest</groupId>
-                        <artifactId>pitest-junit5-plugin</artifactId>
-                        <version>${pitest.junit5.version}</version>
-                    </dependency>
-                </dependencies>
-                <configuration>
-                    <targetClasses>
-                        <param>co.embracejoy.accounting.keystone.domain.*</param>
-                        <param>co.embracejoy.accounting.keystone.application.*</param>
-                    </targetClasses>
-                    <targetTests>
-                        <param>co.embracejoy.accounting.keystone.*</param>
-                    </targetTests>
-                    <mutationThreshold>60</mutationThreshold>
-                    <failWhenNoMutations>true</failWhenNoMutations>
-                    <outputFormats>
-                        <param>HTML</param>
-                        <param>XML</param>
-                    </outputFormats>
-                </configuration>
-                <executions>
-                    <execution>
-                        <id>pitest-mutation-coverage</id>
-                        <phase>verify</phase>
-                        <goals><goal>mutationCoverage</goal></goals>
-                    </execution>
-                </executions>
-            </plugin>
         </plugins>
     </build>
+
+    <profiles>
+        <profile>
+            <id>mutation</id>
+            <build>
+                <plugins>
+                    <plugin>
+                        <groupId>org.pitest</groupId>
+                        <artifactId>pitest-maven</artifactId>
+                        <version>${pitest.version}</version>
+                        <dependencies>
+                            <dependency>
+                                <groupId>org.pitest</groupId>
+                                <artifactId>pitest-junit5-plugin</artifactId>
+                                <version>${pitest.junit5.version}</version>
+                            </dependency>
+                        </dependencies>
+                        <configuration>
+                            <targetClasses>
+                                <param>co.embracejoy.accounting.keystone.domain.*</param>
+                                <param>co.embracejoy.accounting.keystone.application.*</param>
+                            </targetClasses>
+                            <targetTests>
+                                <param>co.embracejoy.accounting.keystone.*</param>
+                            </targetTests>
+                            <mutationThreshold>60</mutationThreshold>
+                            <failWhenNoMutations>true</failWhenNoMutations>
+                            <outputFormats>
+                                <param>HTML</param>
+                                <param>XML</param>
+                            </outputFormats>
+                        </configuration>
+                        <executions>
+                            <execution>
+                                <id>pitest-mutation-coverage</id>
+                                <phase>verify</phase>
+                                <goals><goal>mutationCoverage</goal></goals>
+                            </execution>
+                        </executions>
+                    </plugin>
+                </plugins>
+            </build>
+        </profile>
+    </profiles>
 </project>
