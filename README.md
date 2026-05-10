@@ -21,6 +21,8 @@ ArchUnit hexagonal rules.
 
 ## Architecture decisions
 
+See [`docs/concepts.md`](docs/concepts.md) for a conceptual introduction to the domain model, written for integrators without an accounting background.
+
 See [`docs/adr/`](docs/adr/) for the ADRs landed alongside the keystone.
 
 ## License
