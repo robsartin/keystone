@@ -161,6 +161,7 @@ Create `~/code/keystone/pom.xml`:
         <archunit.version>1.4.1</archunit.version>
         <jacoco.version>0.8.13</jacoco.version>
         <checkstyle.version>10.25.0</checkstyle.version>
+        <maven-checkstyle-plugin.version>3.6.0</maven-checkstyle-plugin.version>
         <spotless.version>2.46.0</spotless.version>
     </properties>
 
@@ -291,7 +292,6 @@ Create `~/code/keystone/checkstyle.xml`:
         <module name="WhitespaceAround"/>
         <module name="EmptyStatement"/>
         <module name="EqualsHashCode"/>
-        <module name="MissingSwitchDefault"/>
         <module name="SimplifyBooleanExpression"/>
         <module name="SimplifyBooleanReturn"/>
         <module name="OneStatementPerLine"/>
@@ -330,6 +330,7 @@ Open `pom.xml`. Inside `<build><plugins>...</plugins></build>`, **append** these
             <plugin>
                 <groupId>org.apache.maven.plugins</groupId>
                 <artifactId>maven-checkstyle-plugin</artifactId>
+                <version>${maven-checkstyle-plugin.version}</version>
                 <configuration>
                     <configLocation>${project.basedir}/checkstyle.xml</configLocation>
                     <consoleOutput>true</consoleOutput>

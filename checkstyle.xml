@@ -39,7 +39,6 @@
         <module name="WhitespaceAround"/>
         <module name="EmptyStatement"/>
         <module name="EqualsHashCode"/>
-        <module name="MissingSwitchDefault"/>
         <module name="SimplifyBooleanExpression"/>
         <module name="SimplifyBooleanReturn"/>
         <module name="OneStatementPerLine"/>

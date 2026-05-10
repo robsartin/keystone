@@ -33,6 +33,7 @@
         <archunit.version>1.4.1</archunit.version>
         <jacoco.version>0.8.13</jacoco.version>
         <checkstyle.version>10.25.0</checkstyle.version>
+        <maven-checkstyle-plugin.version>3.6.0</maven-checkstyle-plugin.version>
         <spotless.version>2.46.0</spotless.version>
     </properties>
 
@@ -92,6 +93,7 @@
             <plugin>
                 <groupId>org.apache.maven.plugins</groupId>
                 <artifactId>maven-checkstyle-plugin</artifactId>
+                <version>${maven-checkstyle-plugin.version}</version>
                 <configuration>
                     <configLocation>${project.basedir}/checkstyle.xml</configLocation>
                     <consoleOutput>true</consoleOutput>
