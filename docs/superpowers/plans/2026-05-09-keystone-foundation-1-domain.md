@@ -289,7 +289,9 @@ Create `~/code/keystone/checkstyle.xml`:
         <module name="PackageName"/>
         <module name="TypeName"/>
         <module name="ConstantName"/>
-        <module name="WhitespaceAround"/>
+        <module name="WhitespaceAround">
+            <property name="allowEmptyTypes" value="true"/>
+        </module>
         <module name="EmptyStatement"/>
         <module name="EqualsHashCode"/>
         <module name="SimplifyBooleanExpression"/>
@@ -1081,7 +1083,11 @@ class MoneyTest {
     void shouldReturnCurrencyMismatchWhenMinusOnDifferentCurrencies() {
         Result<Money, MoneyError> r = new Money(100L, USD).minus(new Money(50L, EUR));
         assertInstanceOf(Result.Failure.class, r);
-        assertInstanceOf(MoneyError.CurrencyMismatch.class, ((Result.Failure<Money, MoneyError>) r).error());
+        MoneyError e = ((Result.Failure<Money, MoneyError>) r).error();
+        assertInstanceOf(MoneyError.CurrencyMismatch.class, e);
+        MoneyError.CurrencyMismatch cm = (MoneyError.CurrencyMismatch) e;
+        assertEquals(USD, cm.expected());
+        assertEquals(EUR, cm.actual());
     }
 
     @Test

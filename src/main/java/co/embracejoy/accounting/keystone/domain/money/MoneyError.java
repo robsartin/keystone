@@ -15,7 +15,5 @@ public sealed interface MoneyError {
   }
 
   /** Result would not fit in {@code long}. */
-  record Overflow() implements MoneyError {
-    // sentinel — no fields
-  }
+  record Overflow() implements MoneyError {}
 }

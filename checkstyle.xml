@@ -36,7 +36,9 @@
         <module name="PackageName"/>
         <module name="TypeName"/>
         <module name="ConstantName"/>
-        <module name="WhitespaceAround"/>
+        <module name="WhitespaceAround">
+            <property name="allowEmptyTypes" value="true"/>
+        </module>
         <module name="EmptyStatement"/>
         <module name="EqualsHashCode"/>
         <module name="SimplifyBooleanExpression"/>

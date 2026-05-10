@@ -88,8 +88,11 @@ class MoneyTest {
   void shouldReturnCurrencyMismatchWhenMinusOnDifferentCurrencies() {
     Result<Money, MoneyError> r = new Money(100L, USD).minus(new Money(50L, EUR));
     assertInstanceOf(Result.Failure.class, r);
-    assertInstanceOf(
-        MoneyError.CurrencyMismatch.class, ((Result.Failure<Money, MoneyError>) r).error());
+    MoneyError e = ((Result.Failure<Money, MoneyError>) r).error();
+    assertInstanceOf(MoneyError.CurrencyMismatch.class, e);
+    MoneyError.CurrencyMismatch cm = (MoneyError.CurrencyMismatch) e;
+    assertEquals(USD, cm.expected());
+    assertEquals(EUR, cm.actual());
   }
 
   @Test
