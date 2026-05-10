@@ -3,6 +3,7 @@ package co.embracejoy.accounting.keystone.application.journal;
 import co.embracejoy.accounting.keystone.domain.journal.JournalEntry;
 import co.embracejoy.accounting.keystone.domain.journal.JournalEntryRepository;
 import co.embracejoy.accounting.keystone.domain.journal.JournalError;
+import co.embracejoy.accounting.keystone.domain.journal.PersistedJournalEntry;
 import co.embracejoy.accounting.keystone.domain.journal.Posting;
 import co.embracejoy.accounting.keystone.domain.shared.Result;
 import java.time.LocalDate;
@@ -18,7 +19,7 @@ public final class PostJournalEntryService {
     this.repository = Objects.requireNonNull(repository, "repository");
   }
 
-  public Result<JournalEntry, JournalError> post(
+  public Result<PersistedJournalEntry, JournalError> post(
       LocalDate occurredOn, String description, List<Posting> postings) {
     return JournalEntry.of(occurredOn, description, postings).map(repository::save);
   }
