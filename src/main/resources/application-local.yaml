@@ -1,0 +1,10 @@
+logging:
+  level:
+    root: INFO
+    co.embracejoy.accounting.keystone: DEBUG
+    org.hibernate.SQL: INFO
+spring:
+  jpa:
+    properties:
+      hibernate:
+        format_sql: true
