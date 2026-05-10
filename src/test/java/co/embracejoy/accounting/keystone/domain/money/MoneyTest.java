@@ -42,9 +42,27 @@ class MoneyTest {
   }
 
   @Test
-  @DisplayName("negate flips the sign")
-  void shouldFlipSignWhenNegateCalled() {
-    assertEquals(new Money(-100L, USD), new Money(100L, USD).negate());
+  @DisplayName("negate() returns Success(-amount) for non-MIN values")
+  void shouldFlipSignWhenNegateCalledOnNonMinValue() {
+    Result<Money, MoneyError> r = new Money(100L, USD).negate();
+    assertInstanceOf(Result.Success.class, r);
+    assertEquals(new Money(-100L, USD), ((Result.Success<Money, MoneyError>) r).value());
+  }
+
+  @Test
+  @DisplayName("negate() returns Success(0) when amount is zero")
+  void shouldReturnZeroWhenNegateCalledOnZero() {
+    Result<Money, MoneyError> r = new Money(0L, USD).negate();
+    assertInstanceOf(Result.Success.class, r);
+    assertEquals(new Money(0L, USD), ((Result.Success<Money, MoneyError>) r).value());
+  }
+
+  @Test
+  @DisplayName("negate() returns Failure(Overflow) on Long.MIN_VALUE")
+  void shouldReturnOverflowWhenNegateOnLongMinValue() {
+    Result<Money, MoneyError> r = new Money(Long.MIN_VALUE, USD).negate();
+    assertInstanceOf(Result.Failure.class, r);
+    assertInstanceOf(MoneyError.Overflow.class, ((Result.Failure<Money, MoneyError>) r).error());
   }
 
   @Test

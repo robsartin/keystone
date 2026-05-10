@@ -21,8 +21,12 @@ public record Money(long minorUnits, Currency currency) {
     return minorUnits == 0L;
   }
 
-  public Money negate() {
-    return new Money(-minorUnits, currency);
+  public Result<Money, MoneyError> negate() {
+    try {
+      return Result.success(new Money(Math.negateExact(minorUnits), currency));
+    } catch (ArithmeticException ignored) {
+      return Result.failure(new MoneyError.Overflow());
+    }
   }
 
   public Result<Money, MoneyError> plus(Money other) {
