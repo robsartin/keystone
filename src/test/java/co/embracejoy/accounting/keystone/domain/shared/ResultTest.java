@@ -79,6 +79,56 @@ class ResultTest {
   }
 
   @Test
+  @DisplayName("Failure.map rejects null mapper")
+  void shouldThrowWhenFailureMapPassedNullFunction() {
+    assertThrows(NullPointerException.class, () -> Result.<Integer, String>failure("e").map(null));
+  }
+
+  @Test
+  @DisplayName("Success.flatMap rejects null mapper")
+  void shouldThrowWhenSuccessFlatMapPassedNullFunction() {
+    assertThrows(
+        NullPointerException.class, () -> Result.<Integer, String>success(1).flatMap(null));
+  }
+
+  @Test
+  @DisplayName("Failure.flatMap rejects null mapper")
+  void shouldThrowWhenFailureFlatMapPassedNullFunction() {
+    assertThrows(
+        NullPointerException.class, () -> Result.<Integer, String>failure("e").flatMap(null));
+  }
+
+  @Test
+  @DisplayName("fold rejects null onSuccess on Success")
+  void shouldThrowWhenSuccessFoldPassedNullOnSuccess() {
+    assertThrows(
+        NullPointerException.class, () -> Result.<Integer, String>success(1).fold(null, e -> "e"));
+  }
+
+  @Test
+  @DisplayName("fold rejects null onFailure on Success")
+  void shouldThrowWhenSuccessFoldPassedNullOnFailure() {
+    assertThrows(
+        NullPointerException.class, () -> Result.<Integer, String>success(1).fold(v -> "v", null));
+  }
+
+  @Test
+  @DisplayName("fold rejects null onSuccess on Failure")
+  void shouldThrowWhenFailureFoldPassedNullOnSuccess() {
+    assertThrows(
+        NullPointerException.class,
+        () -> Result.<Integer, String>failure("e").fold(null, e -> "e"));
+  }
+
+  @Test
+  @DisplayName("fold rejects null onFailure on Failure")
+  void shouldThrowWhenFailureFoldPassedNullOnFailure() {
+    assertThrows(
+        NullPointerException.class,
+        () -> Result.<Integer, String>failure("e").fold(v -> "v", null));
+  }
+
+  @Test
   @DisplayName("success rejects null mapper")
   void shouldThrowWhenMapPassedNullFunction() {
     assertThrows(NullPointerException.class, () -> Result.success(1).map(null));

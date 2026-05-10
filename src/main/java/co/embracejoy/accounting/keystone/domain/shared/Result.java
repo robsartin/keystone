@@ -46,6 +46,7 @@ public sealed interface Result<T, E> permits Result.Success, Result.Failure {
     public <R> R fold(
         Function<? super T, ? extends R> onSuccess, Function<? super E, ? extends R> onFailure) {
       Objects.requireNonNull(onSuccess, "onSuccess");
+      Objects.requireNonNull(onFailure, "onFailure");
       return onSuccess.apply(value);
     }
   }
@@ -68,6 +69,7 @@ public sealed interface Result<T, E> permits Result.Success, Result.Failure {
     @Override
     public <R> R fold(
         Function<? super T, ? extends R> onSuccess, Function<? super E, ? extends R> onFailure) {
+      Objects.requireNonNull(onSuccess, "onSuccess");
       Objects.requireNonNull(onFailure, "onFailure");
       return onFailure.apply(error);
     }

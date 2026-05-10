@@ -162,7 +162,7 @@ Create `~/code/keystone/pom.xml`:
         <jacoco.version>0.8.13</jacoco.version>
         <checkstyle.version>10.25.0</checkstyle.version>
         <maven-checkstyle-plugin.version>3.6.0</maven-checkstyle-plugin.version>
-        <spotless.version>2.46.0</spotless.version>
+        <spotless.version>2.46.1</spotless.version>
     </properties>
 
     <dependencies>
@@ -311,7 +311,7 @@ Open `pom.xml`. Inside `<build><plugins>...</plugins></build>`, **append** these
                 <configuration>
                     <java>
                         <googleJavaFormat>
-                            <version>1.22.0</version>
+                            <version>1.27.0</version>
                             <style>GOOGLE</style>
                         </googleJavaFormat>
                         <removeUnusedImports/>
