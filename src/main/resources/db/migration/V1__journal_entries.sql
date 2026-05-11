@@ -2,7 +2,7 @@ CREATE TABLE journal_entries (
     id            UUID         PRIMARY KEY,
     occurred_on   DATE         NOT NULL,
     description   VARCHAR(500) NOT NULL,
-    currency      CHAR(3)      NOT NULL,
+    currency      VARCHAR(3)   NOT NULL,
     created_at    TIMESTAMPTZ  NOT NULL DEFAULT now()
 );
 

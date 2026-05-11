@@ -24,13 +24,16 @@ final class JournalEntryEntityMapper {
     JournalEntryEntity je =
         new JournalEntryEntity(
             id, entry.occurredOn(), entry.description(), entry.currency().getCurrencyCode());
-    for (Posting p : entry.postings()) {
+    java.util.List<Posting> postings = entry.postings();
+    for (int i = 0; i < postings.size(); i++) {
+      Posting p = postings.get(i);
       je.addPosting(
           new PostingEntity(
               UuidV7Generator.create(),
               p.account().value(),
               p.side().name(),
-              p.amount().minorUnits()));
+              p.amount().minorUnits(),
+              i));
     }
     return je;
   }

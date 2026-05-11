@@ -30,15 +30,20 @@ class PostingEntity {
   @Column(name = "amount_minor_units", nullable = false)
   private long amountMinorUnits;
 
+  @Column(name = "sequence_in_entry", nullable = false)
+  private int sequenceInEntry;
+
   protected PostingEntity() {
     // JPA required no-arg constructor
   }
 
-  PostingEntity(UUID id, String accountCode, String side, long amountMinorUnits) {
+  PostingEntity(
+      UUID id, String accountCode, String side, long amountMinorUnits, int sequenceInEntry) {
     this.id = id;
     this.accountCode = accountCode;
     this.side = side;
     this.amountMinorUnits = amountMinorUnits;
+    this.sequenceInEntry = sequenceInEntry;
   }
 
   UUID getId() {
