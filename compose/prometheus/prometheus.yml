@@ -1,0 +1,14 @@
+global:
+  scrape_interval: 10s
+  evaluation_interval: 10s
+  external_labels:
+    cluster: keystone-local
+
+scrape_configs:
+  - job_name: keystone
+    metrics_path: /actuator/prometheus
+    static_configs:
+      - targets: ["app:8080"]
+        labels:
+          service: keystone
+          env: local

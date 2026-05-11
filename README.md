@@ -14,16 +14,16 @@ for the rationale and the full picture.
 ## Quick start
 
 ```bash
-docker run -d --name keystone-pg -p 5434:5432 \
-  -e POSTGRES_USER=keystone -e POSTGRES_PASSWORD=keystone \
-  -e POSTGRES_DB=keystone postgres:16
+docker compose up -d --build
+```
 
-./mvnw spring-boot:run
+Brings up Postgres, the app, Prometheus, and Grafana. Wait ~30 seconds for the app to boot, then:
 
+```bash
 curl -i -X POST http://localhost:8080/journal-entries \
   -H "Content-Type: application/json" \
   -d '{
-    "occurredOn": "2026-05-10",
+    "occurredOn": "2026-05-11",
     "description": "opening balance",
     "currency": "USD",
     "postings": [
@@ -31,6 +31,13 @@ curl -i -X POST http://localhost:8080/journal-entries \
       { "account": "3000", "side": "CREDIT", "minorUnits": 10000 }
     ]
   }'
+```
+
+Open the Grafana dashboard at [http://localhost:3000/d/keystone-overview](http://localhost:3000/d/keystone-overview). To shut down:
+
+```bash
+docker compose down       # keep volumes
+docker compose down -v    # nuke volumes too
 ```
 
 ## Build
