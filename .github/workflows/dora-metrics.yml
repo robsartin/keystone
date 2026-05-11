@@ -1,0 +1,20 @@
+name: DORA Metrics
+on:
+  push:
+    branches: [ main ]
+  workflow_dispatch:
+
+jobs:
+  dora-report:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Generate DORA Report
+        uses: dkershner6/dora-metrics-report-action@v1
+        with:
+          github_token: ${{ secrets.GITHUB_TOKEN }}
+          default_branch: "main"
