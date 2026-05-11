@@ -1,0 +1,140 @@
+name: ci
+
+on:
+  pull_request:
+    branches: [ main ]
+  push:
+    branches: [ main ]
+
+permissions:
+  contents: read
+  packages: write
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    env:
+      JAVA_TOOL_OPTIONS: -Dorg.slf4j.simpleLogger.defaultLogLevel=info
+    services:
+      postgres:
+        image: postgres:16
+        env:
+          POSTGRES_USER: keystone
+          POSTGRES_PASSWORD: keystone
+          POSTGRES_DB: keystone
+        ports:
+          - 5434:5432
+        options: >-
+          --health-cmd "pg_isready -U keystone -d keystone"
+          --health-interval 5s
+          --health-timeout 3s
+          --health-retries 10
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Set up JDK 25
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: "25"
+          cache: maven
+
+      - name: Set up Node (for Spectral via npx)
+        uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+
+      - name: Verify
+        run: ./mvnw -B clean verify -Pmutation,openapi-gate
+
+      - name: Upload JaCoCo report
+        if: ${{ always() }}
+        uses: actions/upload-artifact@v4
+        with:
+          name: jacoco-html
+          path: target/site/jacoco
+          if-no-files-found: ignore
+          retention-days: 14
+
+      - name: Upload OpenAPI spec
+        if: ${{ always() }}
+        uses: actions/upload-artifact@v4
+        with:
+          name: openapi.yaml
+          path: target/openapi.yaml
+          if-no-files-found: ignore
+          retention-days: 14
+
+      - name: Upload PIT mutation report
+        if: ${{ always() }}
+        uses: actions/upload-artifact@v4
+        with:
+          name: pit-report
+          path: target/pit-reports
+          if-no-files-found: ignore
+          retention-days: 14
+
+  docker:
+    if: ${{ github.event_name == 'push' && github.ref == 'refs/heads/main' }}
+    needs: build
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    permissions:
+      contents: read
+      packages: write
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Login to GHCR
+        uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Build, smoke test, and push
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          push: true
+          tags: |
+            ghcr.io/robsartin/keystone:latest
+            ghcr.io/robsartin/keystone:sha-${{ github.sha }}
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+          provenance: false
+
+      - name: Smoke test image
+        run: |
+          docker run -d --name kp-smoke -p 5434:5432 \
+            -e POSTGRES_USER=keystone -e POSTGRES_PASSWORD=keystone \
+            -e POSTGRES_DB=keystone postgres:16
+          for i in $(seq 1 20); do
+            if docker exec kp-smoke pg_isready -U keystone -d keystone > /dev/null 2>&1; then break; fi
+            sleep 1
+          done
+          docker run -d --name keystone-smoke --network host \
+            -e DATABASE_URL=jdbc:postgresql://localhost:5434/keystone \
+            -e DATABASE_USER=keystone -e DATABASE_PASSWORD=keystone \
+            ghcr.io/robsartin/keystone:sha-${{ github.sha }}
+          for i in $(seq 1 30); do
+            if curl -fsSL http://localhost:8080/actuator/health 2>/dev/null | grep -q '"status":"UP"'; then
+              echo "Image healthy"
+              break
+            fi
+            sleep 2
+          done
+          curl -fsSL http://localhost:8080/actuator/health | grep -q '"status":"UP"'
+          docker rm -f keystone-smoke kp-smoke

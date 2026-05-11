@@ -19,7 +19,7 @@ See [ADR-0001](0001-record-decisions-in-adrs.md) for the meta-decision.
 | [0006](0006-openapi-gates.md) | OpenAPI four-layer gate | Accepted |
 | [0007](0007-junit-jupiter-6.md) | JUnit Jupiter 6 with ArchUnit on the JUnit Platform | Accepted |
 | [0008](0008-observability.md) | Micrometer + structured JSON logs + MDC correlation IDs | Accepted |
-| 0009 | (reserved — trunk-based dev + signed commits + squash-only, lands in Plan 3) | Reserved |
+| [0009](0009-trunk-based-development.md) | Trunk-based development with squash-merged PRs and required CI | Accepted |
 | [0010](0010-journal-entry-id-wrapper.md) | JournalEntryId wrapper with UUID v7; PersistedJournalEntry separates intent from persisted state | Accepted |
 
 ## Numbering
