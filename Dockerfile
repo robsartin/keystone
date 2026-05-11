@@ -13,7 +13,9 @@ FROM eclipse-temurin:25-jre
 WORKDIR /app
 ENV SPRING_PROFILES_ACTIVE=default \
     JAVA_TOOL_OPTIONS="-XX:+ExitOnOutOfMemoryError -XX:MaxRAMPercentage=75"
-RUN useradd --system --uid 1001 --create-home --shell /usr/sbin/nologin keystone \
+RUN apt-get update -qq && apt-get install -y --no-install-recommends wget \
+    && rm -rf /var/lib/apt/lists/* \
+    && useradd --system --uid 1001 --create-home --shell /usr/sbin/nologin keystone \
     && mkdir -p /app && chown -R keystone:keystone /app
 USER keystone
 COPY --from=build --chown=keystone:keystone /workspace/keystone-0.1.0-SNAPSHOT/dependencies/ ./
