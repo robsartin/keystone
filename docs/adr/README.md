@@ -16,7 +16,7 @@ See [ADR-0001](0001-record-decisions-in-adrs.md) for the meta-decision.
 | [0003](0003-money-as-integer-minor-units.md) | Money as integer minor units, ISO 4217 via java.util.Currency | Accepted |
 | [0004](0004-result-type-and-problem-details.md) | Result type for internal APIs; ProblemDetails at HTTP boundary | Accepted |
 | [0005](0005-postgres-flyway.md) | Postgres + Flyway from day one | Accepted |
-| 0006 | (reserved — OpenAPI four-layer gate, lands in Plan 2 Phase E) | Reserved |
+| [0006](0006-openapi-gates.md) | OpenAPI four-layer gate | Accepted |
 | [0007](0007-junit-jupiter-6.md) | JUnit Jupiter 6 with ArchUnit on the JUnit Platform | Accepted |
 | [0008](0008-observability.md) | Micrometer + structured JSON logs + MDC correlation IDs | Accepted |
 | 0009 | (reserved — trunk-based dev + signed commits + squash-only, lands in Plan 3) | Reserved |
