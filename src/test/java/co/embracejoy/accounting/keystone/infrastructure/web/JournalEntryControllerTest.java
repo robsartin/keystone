@@ -19,25 +19,34 @@ import co.embracejoy.accounting.keystone.domain.journal.Posting;
 import co.embracejoy.accounting.keystone.domain.journal.Side;
 import co.embracejoy.accounting.keystone.domain.money.Money;
 import co.embracejoy.accounting.keystone.domain.shared.Result;
+import co.embracejoy.accounting.keystone.infrastructure.observability.MetricsConfig;
+import io.micrometer.core.instrument.Counter;
+import io.micrometer.core.instrument.Timer;
 import java.time.LocalDate;
 import java.util.Currency;
 import java.util.List;
 import java.util.UUID;
+import java.util.function.Supplier;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.mockito.Mockito;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.webmvc.test.autoconfigure.WebMvcTest;
+import org.springframework.context.annotation.Import;
 import org.springframework.http.MediaType;
 import org.springframework.test.context.bean.override.mockito.MockitoBean;
 import org.springframework.test.web.servlet.MockMvc;
 
 @WebMvcTest(JournalEntryController.class)
+@Import(MetricsConfig.class)
 @DisplayName("JournalEntryController")
 class JournalEntryControllerTest {
 
   @Autowired MockMvc mvc;
   @MockitoBean PostJournalEntryService service;
+  @MockitoBean Counter journalEntriesPostedOk;
+  @MockitoBean Counter journalEntriesPostedInvalid;
+  @MockitoBean Timer journalEntriesPostDuration;
 
   private static final Currency USD = Currency.getInstance("USD");
 
@@ -71,6 +80,8 @@ class JournalEntryControllerTest {
   @Test
   @DisplayName("returns 201 + Location with the new id when service returns Success")
   void shouldReturn201WhenSuccess() throws Exception {
+    Mockito.when(journalEntriesPostDuration.record(Mockito.any(Supplier.class)))
+        .thenAnswer(inv -> inv.<Supplier<?>>getArgument(0).get());
     Mockito.when(service.post(Mockito.any(LocalDate.class), Mockito.anyString(), Mockito.anyList()))
         .thenReturn(Result.success(validPersisted()));
 
@@ -89,6 +100,8 @@ class JournalEntryControllerTest {
   @Test
   @DisplayName("returns 400 ProblemDetail when service returns Failure(Unbalanced)")
   void shouldReturn400WhenUnbalanced() throws Exception {
+    Mockito.when(journalEntriesPostDuration.record(Mockito.any(Supplier.class)))
+        .thenAnswer(inv -> inv.<Supplier<?>>getArgument(0).get());
     Mockito.when(service.post(Mockito.any(LocalDate.class), Mockito.anyString(), Mockito.anyList()))
         .thenReturn(
             Result.failure(

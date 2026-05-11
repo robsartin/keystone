@@ -37,6 +37,7 @@
         <spotless.version>2.46.1</spotless.version>
         <pitest.version>1.20.0</pitest.version>
         <pitest.junit5.version>1.2.3</pitest.junit5.version>
+        <logstash-logback-encoder.version>8.0</logstash-logback-encoder.version>
     </properties>
 
     <dependencies>
@@ -68,6 +69,16 @@
             <groupId>org.postgresql</groupId>
             <artifactId>postgresql</artifactId>
             <scope>runtime</scope>
+        </dependency>
+
+        <dependency>
+            <groupId>net.logstash.logback</groupId>
+            <artifactId>logstash-logback-encoder</artifactId>
+            <version>${logstash-logback-encoder.version}</version>
+        </dependency>
+        <dependency>
+            <groupId>io.micrometer</groupId>
+            <artifactId>micrometer-registry-prometheus</artifactId>
         </dependency>
 
         <dependency>

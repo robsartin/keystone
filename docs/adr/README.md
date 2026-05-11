@@ -18,7 +18,7 @@ See [ADR-0001](0001-record-decisions-in-adrs.md) for the meta-decision.
 | [0005](0005-postgres-flyway.md) | Postgres + Flyway from day one | Accepted |
 | 0006 | (reserved — OpenAPI four-layer gate, lands in Plan 2 Phase E) | Reserved |
 | [0007](0007-junit-jupiter-6.md) | JUnit Jupiter 6 with ArchUnit on the JUnit Platform | Accepted |
-| 0008 | (reserved — Micrometer + structured JSON logs + MDC, lands in Plan 2 Phase D) | Reserved |
+| [0008](0008-observability.md) | Micrometer + structured JSON logs + MDC correlation IDs | Accepted |
 | 0009 | (reserved — trunk-based dev + signed commits + squash-only, lands in Plan 3) | Reserved |
 | [0010](0010-journal-entry-id-wrapper.md) | JournalEntryId wrapper with UUID v7; PersistedJournalEntry separates intent from persisted state | Accepted |
 

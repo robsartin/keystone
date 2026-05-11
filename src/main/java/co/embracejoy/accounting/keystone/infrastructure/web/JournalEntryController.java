@@ -11,10 +11,13 @@ import co.embracejoy.accounting.keystone.domain.shared.Result;
 import co.embracejoy.accounting.keystone.infrastructure.web.dto.JournalEntryResponse;
 import co.embracejoy.accounting.keystone.infrastructure.web.dto.PostJournalEntryRequest;
 import co.embracejoy.accounting.keystone.infrastructure.web.dto.PostingRequest;
+import io.micrometer.core.instrument.Counter;
+import io.micrometer.core.instrument.Timer;
 import jakarta.validation.Valid;
 import java.net.URI;
 import java.util.Currency;
 import java.util.List;
+import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.PostMapping;
@@ -22,19 +25,32 @@ import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
 
-/** REST controller for {@code POST /journal-entries}. */
 @RestController
 @RequestMapping("/journal-entries")
 public class JournalEntryController {
 
   private final PostJournalEntryService service;
+  private final Counter postedOk;
+  private final Counter postedInvalid;
+  private final Timer postDuration;
 
-  public JournalEntryController(PostJournalEntryService service) {
+  public JournalEntryController(
+      PostJournalEntryService service,
+      @Qualifier("journalEntriesPostedOk") Counter journalEntriesPostedOk,
+      @Qualifier("journalEntriesPostedInvalid") Counter journalEntriesPostedInvalid,
+      @Qualifier("journalEntriesPostDuration") Timer journalEntriesPostDuration) {
     this.service = service;
+    this.postedOk = journalEntriesPostedOk;
+    this.postedInvalid = journalEntriesPostedInvalid;
+    this.postDuration = journalEntriesPostDuration;
   }
 
   @PostMapping
   public ResponseEntity<?> post(@Valid @RequestBody PostJournalEntryRequest request) {
+    return postDuration.record(() -> handle(request));
+  }
+
+  private ResponseEntity<?> handle(PostJournalEntryRequest request) {
     Currency currency = Currency.getInstance(request.currency());
     List<Posting> postings =
         request.postings().stream().map(p -> toDomainPosting(p, currency)).toList();
@@ -43,13 +59,17 @@ public class JournalEntryController {
         service.post(request.occurredOn(), request.description(), postings);
 
     return result.fold(
-        persisted ->
-            ResponseEntity.created(URI.create("/journal-entries/" + persisted.id().value()))
-                .body(JournalEntryResponse.of(persisted)),
-        error ->
-            ResponseEntity.badRequest()
-                .contentType(MediaType.parseMediaType("application/problem+json"))
-                .body(ResultMapper.toProblemDetail(error)));
+        persisted -> {
+          postedOk.increment();
+          return ResponseEntity.created(URI.create("/journal-entries/" + persisted.id().value()))
+              .body(JournalEntryResponse.of(persisted));
+        },
+        error -> {
+          postedInvalid.increment();
+          return ResponseEntity.badRequest()
+              .contentType(MediaType.parseMediaType("application/problem+json"))
+              .body(ResultMapper.toProblemDetail(error));
+        });
   }
 
   private static Posting toDomainPosting(PostingRequest p, Currency currency) {
