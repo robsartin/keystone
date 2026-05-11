@@ -109,4 +109,21 @@ class HexagonalArchitectureTest {
               "co.embracejoy.accounting.keystone.domain..",
               "co.embracejoy.accounting.keystone.application..",
               "co.embracejoy.accounting.keystone.infrastructure..");
+
+  @ArchTest
+  static final ArchRule WEB_DOES_NOT_DEPEND_ON_PERSISTENCE_ENTITIES =
+      noClasses()
+          .that()
+          .resideInAPackage("..infrastructure.web..")
+          .should()
+          .dependOnClassesThat()
+          .resideInAPackage("..infrastructure.persistence..");
+
+  @ArchTest
+  static final ArchRule CONTROLLERS_LIVE_IN_WEB_PACKAGE =
+      classes()
+          .that()
+          .areAnnotatedWith(org.springframework.web.bind.annotation.RestController.class)
+          .should()
+          .resideInAPackage("..infrastructure.web..");
 }
