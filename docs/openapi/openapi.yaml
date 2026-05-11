@@ -1,0 +1,67 @@
+openapi: 3.1.0
+info:
+  title: OpenAPI definition
+  version: v0
+servers:
+- url: http://localhost:8080
+  description: Generated server url
+paths:
+  /journal-entries:
+    post:
+      tags:
+      - journal-entry-controller
+      operationId: post
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/PostJournalEntryRequest"
+        required: true
+      responses:
+        "200":
+          description: OK
+          content:
+            '*/*':
+              schema:
+                type: object
+components:
+  schemas:
+    PostJournalEntryRequest:
+      type: object
+      properties:
+        occurredOn:
+          type: string
+          format: date
+        description:
+          type: string
+          maxLength: 500
+          minLength: 0
+        currency:
+          type: string
+          minLength: 1
+          pattern: "^[A-Z]{3}$"
+        postings:
+          type: array
+          items:
+            $ref: "#/components/schemas/PostingRequest"
+          minItems: 1
+      required:
+      - currency
+      - description
+      - occurredOn
+      - postings
+    PostingRequest:
+      type: object
+      properties:
+        account:
+          type: string
+          minLength: 1
+        side:
+          type: string
+          pattern: ^(DEBIT|CREDIT)$
+        minorUnits:
+          type: integer
+          format: int64
+      required:
+      - account
+      - side
