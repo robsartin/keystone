@@ -10,6 +10,8 @@ Conventions and AI-specific workflow for keystone. For full setup, see
 - `./mvnw -B verify -Popenapi-gate` — adds Spectral lint + snapshot diff + openapi-diff vs main.
 - `./mvnw -B verify -Popenapi-update` — regenerates `docs/openapi/openapi.yaml` from the running app (use after intentional API change, then commit).
 - `./mvnw spring-boot:run` — run the app (requires Postgres on `localhost:5434`).
+- `docker compose up -d --build` — bring up the full local stack (Postgres + app + Prometheus + Grafana). Dashboard at http://localhost:3000.
+- `docker compose down -v` — tear it all down including volumes.
 - `./mvnw spotless:apply` — auto-format Java.
 
 ## Architecture rules (ArchUnit-enforced)
