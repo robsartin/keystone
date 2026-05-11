@@ -1,29 +1,54 @@
 # Keystone
 
-A general ledger built in Spring Boot. This repository is the **keystone** — the
-foundation that the rest of the ledger will grow from. See
+A general ledger built in Spring Boot. This repository is the **keystone** —
+the foundation that the rest of the ledger grows from. See
 [the foundation design spec](docs/superpowers/specs/2026-05-09-keystone-foundation-design.md)
 for the rationale and the full picture.
 
 ## Status
 
-Plan 1 of 3 in progress: build skeleton + domain + application layer.
+- [x] Plan 1 — build skeleton + domain + application layer
+- [x] Plan 2 — Spring Boot walking skeleton (POST /journal-entries, JPA + Postgres + Flyway, observability, OpenAPI gates)
+- [ ] Plan 3 — local infra (Docker compose), GitHub Actions CI, repo provisioning
 
-## Quick start (Plan 1)
+## Quick start
 
 ```bash
-./mvnw -B verify
+docker run -d --name keystone-pg -p 5434:5432 \
+  -e POSTGRES_USER=keystone -e POSTGRES_PASSWORD=keystone \
+  -e POSTGRES_DB=keystone postgres:16
+
+./mvnw spring-boot:run
+
+curl -i -X POST http://localhost:8080/journal-entries \
+  -H "Content-Type: application/json" \
+  -d '{
+    "occurredOn": "2026-05-10",
+    "description": "opening balance",
+    "currency": "USD",
+    "postings": [
+      { "account": "1000", "side": "DEBIT",  "minorUnits": 10000 },
+      { "account": "3000", "side": "CREDIT", "minorUnits": 10000 }
+    ]
+  }'
 ```
 
-Runs Spotless, Checkstyle, JUnit 6 unit tests, JaCoCo coverage check
-(≥85% line), PIT mutation check (≥60% on domain + application), and
-ArchUnit hexagonal rules.
+## Build
+
+```bash
+./mvnw -B verify                  # fast local gate (no PIT, no OpenAPI lint)
+./mvnw -B verify -Pmutation       # add PIT mutation coverage (≥60%)
+./mvnw -B verify -Popenapi-gate   # add OpenAPI: Spectral lint + snapshot diff + openapi-diff
+./mvnw -B verify -Popenapi-update # regenerate docs/openapi/openapi.yaml after an intentional API change
+```
+
+CI runs all profiles together: `./mvnw -B verify -Pmutation,openapi-gate`.
 
 ## Architecture decisions
 
-See [`docs/concepts.md`](docs/concepts.md) for a conceptual introduction to the domain model, written for integrators without an accounting background.
-
-See [`docs/adr/`](docs/adr/) for the ADRs landed alongside the keystone.
+See [`docs/adr/`](docs/adr/) — eight ADRs covering hexagonal architecture,
+integer money, Result pattern, JUnit 6, Postgres + Flyway, OpenAPI gates,
+observability, and the JournalEntryId / PersistedJournalEntry wrapper.
 
 ## License
 
