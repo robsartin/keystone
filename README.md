@@ -50,6 +50,9 @@ See [`docs/adr/`](docs/adr/) — eight ADRs covering hexagonal architecture,
 integer money, Result pattern, JUnit 6, Postgres + Flyway, OpenAPI gates,
 observability, and the JournalEntryId / PersistedJournalEntry wrapper.
 
+For a developer's tour of the layers with code walk-throughs, see
+[`docs/development/architecture.md`](docs/development/architecture.md).
+
 ## License
 
 Apache 2.0 — see [LICENSE](LICENSE).
