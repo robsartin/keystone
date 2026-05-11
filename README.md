@@ -9,7 +9,7 @@ for the rationale and the full picture.
 
 - [x] Plan 1 — build skeleton + domain + application layer
 - [x] Plan 2 — Spring Boot walking skeleton (POST /journal-entries, JPA + Postgres + Flyway, observability, OpenAPI gates)
-- [ ] Plan 3 — local infra (Docker compose), GitHub Actions CI, repo provisioning
+- [x] Plan 3 — local infra (Docker compose), GitHub Actions CI, repo provisioning
 
 ## Quick start
 
