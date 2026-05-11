@@ -46,17 +46,21 @@ public record JournalEntry(
     Currency currency = currencies.iterator().next();
 
     Money zero = new Money(0L, currency);
-    Money debits = sum(postings, Side.DEBIT, zero);
-    Money credits = sum(postings, Side.CREDIT, zero);
-
-    if (debits.minorUnits() != credits.minorUnits()) {
-      return Result.failure(new JournalError.Unbalanced(debits, credits));
-    }
-
-    return Result.success(new JournalEntry(occurredOn, description, currency, postings));
+    return sum(postings, Side.DEBIT, zero)
+        .flatMap(
+            debits ->
+                sum(postings, Side.CREDIT, zero)
+                    .flatMap(
+                        credits -> {
+                          if (debits.minorUnits() != credits.minorUnits()) {
+                            return Result.failure(new JournalError.Unbalanced(debits, credits));
+                          }
+                          return Result.success(
+                              new JournalEntry(occurredOn, description, currency, postings));
+                        }));
   }
 
-  private static Money sum(List<Posting> postings, Side side, Money zero) {
+  private static Result<Money, JournalError> sum(List<Posting> postings, Side side, Money zero) {
     Money acc = zero;
     for (Posting p : postings) {
       if (p.side() == side) {
@@ -64,10 +68,10 @@ public record JournalEntry(
         if (next instanceof Result.Success<Money, MoneyError> s) {
           acc = s.value();
         } else {
-          throw new ArithmeticException("Posting sum overflowed " + side);
+          return Result.failure(new JournalError.Overflow(side));
         }
       }
     }
-    return acc;
+    return Result.success(acc);
   }
 }

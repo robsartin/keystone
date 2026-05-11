@@ -9,6 +9,14 @@ import com.tngtech.archunit.junit.AnalyzeClasses;
 import com.tngtech.archunit.junit.ArchTest;
 import com.tngtech.archunit.lang.ArchRule;
 
+/**
+ * ArchUnit rules enforcing keystone's hexagonal layering.
+ *
+ * <p>{@link com.tngtech.archunit.core.importer.ImportOption.DoNotIncludeTests} is load-bearing: the
+ * {@code NO_PUBLIC_METHOD_RETURNS_THROWABLE} rule below would otherwise trip on JUnit's {@code
+ * assertThrows} (which legitimately returns {@code Throwable}) and other test utilities. Do not
+ * remove the import option without first re-scoping that rule.
+ */
 @AnalyzeClasses(
     packages = "co.embracejoy.accounting.keystone",
     importOptions = {ImportOption.DoNotIncludeTests.class})

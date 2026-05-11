@@ -5,7 +5,8 @@ Conventions and AI-specific workflow for keystone. For full setup, see
 
 ## Quick reference
 
-- `./mvnw -B verify` — full local gate (format, lint, test, coverage, mutation, arch rules)
+- `./mvnw -B verify` — fast local gate (Spotless, Checkstyle, tests, coverage, ArchUnit). PIT skipped.
+- `./mvnw -B verify -Pmutation` — full gate with PIT mutation coverage (~30s+; run before pushing).
 - `./mvnw spotless:apply` — auto-format Java
 - `./mvnw test` — unit tests only
 
