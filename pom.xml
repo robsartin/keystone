@@ -39,6 +39,7 @@
         <pitest.junit5.version>1.2.3</pitest.junit5.version>
         <logstash-logback-encoder.version>8.0</logstash-logback-encoder.version>
         <springdoc.version>2.8.8</springdoc.version>
+        <springdoc-maven-plugin.version>1.5</springdoc-maven-plugin.version>
     </properties>
 
     <dependencies>
@@ -141,7 +142,42 @@
                     <execution>
                         <goals><goal>repackage</goal></goals>
                     </execution>
+                    <execution>
+                        <id>pre-integration-test</id>
+                        <goals><goal>start</goal></goals>
+                        <configuration>
+                            <profiles>
+                                <profile>local</profile>
+                            </profiles>
+                        </configuration>
+                    </execution>
+                    <execution>
+                        <id>post-integration-test</id>
+                        <goals><goal>stop</goal></goals>
+                        <configuration>
+                            <profiles>
+                                <profile>local</profile>
+                            </profiles>
+                        </configuration>
+                    </execution>
                 </executions>
+            </plugin>
+            <plugin>
+                <groupId>org.springdoc</groupId>
+                <artifactId>springdoc-openapi-maven-plugin</artifactId>
+                <version>${springdoc-maven-plugin.version}</version>
+                <executions>
+                    <execution>
+                        <id>generate-openapi</id>
+                        <phase>integration-test</phase>
+                        <goals><goal>generate</goal></goals>
+                    </execution>
+                </executions>
+                <configuration>
+                    <apiDocsUrl>http://localhost:8080/v3/api-docs.yaml</apiDocsUrl>
+                    <outputFileName>openapi.yaml</outputFileName>
+                    <outputDir>${project.build.directory}</outputDir>
+                </configuration>
             </plugin>
             <plugin>
                 <groupId>org.apache.maven.plugins</groupId>
