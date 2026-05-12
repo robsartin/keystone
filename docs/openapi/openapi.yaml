@@ -24,6 +24,114 @@ paths:
             '*/*':
               schema:
                 type: object
+  /accounts:
+    get:
+      tags:
+      - account-controller
+      operationId: list
+      responses:
+        "200":
+          description: OK
+          content:
+            '*/*':
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/AccountResponse"
+    post:
+      tags:
+      - account-controller
+      operationId: create
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CreateAccountRequest"
+        required: true
+      responses:
+        "200":
+          description: OK
+          content:
+            '*/*':
+              schema:
+                type: object
+  /accounts/{code}/reactivate:
+    post:
+      tags:
+      - account-controller
+      operationId: reactivate
+      parameters:
+      - name: code
+        in: path
+        required: true
+        schema:
+          type: string
+      responses:
+        "200":
+          description: OK
+          content:
+            '*/*':
+              schema:
+                type: object
+  /accounts/{code}/deactivate:
+    post:
+      tags:
+      - account-controller
+      operationId: deactivate
+      parameters:
+      - name: code
+        in: path
+        required: true
+        schema:
+          type: string
+      responses:
+        "200":
+          description: OK
+          content:
+            '*/*':
+              schema:
+                type: object
+  /accounts/{code}:
+    get:
+      tags:
+      - account-controller
+      operationId: get
+      parameters:
+      - name: code
+        in: path
+        required: true
+        schema:
+          type: string
+      responses:
+        "200":
+          description: OK
+          content:
+            '*/*':
+              schema:
+                type: object
+    patch:
+      tags:
+      - account-controller
+      operationId: update
+      parameters:
+      - name: code
+        in: path
+        required: true
+        schema:
+          type: string
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/UpdateAccountRequest"
+        required: true
+      responses:
+        "200":
+          description: OK
+          content:
+            '*/*':
+              schema:
+                type: object
 components:
   schemas:
     PostJournalEntryRequest:
@@ -65,3 +173,57 @@ components:
       required:
       - account
       - side
+    CreateAccountRequest:
+      type: object
+      properties:
+        code:
+          type: string
+          maxLength: 64
+          minLength: 0
+        name:
+          type: string
+          maxLength: 200
+          minLength: 0
+        type:
+          type: string
+          minLength: 1
+          pattern: ^(ASSET|LIABILITY|EQUITY|REVENUE|EXPENSE)$
+        currency:
+          type: string
+          minLength: 1
+          pattern: "^[A-Z]{3}$"
+        parentCode:
+          type: string
+          maxLength: 64
+          minLength: 0
+      required:
+      - code
+      - currency
+      - name
+      - type
+    UpdateAccountRequest:
+      type: object
+      properties:
+        newCode:
+          type: string
+          maxLength: 64
+          minLength: 0
+        newParentCode:
+          type: string
+          maxLength: 64
+          minLength: 0
+    AccountResponse:
+      type: object
+      properties:
+        code:
+          type: string
+        name:
+          type: string
+        type:
+          type: string
+        currency:
+          type: string
+        parentCode:
+          type: string
+        active:
+          type: boolean

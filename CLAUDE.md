@@ -31,6 +31,8 @@ Dependencies point inward; never outward.
 ## Key conventions
 
 - **Money is integers**, never `double` or `BigDecimal`. ISO 4217 via `java.util.Currency`. See [ADR-0003](docs/adr/0003-money-as-integer-minor-units.md).
+- **Account is the chart-of-accounts aggregate.** `AccountCode` (typed string) is the natural key — no surrogate UUID. Single currency per account. Hierarchy via `parentCode`. Leaf-only posting. See [ADR-0011](docs/adr/0011-account-hierarchy-leaf-only-posting.md).
+- **Domain validation that needs external data takes a `JournalValidationContext`.** The service does the I/O (account lookups) and packs results into the record; `JournalEntry.of(...)` consumes plain values. See [ADR-0013](docs/adr/0013-journal-validation-context.md).
 - **Internal APIs return `Result<T, E>`**, not exceptions. Exceptions are reserved for true bugs. See [ADR-0004](docs/adr/0004-result-type-and-problem-details.md). At the HTTP boundary, `ResultMapper` translates `JournalError` to RFC 9457 `ProblemDetail`.
 - **Identifiers are typed.** `JournalEntryId(UUID value)` wraps a UUID v7. `PersistedJournalEntry(id, entry)` distinguishes saved-in-storage from constructed-but-unsaved. See [ADR-0010](docs/adr/0010-journal-entry-id-wrapper.md).
 - **Persistence is real Postgres + Flyway** from day one. No H2. Tests use Testcontainers. See [ADR-0005](docs/adr/0005-postgres-flyway.md).
