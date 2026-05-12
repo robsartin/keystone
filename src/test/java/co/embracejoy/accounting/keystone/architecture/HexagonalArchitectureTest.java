@@ -126,4 +126,23 @@ class HexagonalArchitectureTest {
           .areAnnotatedWith(org.springframework.web.bind.annotation.RestController.class)
           .should()
           .resideInAPackage("..infrastructure.web..");
+
+  @ArchTest
+  static final ArchRule ACCOUNT_DOES_NOT_DEPEND_ON_PERIOD =
+      noClasses()
+          .that()
+          .resideInAPackage("..domain.account..")
+          .should()
+          .dependOnClassesThat()
+          .resideInAPackage("..domain.period..");
+
+  @ArchTest
+  static final ArchRule PERIOD_DOES_NOT_DEPEND_ON_ACCOUNT =
+      noClasses()
+          .that()
+          .resideInAPackage("..domain.period..")
+          .should()
+          .dependOnClassesThat()
+          .resideInAPackage("..domain.account..")
+          .allowEmptyShould(true);
 }
