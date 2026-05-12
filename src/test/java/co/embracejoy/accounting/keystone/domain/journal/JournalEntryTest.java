@@ -4,12 +4,17 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertInstanceOf;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 
+import co.embracejoy.accounting.keystone.domain.account.Account;
 import co.embracejoy.accounting.keystone.domain.account.AccountCode;
+import co.embracejoy.accounting.keystone.domain.account.AccountType;
 import co.embracejoy.accounting.keystone.domain.money.Money;
 import co.embracejoy.accounting.keystone.domain.shared.Result;
 import java.time.LocalDate;
 import java.util.Currency;
 import java.util.List;
+import java.util.Map;
+import java.util.Optional;
+import java.util.Set;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 
@@ -137,5 +142,76 @@ class JournalEntryTest {
     JournalError e = ((Result.Failure<JournalEntry, JournalError>) r).error();
     assertInstanceOf(JournalError.Overflow.class, e);
     assertEquals(Side.DEBIT, ((JournalError.Overflow) e).side());
+  }
+
+  @Test
+  @DisplayName("of(ctx) returns Failure(AccountNotFound) when a posting account is missing")
+  void shouldReturnAccountNotFoundWhenAccountAbsent() {
+    JournalValidationContext ctx = new JournalValidationContext(Map.of(), Set.of());
+    Result<JournalEntry, JournalError> r =
+        JournalEntry.of(TODAY, "x", List.of(debit(CASH, 1L, USD), credit(EQUITY, 1L, USD)), ctx);
+    JournalError.AccountNotFound e =
+        (JournalError.AccountNotFound) ((Result.Failure<JournalEntry, JournalError>) r).error();
+    assertEquals(CASH, e.code());
+  }
+
+  @Test
+  @DisplayName("of(ctx) returns Failure(AccountInactive) when account is deactivated")
+  void shouldReturnAccountInactiveWhenAccountInactive() {
+    Account cashInactive =
+        new Account(CASH, "Cash", AccountType.ASSET, USD, Optional.empty(), false);
+    Account equity = new Account(EQUITY, "Equity", AccountType.EQUITY, USD, Optional.empty(), true);
+    JournalValidationContext ctx =
+        new JournalValidationContext(Map.of(CASH, cashInactive, EQUITY, equity), Set.of());
+    Result<JournalEntry, JournalError> r =
+        JournalEntry.of(TODAY, "x", List.of(debit(CASH, 1L, USD), credit(EQUITY, 1L, USD)), ctx);
+    assertInstanceOf(
+        JournalError.AccountInactive.class,
+        ((Result.Failure<JournalEntry, JournalError>) r).error());
+  }
+
+  @Test
+  @DisplayName("of(ctx) returns Failure(AccountNotALeaf) when account has children")
+  void shouldReturnAccountNotALeafWhenAccountHasChildren() {
+    Account cash = new Account(CASH, "Cash", AccountType.ASSET, USD, Optional.empty(), true);
+    Account equity = new Account(EQUITY, "Equity", AccountType.EQUITY, USD, Optional.empty(), true);
+    JournalValidationContext ctx =
+        new JournalValidationContext(Map.of(CASH, cash, EQUITY, equity), Set.of(CASH));
+    Result<JournalEntry, JournalError> r =
+        JournalEntry.of(TODAY, "x", List.of(debit(CASH, 1L, USD), credit(EQUITY, 1L, USD)), ctx);
+    JournalError.AccountNotALeaf e =
+        (JournalError.AccountNotALeaf) ((Result.Failure<JournalEntry, JournalError>) r).error();
+    assertEquals(CASH, e.code());
+  }
+
+  @Test
+  @DisplayName("of(ctx) returns Failure(AccountCurrencyMismatch) when currency differs")
+  void shouldReturnAccountCurrencyMismatchWhenCurrencyDiffers() {
+    Currency eur = Currency.getInstance("EUR");
+    Account cashEur = new Account(CASH, "Cash EUR", AccountType.ASSET, eur, Optional.empty(), true);
+    Account equityEur =
+        new Account(EQUITY, "Equity EUR", AccountType.EQUITY, eur, Optional.empty(), true);
+    JournalValidationContext ctx =
+        new JournalValidationContext(Map.of(CASH, cashEur, EQUITY, equityEur), Set.of());
+    Result<JournalEntry, JournalError> r =
+        JournalEntry.of(TODAY, "x", List.of(debit(CASH, 1L, USD), credit(EQUITY, 1L, USD)), ctx);
+    JournalError.AccountCurrencyMismatch e =
+        (JournalError.AccountCurrencyMismatch)
+            ((Result.Failure<JournalEntry, JournalError>) r).error();
+    assertEquals(eur, e.expectedByAccount());
+    assertEquals(USD, e.actualOnPosting());
+  }
+
+  @Test
+  @DisplayName("of(ctx) returns Success when all account checks pass")
+  void shouldReturnSuccessWhenAllAccountChecksPass() {
+    Account cash = new Account(CASH, "Cash", AccountType.ASSET, USD, Optional.empty(), true);
+    Account equity = new Account(EQUITY, "Equity", AccountType.EQUITY, USD, Optional.empty(), true);
+    JournalValidationContext ctx =
+        new JournalValidationContext(Map.of(CASH, cash, EQUITY, equity), Set.of());
+    Result<JournalEntry, JournalError> r =
+        JournalEntry.of(
+            TODAY, "opening", List.of(debit(CASH, 100L, USD), credit(EQUITY, 100L, USD)), ctx);
+    assertInstanceOf(Result.Success.class, r);
   }
 }
