@@ -2,7 +2,7 @@ CREATE TABLE accounts (
     code          VARCHAR(64) PRIMARY KEY,
     name          VARCHAR(200) NOT NULL,
     type          VARCHAR(16)  NOT NULL CHECK (type IN ('ASSET','LIABILITY','EQUITY','REVENUE','EXPENSE')),
-    currency      CHAR(3)      NOT NULL,
+    currency      VARCHAR(3)   NOT NULL,
     parent_code   VARCHAR(64)  REFERENCES accounts(code) ON UPDATE CASCADE,
     active        BOOLEAN      NOT NULL DEFAULT TRUE,
     created_at    TIMESTAMPTZ  NOT NULL DEFAULT now(),
