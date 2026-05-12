@@ -38,9 +38,10 @@ class AccountRepositoryAdapterIT {
   @Autowired AccountRepositoryAdapter repository;
 
   private static final Currency USD = Currency.getInstance("USD");
-  private static final AccountCode ASSETS = new AccountCode("1");
-  private static final AccountCode CASH = new AccountCode("1000");
-  private static final AccountCode RECEIVABLES = new AccountCode("1100");
+  // Use codes outside the V4 seed range (1000, 1100, 3000, 4000) to avoid conflicts.
+  private static final AccountCode ASSETS = new AccountCode("2");
+  private static final AccountCode CASH = new AccountCode("2000");
+  private static final AccountCode RECEIVABLES = new AccountCode("2100");
 
   private static Account asset(AccountCode code, String name, Optional<AccountCode> parent) {
     return new Account(code, name, AccountType.ASSET, USD, parent, true);
