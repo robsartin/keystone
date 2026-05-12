@@ -18,4 +18,23 @@ public sealed interface JournalError {
 
   /** Same-side posting sum overflowed Long.MAX_VALUE. */
   record Overflow(Side side) implements JournalError {}
+
+  /** A posting references an unknown account code. */
+  record AccountNotFound(co.embracejoy.accounting.keystone.domain.account.AccountCode code)
+      implements JournalError {}
+
+  /** A posting references a deactivated account. */
+  record AccountInactive(co.embracejoy.accounting.keystone.domain.account.AccountCode code)
+      implements JournalError {}
+
+  /** A posting targets an account that has child accounts (not a leaf). */
+  record AccountNotALeaf(co.embracejoy.accounting.keystone.domain.account.AccountCode code)
+      implements JournalError {}
+
+  /** Posting amount's currency differs from the account's currency. */
+  record AccountCurrencyMismatch(
+      co.embracejoy.accounting.keystone.domain.account.AccountCode code,
+      java.util.Currency expectedByAccount,
+      java.util.Currency actualOnPosting)
+      implements JournalError {}
 }

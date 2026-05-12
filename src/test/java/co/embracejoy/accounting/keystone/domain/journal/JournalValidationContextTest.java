@@ -11,6 +11,7 @@ import java.util.Currency;
 import java.util.HashMap;
 import java.util.Map;
 import java.util.Optional;
+import java.util.Set;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 
@@ -27,7 +28,13 @@ class JournalValidationContextTest {
   @Test
   @DisplayName("rejects null accounts map")
   void shouldThrowWhenAccountsNull() {
-    assertThrows(NullPointerException.class, () -> new JournalValidationContext(null));
+    assertThrows(NullPointerException.class, () -> new JournalValidationContext(null, Set.of()));
+  }
+
+  @Test
+  @DisplayName("rejects null nonLeafCodes set")
+  void shouldThrowWhenNonLeafCodesNull() {
+    assertThrows(NullPointerException.class, () -> new JournalValidationContext(Map.of(), null));
   }
 
   @Test
@@ -35,6 +42,7 @@ class JournalValidationContextTest {
   void shouldReturnEmptyAccountsWhenPermissive() {
     JournalValidationContext ctx = JournalValidationContext.permissive();
     assertEquals(Map.of(), ctx.accounts());
+    assertEquals(Set.of(), ctx.nonLeafCodes());
   }
 
   @Test
@@ -43,7 +51,7 @@ class JournalValidationContextTest {
     Map<AccountCode, Account> mutable = new HashMap<>();
     Account a = cash();
     mutable.put(a.code(), a);
-    JournalValidationContext ctx = new JournalValidationContext(mutable);
+    JournalValidationContext ctx = new JournalValidationContext(mutable, Set.of());
     mutable.clear();
     assertEquals(1, ctx.accounts().size());
     assertSame(a, ctx.accounts().get(a.code()));
@@ -52,7 +60,16 @@ class JournalValidationContextTest {
   @Test
   @DisplayName("accounts map is unmodifiable")
   void shouldRejectModificationOfAccounts() {
-    JournalValidationContext ctx = new JournalValidationContext(Map.of(cash().code(), cash()));
+    JournalValidationContext ctx =
+        new JournalValidationContext(Map.of(cash().code(), cash()), Set.of());
     assertThrows(UnsupportedOperationException.class, () -> ctx.accounts().clear());
+  }
+
+  @Test
+  @DisplayName("nonLeafCodes set is unmodifiable")
+  void shouldRejectModificationOfNonLeafCodes() {
+    AccountCode code = new AccountCode("1");
+    JournalValidationContext ctx = new JournalValidationContext(Map.of(), Set.of(code));
+    assertThrows(UnsupportedOperationException.class, () -> ctx.nonLeafCodes().clear());
   }
 }

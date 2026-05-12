@@ -3,12 +3,10 @@ package co.embracejoy.accounting.keystone.infrastructure.persistence.journal;
 import co.embracejoy.accounting.keystone.domain.account.AccountCode;
 import co.embracejoy.accounting.keystone.domain.journal.JournalEntry;
 import co.embracejoy.accounting.keystone.domain.journal.JournalEntryId;
-import co.embracejoy.accounting.keystone.domain.journal.JournalError;
 import co.embracejoy.accounting.keystone.domain.journal.PersistedJournalEntry;
 import co.embracejoy.accounting.keystone.domain.journal.Posting;
 import co.embracejoy.accounting.keystone.domain.journal.Side;
 import co.embracejoy.accounting.keystone.domain.money.Money;
-import co.embracejoy.accounting.keystone.domain.shared.Result;
 import co.embracejoy.accounting.keystone.infrastructure.shared.UuidV7Generator;
 import java.util.Currency;
 import java.util.UUID;
@@ -49,13 +47,8 @@ final class JournalEntryEntityMapper {
                         Side.valueOf(pe.getSide()),
                         new Money(pe.getAmountMinorUnits(), currency)))
             .toList();
-    Result<JournalEntry, JournalError> r =
-        JournalEntry.of(entity.getOccurredOn(), entity.getDescription(), postings);
-    if (r instanceof Result.Success<JournalEntry, JournalError> s) {
-      return new PersistedJournalEntry(new JournalEntryId(entity.getId()), s.value());
-    }
-    throw new IllegalStateException(
-        "Persisted entry failed to reconstitute: "
-            + ((Result.Failure<JournalEntry, JournalError>) r).error());
+    JournalEntry entry =
+        new JournalEntry(entity.getOccurredOn(), entity.getDescription(), currency, postings);
+    return new PersistedJournalEntry(new JournalEntryId(entity.getId()), entry);
   }
 }

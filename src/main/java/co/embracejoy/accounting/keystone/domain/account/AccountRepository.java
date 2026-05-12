@@ -39,4 +39,13 @@ public interface AccountRepository {
 
   /** True if the account has at least one child (used by the leaf-only-posting rule). */
   boolean hasChildren(AccountCode code);
+
+  /**
+   * Atomic rename: change the natural key from {@code existing} to {@code newCode}. The adapter
+   * issues a single SQL UPDATE; FK cascades on dependents.
+   *
+   * @return {@code Success(renamed)} or {@code Failure(NotFound)} when existing is absent, or
+   *     {@code Failure(CodeInUseByPosting)} when newCode is already taken.
+   */
+  Result<Account, AccountError> rename(AccountCode existing, AccountCode newCode);
 }
