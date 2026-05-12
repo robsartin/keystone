@@ -15,7 +15,7 @@ interface JpaAccountRepository extends JpaRepository<AccountEntity, String> {
   boolean existsByParentCode(String parentCode);
 
   @Transactional
-  @Modifying
+  @Modifying(clearAutomatically = true, flushAutomatically = true)
   @Query(value = "UPDATE accounts SET code = :newCode WHERE code = :existing", nativeQuery = true)
   void renameCode(@Param("existing") String existing, @Param("newCode") String newCode);
 }
