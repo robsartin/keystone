@@ -1,13 +1,12 @@
 package co.embracejoy.accounting.keystone.infrastructure.web;
 
+import co.embracejoy.accounting.keystone.domain.account.AccountError;
 import co.embracejoy.accounting.keystone.domain.journal.JournalError;
 import java.net.URI;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ProblemDetail;
 
-/**
- * Translates domain {@link JournalError} variants into RFC 9457 {@link ProblemDetail} responses.
- */
+/** Translates domain error types into RFC 9457 {@link ProblemDetail} responses. */
 public final class ResultMapper {
 
   private static final String PROBLEM_BASE = "https://embracejoy.co/problems";
@@ -27,6 +26,60 @@ public final class ResultMapper {
       case JournalError.AccountNotALeaf a -> journalAccountNotALeaf(a);
       case JournalError.AccountCurrencyMismatch a -> journalAccountCurrencyMismatch(a);
     };
+  }
+
+  public static ProblemDetail toProblemDetail(AccountError err) {
+    return switch (err) {
+      case AccountError.CodeAlreadyExists c -> accountCodeAlreadyExists(c);
+      case AccountError.NotFound n -> accountNotFound(n);
+      case AccountError.ParentNotFound p -> accountParentNotFound(p);
+      case AccountError.CycleWouldBeCreated c -> accountCycleWouldBeCreated(c);
+      case AccountError.CodeInUseByPosting u -> accountCodeInUseByPosting(u);
+    };
+  }
+
+  private static ProblemDetail accountCodeAlreadyExists(AccountError.CodeAlreadyExists c) {
+    return problem(
+        HttpStatus.BAD_REQUEST,
+        "/account/code-already-exists",
+        "Account code already exists",
+        "An account with code '" + c.code().value() + "' already exists.");
+  }
+
+  private static ProblemDetail accountNotFound(AccountError.NotFound n) {
+    return problem(
+        HttpStatus.NOT_FOUND,
+        "/account/not-found",
+        "Account not found",
+        "No account with code '" + n.code().value() + "'.");
+  }
+
+  private static ProblemDetail accountParentNotFound(AccountError.ParentNotFound p) {
+    return problem(
+        HttpStatus.BAD_REQUEST,
+        "/account/parent-not-found",
+        "Parent account not found",
+        "No account with code '" + p.parentCode().value() + "' to set as parent.");
+  }
+
+  private static ProblemDetail accountCycleWouldBeCreated(AccountError.CycleWouldBeCreated c) {
+    return problem(
+        HttpStatus.BAD_REQUEST,
+        "/account/cycle-would-be-created",
+        "Account hierarchy would form a cycle",
+        "Setting '"
+            + c.child().value()
+            + "' parent to '"
+            + c.proposedParent().value()
+            + "' would create a cycle.");
+  }
+
+  private static ProblemDetail accountCodeInUseByPosting(AccountError.CodeInUseByPosting u) {
+    return problem(
+        HttpStatus.BAD_REQUEST,
+        "/account/code-in-use-by-posting",
+        "Account code already in use",
+        "Code '" + u.code().value() + "' is already in use; pick a different code.");
   }
 
   private static ProblemDetail journalAccountNotFound(JournalError.AccountNotFound a) {
@@ -104,10 +157,15 @@ public final class ResultMapper {
         "Sum of postings on " + o.side() + " side overflowed Long.MAX_VALUE.");
   }
 
-  private static ProblemDetail problem(String path, String title, String detail) {
-    ProblemDetail pd = ProblemDetail.forStatusAndDetail(HttpStatus.BAD_REQUEST, detail);
+  private static ProblemDetail problem(
+      HttpStatus status, String path, String title, String detail) {
+    ProblemDetail pd = ProblemDetail.forStatusAndDetail(status, detail);
     pd.setType(URI.create(PROBLEM_BASE + path));
     pd.setTitle(title);
     return pd;
+  }
+
+  private static ProblemDetail problem(String path, String title, String detail) {
+    return problem(HttpStatus.BAD_REQUEST, path, title, detail);
   }
 }
