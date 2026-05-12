@@ -22,7 +22,46 @@ public final class ResultMapper {
       case JournalError.MixedCurrencies mc -> mixedCurrencies(mc);
       case JournalError.Unbalanced u -> unbalanced(u);
       case JournalError.Overflow o -> overflow(o);
+      case JournalError.AccountNotFound a -> journalAccountNotFound(a);
+      case JournalError.AccountInactive a -> journalAccountInactive(a);
+      case JournalError.AccountNotALeaf a -> journalAccountNotALeaf(a);
+      case JournalError.AccountCurrencyMismatch a -> journalAccountCurrencyMismatch(a);
     };
+  }
+
+  private static ProblemDetail journalAccountNotFound(JournalError.AccountNotFound a) {
+    return problem(
+        "/journal/account-not-found",
+        "Posting references an unknown account",
+        "Account code '" + a.code().value() + "' does not exist.");
+  }
+
+  private static ProblemDetail journalAccountInactive(JournalError.AccountInactive a) {
+    return problem(
+        "/journal/account-inactive",
+        "Posting references a deactivated account",
+        "Account '" + a.code().value() + "' is not active.");
+  }
+
+  private static ProblemDetail journalAccountNotALeaf(JournalError.AccountNotALeaf a) {
+    return problem(
+        "/journal/account-not-a-leaf",
+        "Posting targets a non-leaf account",
+        "Account '" + a.code().value() + "' has children; post to a leaf instead.");
+  }
+
+  private static ProblemDetail journalAccountCurrencyMismatch(
+      JournalError.AccountCurrencyMismatch a) {
+    return problem(
+        "/journal/account-currency-mismatch",
+        "Posting currency does not match account currency",
+        "Account '"
+            + a.code().value()
+            + "' uses "
+            + a.expectedByAccount().getCurrencyCode()
+            + " but the posting amount uses "
+            + a.actualOnPosting().getCurrencyCode()
+            + ".");
   }
 
   private static ProblemDetail noPostings() {
