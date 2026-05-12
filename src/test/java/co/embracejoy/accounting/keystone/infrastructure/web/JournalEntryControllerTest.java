@@ -117,6 +117,73 @@ class JournalEntryControllerTest {
   }
 
   @Test
+  @DisplayName("returns 400 ProblemDetail when service returns Failure(AccountNotFound)")
+  void shouldReturn400WhenAccountNotFound() throws Exception {
+    Mockito.when(journalEntriesPostDuration.record(Mockito.any(Supplier.class)))
+        .thenAnswer(inv -> inv.<Supplier<?>>getArgument(0).get());
+    Mockito.when(service.post(Mockito.any(LocalDate.class), Mockito.anyString(), Mockito.anyList()))
+        .thenReturn(Result.failure(new JournalError.AccountNotFound(new AccountCode("9999"))));
+
+    mvc.perform(
+            post("/journal-entries").contentType(MediaType.APPLICATION_JSON).content(validBody()))
+        .andExpect(status().isBadRequest())
+        .andExpect(content().contentType("application/problem+json"))
+        .andExpect(jsonPath("$.type").value(endsWith("/journal/account-not-found")))
+        .andExpect(jsonPath("$.detail", containsString("9999")));
+  }
+
+  @Test
+  @DisplayName("returns 400 ProblemDetail when service returns Failure(AccountInactive)")
+  void shouldReturn400WhenAccountInactive() throws Exception {
+    Mockito.when(journalEntriesPostDuration.record(Mockito.any(Supplier.class)))
+        .thenAnswer(inv -> inv.<Supplier<?>>getArgument(0).get());
+    Mockito.when(service.post(Mockito.any(LocalDate.class), Mockito.anyString(), Mockito.anyList()))
+        .thenReturn(Result.failure(new JournalError.AccountInactive(new AccountCode("1000"))));
+
+    mvc.perform(
+            post("/journal-entries").contentType(MediaType.APPLICATION_JSON).content(validBody()))
+        .andExpect(status().isBadRequest())
+        .andExpect(content().contentType("application/problem+json"))
+        .andExpect(jsonPath("$.type").value(endsWith("/journal/account-inactive")))
+        .andExpect(jsonPath("$.detail", containsString("1000")));
+  }
+
+  @Test
+  @DisplayName("returns 400 ProblemDetail when service returns Failure(AccountNotALeaf)")
+  void shouldReturn400WhenAccountNotALeaf() throws Exception {
+    Mockito.when(journalEntriesPostDuration.record(Mockito.any(Supplier.class)))
+        .thenAnswer(inv -> inv.<Supplier<?>>getArgument(0).get());
+    Mockito.when(service.post(Mockito.any(LocalDate.class), Mockito.anyString(), Mockito.anyList()))
+        .thenReturn(Result.failure(new JournalError.AccountNotALeaf(new AccountCode("1000"))));
+
+    mvc.perform(
+            post("/journal-entries").contentType(MediaType.APPLICATION_JSON).content(validBody()))
+        .andExpect(status().isBadRequest())
+        .andExpect(content().contentType("application/problem+json"))
+        .andExpect(jsonPath("$.type").value(endsWith("/journal/account-not-a-leaf")))
+        .andExpect(jsonPath("$.detail", containsString("1000")));
+  }
+
+  @Test
+  @DisplayName("returns 400 ProblemDetail when service returns Failure(AccountCurrencyMismatch)")
+  void shouldReturn400WhenAccountCurrencyMismatch() throws Exception {
+    Mockito.when(journalEntriesPostDuration.record(Mockito.any(Supplier.class)))
+        .thenAnswer(inv -> inv.<Supplier<?>>getArgument(0).get());
+    Currency eur = Currency.getInstance("EUR");
+    Mockito.when(service.post(Mockito.any(LocalDate.class), Mockito.anyString(), Mockito.anyList()))
+        .thenReturn(
+            Result.failure(
+                new JournalError.AccountCurrencyMismatch(new AccountCode("4000"), USD, eur)));
+
+    mvc.perform(
+            post("/journal-entries").contentType(MediaType.APPLICATION_JSON).content(validBody()))
+        .andExpect(status().isBadRequest())
+        .andExpect(content().contentType("application/problem+json"))
+        .andExpect(jsonPath("$.type").value(endsWith("/journal/account-currency-mismatch")))
+        .andExpect(jsonPath("$.detail", containsString("4000")));
+  }
+
+  @Test
   @DisplayName("returns 400 ProblemDetail when Bean Validation rejects the request")
   void shouldReturn400WhenValidationFails() throws Exception {
     String invalidBody =
