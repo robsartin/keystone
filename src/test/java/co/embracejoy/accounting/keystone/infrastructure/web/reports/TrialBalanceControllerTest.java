@@ -1,0 +1,104 @@
+package co.embracejoy.accounting.keystone.infrastructure.web.reports;
+
+import static org.hamcrest.Matchers.hasSize;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
+import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.content;
+import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
+import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
+
+import co.embracejoy.accounting.keystone.application.reports.TrialBalanceService;
+import co.embracejoy.accounting.keystone.domain.account.AccountCode;
+import co.embracejoy.accounting.keystone.domain.reports.TrialBalanceRow;
+import java.time.LocalDate;
+import java.util.Currency;
+import java.util.List;
+import org.junit.jupiter.api.DisplayName;
+import org.junit.jupiter.api.Test;
+import org.mockito.ArgumentCaptor;
+import org.mockito.Mockito;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.boot.webmvc.test.autoconfigure.WebMvcTest;
+import org.springframework.test.context.bean.override.mockito.MockitoBean;
+import org.springframework.test.web.servlet.MockMvc;
+
+@WebMvcTest(TrialBalanceController.class)
+@DisplayName("TrialBalanceController")
+class TrialBalanceControllerTest {
+
+  @Autowired MockMvc mvc;
+  @MockitoBean TrialBalanceService service;
+
+  private static final Currency USD = Currency.getInstance("USD");
+
+  @Test
+  @DisplayName("GET /reports/trial-balance returns 200 with rows from the service")
+  void shouldReturn200WithRows() throws Exception {
+    TrialBalanceRow cash =
+        new TrialBalanceRow(new AccountCode("1000"), USD, 10000L, 0L, 10000L, 0L);
+    TrialBalanceRow rev = new TrialBalanceRow(new AccountCode("4000"), USD, 0L, 10000L, 0L, 10000L);
+    Mockito.when(service.query(Mockito.any(LocalDate.class), Mockito.anyBoolean()))
+        .thenReturn(List.of(cash, rev));
+
+    mvc.perform(get("/reports/trial-balance?asOf=2026-05-13"))
+        .andExpect(status().isOk())
+        .andExpect(content().contentType("application/json"))
+        .andExpect(jsonPath("$", hasSize(2)))
+        .andExpect(jsonPath("$[0].accountCode").value("1000"))
+        .andExpect(jsonPath("$[0].currency").value("USD"))
+        .andExpect(jsonPath("$[0].debits").value(10000))
+        .andExpect(jsonPath("$[0].credits").value(0))
+        .andExpect(jsonPath("$[0].balance").value(10000))
+        .andExpect(jsonPath("$[0].baseDebits").value(10000))
+        .andExpect(jsonPath("$[0].baseCredits").value(0))
+        .andExpect(jsonPath("$[0].baseBalance").value(10000))
+        .andExpect(jsonPath("$[1].accountCode").value("4000"))
+        .andExpect(jsonPath("$[1].balance").value(-10000));
+  }
+
+  @Test
+  @DisplayName("defaults asOf to today (UTC) when no query param given")
+  void shouldDefaultAsOfToTodayWhenMissing() throws Exception {
+    Mockito.when(service.query(Mockito.any(LocalDate.class), Mockito.anyBoolean()))
+        .thenReturn(List.of());
+
+    mvc.perform(get("/reports/trial-balance")).andExpect(status().isOk());
+
+    ArgumentCaptor<LocalDate> captor = ArgumentCaptor.forClass(LocalDate.class);
+    Mockito.verify(service).query(captor.capture(), Mockito.eq(false));
+    // Allow ± 1 day for UTC vs. local timezone skew on the runner.
+    LocalDate today = LocalDate.now(java.time.ZoneOffset.UTC);
+    org.assertj.core.api.Assertions.assertThat(captor.getValue())
+        .isBetween(today.minusDays(1), today.plusDays(1));
+  }
+
+  @Test
+  @DisplayName("passes includeZero=true through to the service")
+  void shouldPassIncludeZeroThrough() throws Exception {
+    Mockito.when(service.query(Mockito.any(LocalDate.class), Mockito.anyBoolean()))
+        .thenReturn(List.of());
+
+    mvc.perform(get("/reports/trial-balance?asOf=2026-05-13&includeZero=true"))
+        .andExpect(status().isOk());
+
+    Mockito.verify(service).query(LocalDate.parse("2026-05-13"), true);
+  }
+
+  @Test
+  @DisplayName("returns 400 ProblemDetail when asOf is malformed")
+  void shouldReturn400WhenAsOfMalformed() throws Exception {
+    mvc.perform(get("/reports/trial-balance?asOf=not-a-date"))
+        .andExpect(status().isBadRequest())
+        .andExpect(content().contentType("application/problem+json"));
+  }
+
+  @Test
+  @DisplayName("returns 200 with empty array when service returns no rows")
+  void shouldReturn200WithEmptyArrayWhenNoRows() throws Exception {
+    Mockito.when(service.query(Mockito.any(LocalDate.class), Mockito.anyBoolean()))
+        .thenReturn(List.of());
+
+    mvc.perform(get("/reports/trial-balance?asOf=2026-05-13"))
+        .andExpect(status().isOk())
+        .andExpect(jsonPath("$", hasSize(0)));
+  }
+}
