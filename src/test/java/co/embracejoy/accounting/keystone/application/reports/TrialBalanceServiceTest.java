@@ -1,6 +1,7 @@
 package co.embracejoy.accounting.keystone.application.reports;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.junit.jupiter.api.Assertions.assertThrows;
 
 import co.embracejoy.accounting.keystone.domain.account.AccountCode;
 import co.embracejoy.accounting.keystone.domain.reports.TrialBalanceReadModel;
@@ -8,6 +9,8 @@ import co.embracejoy.accounting.keystone.domain.reports.TrialBalanceRow;
 import java.time.LocalDate;
 import java.util.Currency;
 import java.util.List;
+import java.util.concurrent.atomic.AtomicBoolean;
+import java.util.concurrent.atomic.AtomicReference;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 
@@ -32,34 +35,32 @@ class TrialBalanceServiceTest {
   @Test
   @DisplayName("query() passes asOf and includeZero through to the read model")
   void shouldPassArgsThrough() {
-    final LocalDate[] capturedAsOf = new LocalDate[1];
-    final boolean[] capturedIncludeZero = new boolean[1];
+    AtomicReference<LocalDate> capturedAsOf = new AtomicReference<>();
+    AtomicBoolean capturedIncludeZero = new AtomicBoolean();
     TrialBalanceReadModel spy =
         (asOf, includeZero) -> {
-          capturedAsOf[0] = asOf;
-          capturedIncludeZero[0] = includeZero;
+          capturedAsOf.set(asOf);
+          capturedIncludeZero.set(includeZero);
           return List.of();
         };
     TrialBalanceService service = new TrialBalanceService(spy);
 
     service.query(ASOF, true);
 
-    assertThat(capturedAsOf[0]).isEqualTo(ASOF);
-    assertThat(capturedIncludeZero[0]).isTrue();
+    assertThat(capturedAsOf.get()).isEqualTo(ASOF);
+    assertThat(capturedIncludeZero.get()).isTrue();
   }
 
   @Test
   @DisplayName("rejects null readModel in constructor")
   void shouldThrowWhenReadModelIsNull() {
-    org.junit.jupiter.api.Assertions.assertThrows(
-        NullPointerException.class, () -> new TrialBalanceService(null));
+    assertThrows(NullPointerException.class, () -> new TrialBalanceService(null));
   }
 
   @Test
   @DisplayName("rejects null asOf")
   void shouldThrowWhenAsOfIsNull() {
-    TrialBalanceService service = new TrialBalanceService((asOf, iz) -> List.of());
-    org.junit.jupiter.api.Assertions.assertThrows(
-        NullPointerException.class, () -> service.query(null, false));
+    TrialBalanceService service = new TrialBalanceService((asOf, includeZero) -> List.of());
+    assertThrows(NullPointerException.class, () -> service.query(null, false));
   }
 }

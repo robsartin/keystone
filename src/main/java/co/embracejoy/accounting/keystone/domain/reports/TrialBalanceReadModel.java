@@ -11,6 +11,7 @@ import java.util.List;
  * is exactly zero are omitted. Rows are ordered by {@code accountCode}, then {@code currency} —
  * stable, predictable iteration.
  */
+@FunctionalInterface
 public interface TrialBalanceReadModel {
 
   /**
