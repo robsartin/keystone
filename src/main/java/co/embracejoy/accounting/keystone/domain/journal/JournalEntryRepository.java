@@ -10,4 +10,10 @@ public interface JournalEntryRepository {
 
   /** Find a persisted entry by id, or {@code Optional.empty()}. */
   Optional<PersistedJournalEntry> findById(JournalEntryId id);
+
+  /**
+   * The set of distinct YearMonths that have at least one persisted journal entry. Used by
+   * PeriodService to compute "earliest open period with postings" for sequential close.
+   */
+  java.util.Set<java.time.YearMonth> distinctOccurredMonths();
 }

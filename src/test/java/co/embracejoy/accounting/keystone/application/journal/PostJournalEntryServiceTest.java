@@ -132,6 +132,11 @@ class PostJournalEntryServiceTest {
     public Optional<PersistedJournalEntry> findById(JournalEntryId id) {
       return Optional.empty();
     }
+
+    @Override
+    public java.util.Set<java.time.YearMonth> distinctOccurredMonths() {
+      return java.util.Set.of();
+    }
   }
 
   private static final class FakeAccountRepo implements AccountRepository {
