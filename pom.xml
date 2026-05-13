@@ -181,11 +181,39 @@
                     <outputDir>${project.build.directory}</outputDir>
                 </configuration>
             </plugin>
+            <!--
+              Resolve the path to byte-buddy-agent's jar so it can be passed as -javaagent
+              to surefire/failsafe. Silences Mockito's "self-attaching" warning. The
+              `properties` goal binds to the `initialize` phase by default and exposes each
+              resolved jar as a property keyed `${groupId:artifactId:jar}`.
+            -->
+            <plugin>
+                <groupId>org.apache.maven.plugins</groupId>
+                <artifactId>maven-dependency-plugin</artifactId>
+                <executions>
+                    <execution>
+                        <id>resolve-test-agent</id>
+                        <goals><goal>properties</goal></goals>
+                    </execution>
+                </executions>
+            </plugin>
             <plugin>
                 <groupId>org.apache.maven.plugins</groupId>
                 <artifactId>maven-surefire-plugin</artifactId>
                 <configuration>
                     <useModulePath>false</useModulePath>
+                    <!--
+                      @{argLine} preserves JaCoCo's injected javaagent (set by the
+                      prepare-agent goal). Three additions:
+                      (1) enable-native-access=ALL-UNNAMED silences JEP 472 warnings on
+                          Java 22+ from JNI-using libraries (Postgres driver, etc.).
+                      (2) javaagent:byte-buddy-agent silences Mockito's self-attaching
+                          warning per Mockito's own recommendation.
+                      (3) EnableDynamicAgentLoading silences the "Dynamic loading of
+                          agents will be disallowed by default in a future release"
+                          warning triggered when byte-buddy attaches.
+                    -->
+                    <argLine>@{argLine} --enable-native-access=ALL-UNNAMED -XX:+EnableDynamicAgentLoading -javaagent:${net.bytebuddy:byte-buddy-agent:jar}</argLine>
                     <excludes>
                         <exclude>**/api/*Test.java</exclude>
                     </excludes>
@@ -196,6 +224,7 @@
                 <artifactId>maven-failsafe-plugin</artifactId>
                 <configuration>
                     <useModulePath>false</useModulePath>
+                    <argLine>@{argLine} --enable-native-access=ALL-UNNAMED -XX:+EnableDynamicAgentLoading -javaagent:${net.bytebuddy:byte-buddy-agent:jar}</argLine>
                     <systemPropertyVariables>
                         <openapi.gate>${openapi.gate}</openapi.gate>
                     </systemPropertyVariables>

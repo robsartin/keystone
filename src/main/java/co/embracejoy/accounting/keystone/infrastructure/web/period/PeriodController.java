@@ -6,6 +6,7 @@ import co.embracejoy.accounting.keystone.domain.period.PeriodError;
 import co.embracejoy.accounting.keystone.domain.shared.Result;
 import co.embracejoy.accounting.keystone.infrastructure.web.ResultMapper;
 import co.embracejoy.accounting.keystone.infrastructure.web.period.dto.PeriodResponse;
+import io.swagger.v3.oas.annotations.Operation;
 import jakarta.validation.constraints.Pattern;
 import java.time.YearMonth;
 import java.util.List;
@@ -35,6 +36,12 @@ public class PeriodController {
   }
 
   @GetMapping
+  @Operation(
+      summary = "List periods",
+      description =
+          "Without query params, returns an empty list (open periods are implicit and not"
+              + " enumerable). With ?status=closed, returns every closed period in chronological"
+              + " order.")
   public List<PeriodResponse> list(
       @RequestParam(value = "status", required = false) String status) {
     if (status != null && status.equalsIgnoreCase("closed")) {
@@ -44,6 +51,11 @@ public class PeriodController {
   }
 
   @GetMapping("/{yyyymm}")
+  @Operation(
+      summary = "Fetch a period's status",
+      description =
+          "Returns the period's state for the given month (yyyy-MM). Months that have never been"
+              + " closed return status OPEN with no recorded activity.")
   public ResponseEntity<?> get(
       @PathVariable("yyyymm") @Pattern(regexp = YEAR_MONTH_PATTERN) String yyyymm) {
     Period p = service.findByYearMonth(YearMonth.parse(yyyymm));
@@ -51,6 +63,11 @@ public class PeriodController {
   }
 
   @PostMapping("/{yyyymm}/close")
+  @Operation(
+      summary = "Close a period",
+      description =
+          "Closes the given month. Must close from the earliest open month with postings; closing"
+              + " out of order is rejected. Closed periods reject new postings.")
   public ResponseEntity<?> close(
       @PathVariable("yyyymm") @Pattern(regexp = YEAR_MONTH_PATTERN) String yyyymm) {
     Result<Period, PeriodError> r = service.close(YearMonth.parse(yyyymm), ACTOR_DEFAULT);
@@ -58,6 +75,11 @@ public class PeriodController {
   }
 
   @PostMapping("/{yyyymm}/reopen")
+  @Operation(
+      summary = "Reopen the most recently closed period",
+      description =
+          "Reopens the given month. Only the most recently closed period can be reopened;"
+              + " reopening earlier ones is rejected to preserve the sequential close invariant.")
   public ResponseEntity<?> reopen(
       @PathVariable("yyyymm") @Pattern(regexp = YEAR_MONTH_PATTERN) String yyyymm) {
     Result<Period, PeriodError> r = service.reopen(YearMonth.parse(yyyymm), ACTOR_DEFAULT);

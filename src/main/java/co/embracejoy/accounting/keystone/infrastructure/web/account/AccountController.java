@@ -10,6 +10,7 @@ import co.embracejoy.accounting.keystone.infrastructure.web.ResultMapper;
 import co.embracejoy.accounting.keystone.infrastructure.web.account.dto.AccountResponse;
 import co.embracejoy.accounting.keystone.infrastructure.web.account.dto.CreateAccountRequest;
 import co.embracejoy.accounting.keystone.infrastructure.web.account.dto.UpdateAccountRequest;
+import io.swagger.v3.oas.annotations.Operation;
 import jakarta.validation.Valid;
 import java.net.URI;
 import java.util.Currency;
@@ -37,6 +38,12 @@ public class AccountController {
   }
 
   @PostMapping
+  @Operation(
+      summary = "Create an account",
+      description =
+          "Creates a new account in the chart of accounts. The code must be unique. If parentCode"
+              + " is supplied it must reference an existing account; the new account becomes a"
+              + " leaf under that parent.")
   public ResponseEntity<?> create(@Valid @RequestBody CreateAccountRequest req) {
     Optional<AccountCode> parent = Optional.ofNullable(req.parentCode()).map(AccountCode::new);
     Result<Account, AccountError> r =
@@ -54,11 +61,17 @@ public class AccountController {
   }
 
   @GetMapping
+  @Operation(
+      summary = "List all accounts",
+      description = "Returns every account in the chart, ordered by code.")
   public List<AccountResponse> list() {
     return service.findAll().stream().map(AccountResponse::of).toList();
   }
 
   @GetMapping("/{code}")
+  @Operation(
+      summary = "Fetch one account by code",
+      description = "Returns the account with the given code, or 404 if no such account exists.")
   public ResponseEntity<?> get(@PathVariable String code) {
     return service
         .findByCode(new AccountCode(code))
@@ -67,6 +80,12 @@ public class AccountController {
   }
 
   @PatchMapping("/{code}")
+  @Operation(
+      summary = "Rename or re-parent an account",
+      description =
+          "Applies optional rename (newCode) and/or re-parent (newParentCode). Pass an empty"
+              + " newParentCode to detach the account from its current parent. Cycles are"
+              + " rejected.")
   public ResponseEntity<?> update(
       @PathVariable String code, @Valid @RequestBody UpdateAccountRequest req) {
     AccountCode existing = new AccountCode(code);
@@ -95,6 +114,11 @@ public class AccountController {
   }
 
   @PostMapping("/{code}/deactivate")
+  @Operation(
+      summary = "Deactivate an account",
+      description =
+          "Marks the account inactive. Inactive accounts reject new postings but historical"
+              + " entries referencing them remain unchanged. Idempotent.")
   public ResponseEntity<?> deactivate(@PathVariable String code) {
     return service
         .deactivate(new AccountCode(code))
@@ -102,6 +126,9 @@ public class AccountController {
   }
 
   @PostMapping("/{code}/reactivate")
+  @Operation(
+      summary = "Reactivate an account",
+      description = "Re-enables an account previously deactivated. Idempotent.")
   public ResponseEntity<?> reactivate(@PathVariable String code) {
     return service
         .reactivate(new AccountCode(code))

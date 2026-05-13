@@ -1,7 +1,14 @@
 openapi: 3.1.0
 info:
-  title: OpenAPI definition
-  version: v0
+  title: Keystone
+  description: Keystone is a double-entry general-ledger HTTP API. Money is integer
+    minor units (ISO 4217); journal entries are balanced postings in a configured
+    base currency; periods are closed sequentially. See the project README and ADRs
+    for design rationale.
+  license:
+    name: Apache-2.0
+    url: https://www.apache.org/licenses/LICENSE-2.0
+  version: 0.1.0
 servers:
 - url: http://localhost:8080
   description: Generated server url
@@ -10,6 +17,10 @@ paths:
     post:
       tags:
       - period-controller
+      summary: Reopen the most recently closed period
+      description: Reopens the given month. Only the most recently closed period can
+        be reopened; reopening earlier ones is rejected to preserve the sequential
+        close invariant.
       operationId: reopen
       parameters:
       - name: yyyymm
@@ -29,6 +40,10 @@ paths:
     post:
       tags:
       - period-controller
+      summary: Close a period
+      description: Closes the given month. Must close from the earliest open month
+        with postings; closing out of order is rejected. Closed periods reject new
+        postings.
       operationId: close
       parameters:
       - name: yyyymm
@@ -48,6 +63,12 @@ paths:
     post:
       tags:
       - journal-entry-controller
+      summary: Post a journal entry
+      description: "Persists a balanced double-entry journal entry. Each posting carries\
+        \ a transaction amount and a base-currency equivalent (baseMinorUnits); the\
+        \ entry must balance in the configured base currency. Postings against an\
+        \ unknown, inactive, or non-leaf account are rejected; so are postings into\
+        \ a closed period."
       operationId: post
       requestBody:
         content:
@@ -66,6 +87,8 @@ paths:
     get:
       tags:
       - account-controller
+      summary: List all accounts
+      description: "Returns every account in the chart, ordered by code."
       operationId: list
       responses:
         "200":
@@ -79,6 +102,10 @@ paths:
     post:
       tags:
       - account-controller
+      summary: Create an account
+      description: Creates a new account in the chart of accounts. The code must be
+        unique. If parentCode is supplied it must reference an existing account; the
+        new account becomes a leaf under that parent.
       operationId: create
       requestBody:
         content:
@@ -97,6 +124,8 @@ paths:
     post:
       tags:
       - account-controller
+      summary: Reactivate an account
+      description: Re-enables an account previously deactivated. Idempotent.
       operationId: reactivate
       parameters:
       - name: code
@@ -115,6 +144,9 @@ paths:
     post:
       tags:
       - account-controller
+      summary: Deactivate an account
+      description: Marks the account inactive. Inactive accounts reject new postings
+        but historical entries referencing them remain unchanged. Idempotent.
       operationId: deactivate
       parameters:
       - name: code
@@ -133,6 +165,9 @@ paths:
     get:
       tags:
       - account-controller
+      summary: Fetch one account by code
+      description: "Returns the account with the given code, or 404 if no such account\
+        \ exists."
       operationId: get
       parameters:
       - name: code
@@ -150,6 +185,10 @@ paths:
     patch:
       tags:
       - account-controller
+      summary: Rename or re-parent an account
+      description: Applies optional rename (newCode) and/or re-parent (newParentCode).
+        Pass an empty newParentCode to detach the account from its current parent.
+        Cycles are rejected.
       operationId: update
       parameters:
       - name: code
@@ -174,6 +213,11 @@ paths:
     get:
       tags:
       - trial-balance-controller
+      summary: Trial balance
+      description: "Read-only projection of postings, one row per (accountCode, currency)\
+        \ pair with debits, credits, balance in both transaction and base currency.\
+        \ asOf defaults to today (UTC); includeZero defaults to false (suppress net-zero\
+        \ rows). Sorted by (accountCode, currency)."
       operationId: get_1
       parameters:
       - name: asOf
@@ -201,6 +245,10 @@ paths:
     get:
       tags:
       - period-controller
+      summary: List periods
+      description: "Without query params, returns an empty list (open periods are\
+        \ implicit and not enumerable). With ?status=closed, returns every closed\
+        \ period in chronological order."
       operationId: list_1
       parameters:
       - name: status
@@ -221,6 +269,9 @@ paths:
     get:
       tags:
       - period-controller
+      summary: Fetch a period's status
+      description: Returns the period's state for the given month (yyyy-MM). Months
+        that have never been closed return status OPEN with no recorded activity.
       operationId: get_2
       parameters:
       - name: yyyymm
