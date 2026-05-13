@@ -56,13 +56,13 @@ class TrialBalanceJdbcReadModelIT {
 
   @BeforeEach
   void cleanDatabase() {
-    // postings cascade-delete with journal_entries (FK ON DELETE CASCADE).
+    // The shared static PostgreSQLContainer is reused across test methods, so we reset state
+    // explicitly. Postings cascade-delete with journal_entries (V1 has FK ON DELETE CASCADE).
+    // For accounts: test codes live in the reserved 8xxx range (V4 seeds 1000/1100/3000/4000
+    // are outside it), so a single LIKE keeps cleanup correct even if a future test adds new
+    // 8xxx codes.
     jdbc.sql("DELETE FROM journal_entries").update();
-    jdbc.sql("DELETE FROM accounts WHERE code IN (?, ?, ?)")
-        .param(CASH_USD.value())
-        .param(CASH_EUR.value())
-        .param(REVENUE.value())
-        .update();
+    jdbc.sql("DELETE FROM accounts WHERE code LIKE '8%'").update();
   }
 
   @Test
