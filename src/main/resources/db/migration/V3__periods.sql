@@ -1,5 +1,5 @@
 CREATE TABLE periods (
-    year_month    CHAR(7)     PRIMARY KEY,
+    year_month    VARCHAR(7)  PRIMARY KEY,
     status        VARCHAR(8)  NOT NULL CHECK (status IN ('OPEN', 'CLOSED')),
     closed_at     TIMESTAMPTZ,
     closed_by     VARCHAR(200),
