@@ -2,6 +2,7 @@ package co.embracejoy.accounting.keystone.infrastructure.web.reports;
 
 import co.embracejoy.accounting.keystone.application.reports.TrialBalanceService;
 import co.embracejoy.accounting.keystone.infrastructure.web.reports.dto.TrialBalanceRowResponse;
+import io.swagger.v3.oas.annotations.Operation;
 import java.time.LocalDate;
 import java.time.ZoneOffset;
 import java.util.List;
@@ -33,6 +34,13 @@ public class TrialBalanceController {
   }
 
   @GetMapping("/trial-balance")
+  @Operation(
+      summary = "Trial balance",
+      description =
+          "Read-only projection of postings, one row per (accountCode, currency) pair with"
+              + " debits, credits, balance in both transaction and base currency. asOf defaults to"
+              + " today (UTC); includeZero defaults to false (suppress net-zero rows). Sorted by"
+              + " (accountCode, currency).")
   public List<TrialBalanceRowResponse> get(
       @RequestParam(value = "asOf", required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE)
           LocalDate asOf,

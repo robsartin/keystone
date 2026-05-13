@@ -13,6 +13,7 @@ import co.embracejoy.accounting.keystone.infrastructure.web.dto.PostJournalEntry
 import co.embracejoy.accounting.keystone.infrastructure.web.dto.PostingRequest;
 import io.micrometer.core.instrument.Counter;
 import io.micrometer.core.instrument.Timer;
+import io.swagger.v3.oas.annotations.Operation;
 import jakarta.validation.Valid;
 import java.net.URI;
 import java.util.Currency;
@@ -49,6 +50,13 @@ public class JournalEntryController {
   }
 
   @PostMapping
+  @Operation(
+      summary = "Post a journal entry",
+      description =
+          "Persists a balanced double-entry journal entry. Each posting carries a transaction"
+              + " amount and a base-currency equivalent (baseMinorUnits); the entry must balance"
+              + " in the configured base currency. Postings against an unknown, inactive, or"
+              + " non-leaf account are rejected; so are postings into a closed period.")
   public ResponseEntity<?> post(@Valid @RequestBody PostJournalEntryRequest request) {
     return postDuration.record(() -> handle(request));
   }
