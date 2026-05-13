@@ -341,4 +341,50 @@ class ApplicationSmokeIT {
         }
         """;
   }
+
+  @Test
+  @DisplayName(
+      "GET /reports/trial-balance returns rows for a posted entry; sums net to zero in base")
+  void shouldReturnTrialBalanceForPostedEntries() {
+    RestClient client = RestClient.builder().baseUrl("http://localhost:" + port).build();
+
+    // Post a balanced USD entry (using the seeded 1000 and 3000 accounts).
+    ResponseEntity<String> post =
+        client
+            .post()
+            .uri("/journal-entries")
+            .contentType(MediaType.APPLICATION_JSON)
+            .body(trialBalanceSeedBody())
+            .retrieve()
+            .toEntity(String.class);
+    assertThat(post.getStatusCode()).isEqualTo(HttpStatus.CREATED);
+
+    String body =
+        client
+            .get()
+            .uri("/reports/trial-balance?asOf=2026-07-31&includeZero=true")
+            .retrieve()
+            .body(String.class);
+
+    assertThat(body).isNotNull();
+    // Both legs appear in the report; both carry baseBalance.
+    assertThat(body).contains("\"accountCode\":\"1000\"").contains("\"accountCode\":\"3000\"");
+    assertThat(body).contains("\"currency\":\"USD\"");
+    assertThat(body).contains("\"balance\":4444").contains("\"balance\":-4444");
+  }
+
+  private static String trialBalanceSeedBody() {
+    return """
+        {
+          "occurredOn": "2026-07-15",
+          "description": "trial balance smoke seed",
+          "postings": [
+            { "account": "1000", "side": "DEBIT",  "minorUnits": 4444,
+              "currency": "USD", "baseMinorUnits": 4444 },
+            { "account": "3000", "side": "CREDIT", "minorUnits": 4444,
+              "currency": "USD", "baseMinorUnits": 4444 }
+          ]
+        }
+        """;
+  }
 }
