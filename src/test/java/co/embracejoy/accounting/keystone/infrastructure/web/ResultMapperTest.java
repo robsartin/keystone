@@ -7,7 +7,10 @@ import co.embracejoy.accounting.keystone.domain.account.AccountError;
 import co.embracejoy.accounting.keystone.domain.journal.JournalError;
 import co.embracejoy.accounting.keystone.domain.journal.Side;
 import co.embracejoy.accounting.keystone.domain.money.Money;
+import co.embracejoy.accounting.keystone.domain.period.PeriodError;
+import java.time.YearMonth;
 import java.util.Currency;
+import java.util.Optional;
 import java.util.Set;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
@@ -169,5 +172,59 @@ class ResultMapperTest {
     assertThat(pd.getStatus()).isEqualTo(HttpStatus.BAD_REQUEST.value());
     assertThat(pd.getType().toString()).endsWith("/journal/account-currency-mismatch");
     assertThat(pd.getDetail()).contains("4000").contains("USD").contains("EUR");
+  }
+
+  // --- PeriodError variants ---
+
+  @Test
+  @DisplayName("PeriodError.NotSequentiallyClosable maps to 400 with months in detail")
+  void shouldMapNotSequentiallyClosableToProblemDetail() {
+    YearMonth attempted = YearMonth.of(2026, 6);
+    YearMonth earliest = YearMonth.of(2026, 5);
+    ProblemDetail pd =
+        ResultMapper.toProblemDetail(new PeriodError.NotSequentiallyClosable(attempted, earliest));
+
+    assertThat(pd.getStatus()).isEqualTo(HttpStatus.BAD_REQUEST.value());
+    assertThat(pd.getType().toString()).endsWith("/period/not-sequentially-closable");
+    assertThat(pd.getTitle()).isEqualTo("Period close is out of order");
+    assertThat(pd.getDetail()).contains("2026-06").contains("2026-05");
+  }
+
+  @Test
+  @DisplayName("PeriodError.NotMostRecentlyClosed maps to 400 with periods in detail")
+  void shouldMapNotMostRecentlyClosedToProblemDetail() {
+    YearMonth attempted = YearMonth.of(2026, 5);
+    YearMonth latest = YearMonth.of(2026, 6);
+    ProblemDetail pd =
+        ResultMapper.toProblemDetail(
+            new PeriodError.NotMostRecentlyClosed(attempted, Optional.of(latest)));
+
+    assertThat(pd.getStatus()).isEqualTo(HttpStatus.BAD_REQUEST.value());
+    assertThat(pd.getType().toString()).endsWith("/period/not-most-recently-closed");
+    assertThat(pd.getDetail()).contains("2026-05").contains("2026-06");
+  }
+
+  @Test
+  @DisplayName("PeriodError.NotFound maps to 404 with yearMonth in detail")
+  void shouldMapPeriodNotFoundToProblemDetail() {
+    YearMonth ym = YearMonth.of(2026, 5);
+    ProblemDetail pd = ResultMapper.toProblemDetail(new PeriodError.NotFound(ym));
+
+    assertThat(pd.getStatus()).isEqualTo(HttpStatus.NOT_FOUND.value());
+    assertThat(pd.getType().toString()).endsWith("/period/not-found");
+    assertThat(pd.getTitle()).isEqualTo("Period not found");
+    assertThat(pd.getDetail()).contains("2026-05");
+  }
+
+  @Test
+  @DisplayName("JournalError.PostingInClosedPeriod maps to 400 with period in detail")
+  void shouldMapPostingInClosedPeriodToProblemDetail() {
+    YearMonth period = YearMonth.of(2026, 5);
+    ProblemDetail pd = ResultMapper.toProblemDetail(new JournalError.PostingInClosedPeriod(period));
+
+    assertThat(pd.getStatus()).isEqualTo(HttpStatus.BAD_REQUEST.value());
+    assertThat(pd.getType().toString()).endsWith("/journal/posting-in-closed-period");
+    assertThat(pd.getTitle()).isEqualTo("Posting falls in a closed period");
+    assertThat(pd.getDetail()).contains("2026-05");
   }
 }

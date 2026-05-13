@@ -6,6 +6,44 @@ servers:
 - url: http://localhost:8080
   description: Generated server url
 paths:
+  /periods/{yyyymm}/reopen:
+    post:
+      tags:
+      - period-controller
+      operationId: reopen
+      parameters:
+      - name: yyyymm
+        in: path
+        required: true
+        schema:
+          type: string
+          pattern: "^\\d{4}-(0[1-9]|1[0-2])$"
+      responses:
+        "200":
+          description: OK
+          content:
+            '*/*':
+              schema:
+                type: object
+  /periods/{yyyymm}/close:
+    post:
+      tags:
+      - period-controller
+      operationId: close
+      parameters:
+      - name: yyyymm
+        in: path
+        required: true
+        schema:
+          type: string
+          pattern: "^\\d{4}-(0[1-9]|1[0-2])$"
+      responses:
+        "200":
+          description: OK
+          content:
+            '*/*':
+              schema:
+                type: object
   /journal-entries:
     post:
       tags:
@@ -132,6 +170,45 @@ paths:
             '*/*':
               schema:
                 type: object
+  /periods:
+    get:
+      tags:
+      - period-controller
+      operationId: list_1
+      parameters:
+      - name: status
+        in: query
+        required: false
+        schema:
+          type: string
+      responses:
+        "200":
+          description: OK
+          content:
+            '*/*':
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/PeriodResponse"
+  /periods/{yyyymm}:
+    get:
+      tags:
+      - period-controller
+      operationId: get_1
+      parameters:
+      - name: yyyymm
+        in: path
+        required: true
+        schema:
+          type: string
+          pattern: "^\\d{4}-(0[1-9]|1[0-2])$"
+      responses:
+        "200":
+          description: OK
+          content:
+            '*/*':
+              schema:
+                type: object
 components:
   schemas:
     PostJournalEntryRequest:
@@ -212,6 +289,23 @@ components:
           type: string
           maxLength: 64
           minLength: 0
+    PeriodResponse:
+      type: object
+      properties:
+        yearMonth:
+          type: string
+        status:
+          type: string
+        closedAt:
+          type: string
+          format: date-time
+        closedBy:
+          type: string
+        reopenedAt:
+          type: string
+          format: date-time
+        reopenedBy:
+          type: string
     AccountResponse:
       type: object
       properties:

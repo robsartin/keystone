@@ -1,5 +1,6 @@
 package co.embracejoy.accounting.keystone.infrastructure.web;
 
+import jakarta.validation.ConstraintViolationException;
 import java.net.URI;
 import java.util.stream.Collectors;
 import org.springframework.http.HttpStatus;
@@ -19,6 +20,18 @@ public class ValidationExceptionHandler {
     String detail =
         ex.getBindingResult().getFieldErrors().stream()
             .map(fe -> fe.getField() + ": " + fe.getDefaultMessage())
+            .collect(Collectors.joining("; "));
+    ProblemDetail pd = ProblemDetail.forStatusAndDetail(HttpStatus.BAD_REQUEST, detail);
+    pd.setType(URI.create(PROBLEM_BASE + "/validation"));
+    pd.setTitle("Request validation failed");
+    return pd;
+  }
+
+  @ExceptionHandler(ConstraintViolationException.class)
+  ProblemDetail handle(ConstraintViolationException ex) {
+    String detail =
+        ex.getConstraintViolations().stream()
+            .map(cv -> cv.getPropertyPath() + ": " + cv.getMessage())
             .collect(Collectors.joining("; "));
     ProblemDetail pd = ProblemDetail.forStatusAndDetail(HttpStatus.BAD_REQUEST, detail);
     pd.setType(URI.create(PROBLEM_BASE + "/validation"));

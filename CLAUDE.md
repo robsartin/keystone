@@ -36,6 +36,7 @@ Dependencies point inward; never outward.
 - **Internal APIs return `Result<T, E>`**, not exceptions. Exceptions are reserved for true bugs. See [ADR-0004](docs/adr/0004-result-type-and-problem-details.md). At the HTTP boundary, `ResultMapper` translates `JournalError` to RFC 9457 `ProblemDetail`.
 - **Identifiers are typed.** `JournalEntryId(UUID value)` wraps a UUID v7. `PersistedJournalEntry(id, entry)` distinguishes saved-in-storage from constructed-but-unsaved. See [ADR-0010](docs/adr/0010-journal-entry-id-wrapper.md).
 - **Persistence is real Postgres + Flyway** from day one. No H2. Tests use Testcontainers. See [ADR-0005](docs/adr/0005-postgres-flyway.md).
+- **Periods are calendar-month, sequentially closed.** `Period` keyed by `java.time.YearMonth`; most months never have a row (status is implicit `OPEN`). Closing must happen from the earliest open month with postings; reopening only the most-recently-closed. `JournalEntry.of(...)` rejects postings in a `CLOSED` period via the `JournalValidationContext`. See [ADR-0012](docs/adr/0012-period-model-sequential-close.md).
 - **TDD always**: red → green → refactor → commit.
 - **Tests use `@DisplayName`** and method names `should<Expected>When<Condition>`.
 - **JaCoCo gate at 85% line coverage**; PIT gate at 60% mutation on `domain..` + `application..`.

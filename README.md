@@ -11,7 +11,7 @@ for the rationale and the full picture.
 - [x] Plan 2 — Spring Boot walking skeleton (POST /journal-entries, JPA + Postgres + Flyway, observability, OpenAPI gates)
 - [x] Plan 3 — local infra (Docker compose), GitHub Actions CI, repo provisioning
 - [x] Slice 2 — chart of accounts (#13)
-- [ ] Slice 3 — period model (#14)
+- [x] Slice 3 — period model (#14)
 
 ## Quick start
 

@@ -23,6 +23,7 @@ import co.embracejoy.accounting.keystone.infrastructure.observability.MetricsCon
 import io.micrometer.core.instrument.Counter;
 import io.micrometer.core.instrument.Timer;
 import java.time.LocalDate;
+import java.time.YearMonth;
 import java.util.Currency;
 import java.util.List;
 import java.util.UUID;
@@ -181,6 +182,22 @@ class JournalEntryControllerTest {
         .andExpect(content().contentType("application/problem+json"))
         .andExpect(jsonPath("$.type").value(endsWith("/journal/account-currency-mismatch")))
         .andExpect(jsonPath("$.detail", containsString("4000")));
+  }
+
+  @Test
+  @DisplayName("returns 400 ProblemDetail when service returns Failure(PostingInClosedPeriod)")
+  void shouldReturn400WhenPostingInClosedPeriod() throws Exception {
+    Mockito.when(journalEntriesPostDuration.record(Mockito.any(Supplier.class)))
+        .thenAnswer(inv -> inv.<Supplier<?>>getArgument(0).get());
+    Mockito.when(service.post(Mockito.any(LocalDate.class), Mockito.anyString(), Mockito.anyList()))
+        .thenReturn(Result.failure(new JournalError.PostingInClosedPeriod(YearMonth.of(2026, 5))));
+
+    mvc.perform(
+            post("/journal-entries").contentType(MediaType.APPLICATION_JSON).content(validBody()))
+        .andExpect(status().isBadRequest())
+        .andExpect(content().contentType("application/problem+json"))
+        .andExpect(jsonPath("$.type").value(endsWith("/journal/posting-in-closed-period")))
+        .andExpect(jsonPath("$.detail", containsString("2026-05")));
   }
 
   @Test
