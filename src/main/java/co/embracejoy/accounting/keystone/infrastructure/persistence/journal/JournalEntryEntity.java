@@ -6,7 +6,7 @@ import jakarta.persistence.Entity;
 import jakarta.persistence.FetchType;
 import jakarta.persistence.Id;
 import jakarta.persistence.OneToMany;
-import jakarta.persistence.OrderColumn;
+import jakarta.persistence.OrderBy;
 import jakarta.persistence.Table;
 import java.time.Instant;
 import java.time.LocalDate;
@@ -31,12 +31,15 @@ class JournalEntryEntity {
   @Column(name = "created_at", nullable = false, updatable = false, insertable = false)
   private Instant createdAt;
 
+  // Hibernate's HHH160246: a 'mappedBy' association may not also use @OrderColumn.
+  // The application sets PostingEntity.sequenceInEntry explicitly via the mapper's loop
+  // index; @OrderBy here just keeps reads deterministic.
   @OneToMany(
       mappedBy = "journalEntry",
       cascade = CascadeType.ALL,
       orphanRemoval = true,
       fetch = FetchType.EAGER)
-  @OrderColumn(name = "sequence_in_entry")
+  @OrderBy("sequenceInEntry ASC")
   private List<PostingEntity> postings = new ArrayList<>();
 
   protected JournalEntryEntity() {
