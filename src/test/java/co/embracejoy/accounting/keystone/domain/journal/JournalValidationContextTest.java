@@ -7,6 +7,7 @@ import static org.junit.jupiter.api.Assertions.assertThrows;
 import co.embracejoy.accounting.keystone.domain.account.Account;
 import co.embracejoy.accounting.keystone.domain.account.AccountCode;
 import co.embracejoy.accounting.keystone.domain.account.AccountType;
+import co.embracejoy.accounting.keystone.domain.period.PeriodStatus;
 import java.util.Currency;
 import java.util.HashMap;
 import java.util.Map;
@@ -35,6 +36,22 @@ class JournalValidationContextTest {
   @DisplayName("rejects null nonLeafCodes set")
   void shouldThrowWhenNonLeafCodesNull() {
     assertThrows(NullPointerException.class, () -> new JournalValidationContext(Map.of(), null));
+  }
+
+  @Test
+  @DisplayName("rejects null periodStatus in 4-arg constructor")
+  void shouldThrowWhenPeriodStatusIsNull() {
+    assertThrows(
+        NullPointerException.class,
+        () -> new JournalValidationContext(Map.of(), Set.of(), null, false));
+  }
+
+  @Test
+  @DisplayName("two-arg constructor defaults to OPEN, non-permissive")
+  void shouldDefaultToOpenWhenTwoArgConstructorUsed() {
+    JournalValidationContext ctx = new JournalValidationContext(Map.of(), Set.of());
+    assertEquals(PeriodStatus.OPEN, ctx.periodStatus());
+    assertEquals(false, ctx.permissiveMode());
   }
 
   @Test
