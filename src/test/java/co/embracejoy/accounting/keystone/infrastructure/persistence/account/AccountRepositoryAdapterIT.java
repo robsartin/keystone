@@ -6,6 +6,7 @@ import co.embracejoy.accounting.keystone.KeystoneApplication;
 import co.embracejoy.accounting.keystone.domain.account.Account;
 import co.embracejoy.accounting.keystone.domain.account.AccountCode;
 import co.embracejoy.accounting.keystone.domain.account.AccountError;
+import co.embracejoy.accounting.keystone.domain.account.AccountStatus;
 import co.embracejoy.accounting.keystone.domain.account.AccountType;
 import co.embracejoy.accounting.keystone.domain.shared.Result;
 import java.util.Currency;
@@ -44,7 +45,7 @@ class AccountRepositoryAdapterIT {
   private static final AccountCode RECEIVABLES = new AccountCode("2100");
 
   private static Account asset(AccountCode code, String name, Optional<AccountCode> parent) {
-    return new Account(code, name, AccountType.ASSET, USD, parent, true);
+    return new Account(code, name, AccountType.ASSET, USD, parent, AccountStatus.ACTIVE);
   }
 
   @Test

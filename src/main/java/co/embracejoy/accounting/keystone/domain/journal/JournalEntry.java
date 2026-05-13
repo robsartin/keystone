@@ -44,7 +44,7 @@ public record JournalEntry(LocalDate occurredOn, String description, List<Postin
     if (postings.isEmpty()) {
       return Result.failure(new JournalError.NoPostings());
     }
-    if (!ctx.permissiveMode() && ctx.periodStatus() == PeriodStatus.CLOSED) {
+    if (!ctx.isPermissive() && ctx.periodStatus() == PeriodStatus.CLOSED) {
       return Result.failure(new JournalError.PostingInClosedPeriod(YearMonth.from(occurredOn)));
     }
     Result<JournalEntry, JournalError> accountCheck = checkAccounts(postings, ctx);
@@ -53,7 +53,7 @@ public record JournalEntry(LocalDate occurredOn, String description, List<Postin
     }
     // BaseCurrencyMismatch check: every posting's baseAmount must be in the configured base
     // currency. Permissive contexts (backward-compat 3-arg of() callers) skip this check.
-    if (!ctx.permissiveMode()) {
+    if (!ctx.isPermissive()) {
       for (Posting p : postings) {
         if (!p.baseAmount().currency().equals(ctx.baseCurrency())) {
           return Result.failure(
@@ -80,12 +80,12 @@ public record JournalEntry(LocalDate occurredOn, String description, List<Postin
       AccountCode code = p.account();
       Account account = ctx.accounts().get(code);
       if (account == null) {
-        if (ctx.permissiveMode()) {
+        if (ctx.isPermissive()) {
           continue;
         }
         return Result.failure(new JournalError.AccountNotFound(code));
       }
-      if (!account.active()) {
+      if (!account.isActive()) {
         return Result.failure(new JournalError.AccountInactive(code));
       }
       if (ctx.nonLeafCodes().contains(code)) {

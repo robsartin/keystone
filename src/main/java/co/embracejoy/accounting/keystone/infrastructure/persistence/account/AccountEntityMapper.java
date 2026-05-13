@@ -2,6 +2,7 @@ package co.embracejoy.accounting.keystone.infrastructure.persistence.account;
 
 import co.embracejoy.accounting.keystone.domain.account.Account;
 import co.embracejoy.accounting.keystone.domain.account.AccountCode;
+import co.embracejoy.accounting.keystone.domain.account.AccountStatus;
 import co.embracejoy.accounting.keystone.domain.account.AccountType;
 import java.util.Currency;
 import java.util.Optional;
@@ -19,7 +20,7 @@ final class AccountEntityMapper {
         a.type().name(),
         a.currency().getCurrencyCode(),
         a.parentCode().map(AccountCode::value).orElse(null),
-        a.active());
+        a.isActive());
   }
 
   static Account toDomain(AccountEntity e) {
@@ -29,6 +30,6 @@ final class AccountEntityMapper {
         AccountType.valueOf(e.getType()),
         Currency.getInstance(e.getCurrency()),
         Optional.ofNullable(e.getParentCode()).map(AccountCode::new),
-        e.isActive());
+        e.isActive() ? AccountStatus.ACTIVE : AccountStatus.INACTIVE);
   }
 }

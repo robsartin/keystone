@@ -1,7 +1,9 @@
 package co.embracejoy.accounting.keystone.domain.account;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertThrows;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import java.util.Currency;
 import java.util.Optional;
@@ -20,7 +22,9 @@ class AccountTest {
   void shouldThrowWhenCodeIsNull() {
     assertThrows(
         NullPointerException.class,
-        () -> new Account(null, "Cash", AccountType.ASSET, USD, Optional.empty(), true));
+        () ->
+            new Account(
+                null, "Cash", AccountType.ASSET, USD, Optional.empty(), AccountStatus.ACTIVE));
   }
 
   @Test
@@ -28,7 +32,9 @@ class AccountTest {
   void shouldThrowWhenNameIsNull() {
     assertThrows(
         NullPointerException.class,
-        () -> new Account(CASH, null, AccountType.ASSET, USD, Optional.empty(), true));
+        () ->
+            new Account(
+                CASH, null, AccountType.ASSET, USD, Optional.empty(), AccountStatus.ACTIVE));
   }
 
   @Test
@@ -36,7 +42,9 @@ class AccountTest {
   void shouldThrowWhenNameIsBlank() {
     assertThrows(
         IllegalArgumentException.class,
-        () -> new Account(CASH, "  ", AccountType.ASSET, USD, Optional.empty(), true));
+        () ->
+            new Account(
+                CASH, "  ", AccountType.ASSET, USD, Optional.empty(), AccountStatus.ACTIVE));
   }
 
   @Test
@@ -44,7 +52,7 @@ class AccountTest {
   void shouldThrowWhenTypeIsNull() {
     assertThrows(
         NullPointerException.class,
-        () -> new Account(CASH, "Cash", null, USD, Optional.empty(), true));
+        () -> new Account(CASH, "Cash", null, USD, Optional.empty(), AccountStatus.ACTIVE));
   }
 
   @Test
@@ -52,7 +60,9 @@ class AccountTest {
   void shouldThrowWhenCurrencyIsNull() {
     assertThrows(
         NullPointerException.class,
-        () -> new Account(CASH, "Cash", AccountType.ASSET, null, Optional.empty(), true));
+        () ->
+            new Account(
+                CASH, "Cash", AccountType.ASSET, null, Optional.empty(), AccountStatus.ACTIVE));
   }
 
   @Test
@@ -60,7 +70,15 @@ class AccountTest {
   void shouldThrowWhenParentOptionalIsNull() {
     assertThrows(
         NullPointerException.class,
-        () -> new Account(CASH, "Cash", AccountType.ASSET, USD, null, true));
+        () -> new Account(CASH, "Cash", AccountType.ASSET, USD, null, AccountStatus.ACTIVE));
+  }
+
+  @Test
+  @DisplayName("rejects null status")
+  void shouldThrowWhenStatusIsNull() {
+    assertThrows(
+        NullPointerException.class,
+        () -> new Account(CASH, "Cash", AccountType.ASSET, USD, Optional.empty(), null));
   }
 
   @Test
@@ -68,13 +86,17 @@ class AccountTest {
   void shouldThrowWhenAccountIsItsOwnParent() {
     assertThrows(
         IllegalArgumentException.class,
-        () -> new Account(CASH, "Cash", AccountType.ASSET, USD, Optional.of(CASH), true));
+        () ->
+            new Account(
+                CASH, "Cash", AccountType.ASSET, USD, Optional.of(CASH), AccountStatus.ACTIVE));
   }
 
   @Test
   @DisplayName("accepts a root account (no parent)")
   void shouldConstructWhenParentAbsent() {
-    Account a = new Account(ASSETS, "Assets", AccountType.ASSET, USD, Optional.empty(), true);
+    Account a =
+        new Account(
+            ASSETS, "Assets", AccountType.ASSET, USD, Optional.empty(), AccountStatus.ACTIVE);
     assertEquals(ASSETS, a.code());
     assertEquals(NormalSide.DEBIT, a.normalSide());
   }
@@ -82,14 +104,28 @@ class AccountTest {
   @Test
   @DisplayName("accepts a child account with a different-code parent")
   void shouldConstructWhenParentDiffersFromCode() {
-    Account a = new Account(CASH, "Cash", AccountType.ASSET, USD, Optional.of(ASSETS), true);
+    Account a =
+        new Account(
+            CASH, "Cash", AccountType.ASSET, USD, Optional.of(ASSETS), AccountStatus.ACTIVE);
     assertEquals(Optional.of(ASSETS), a.parentCode());
   }
 
   @Test
   @DisplayName("normalSide delegates to type")
   void shouldReturnTypeNormalSide() {
-    Account a = new Account(CASH, "Cash", AccountType.ASSET, USD, Optional.empty(), true);
+    Account a =
+        new Account(CASH, "Cash", AccountType.ASSET, USD, Optional.empty(), AccountStatus.ACTIVE);
     assertEquals(NormalSide.DEBIT, a.normalSide());
+  }
+
+  @Test
+  @DisplayName("isActive() is true iff status is ACTIVE")
+  void shouldReportActiveStatus() {
+    Account active =
+        new Account(CASH, "Cash", AccountType.ASSET, USD, Optional.empty(), AccountStatus.ACTIVE);
+    Account inactive =
+        new Account(CASH, "Cash", AccountType.ASSET, USD, Optional.empty(), AccountStatus.INACTIVE);
+    assertTrue(active.isActive());
+    assertFalse(inactive.isActive());
   }
 }

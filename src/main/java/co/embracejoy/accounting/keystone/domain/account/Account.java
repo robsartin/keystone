@@ -17,7 +17,7 @@ public record Account(
     AccountType type,
     Currency currency,
     Optional<AccountCode> parentCode,
-    boolean active) {
+    AccountStatus status) {
 
   public Account {
     Objects.requireNonNull(code, "code");
@@ -28,6 +28,7 @@ public record Account(
     Objects.requireNonNull(type, "type");
     Objects.requireNonNull(currency, "currency");
     Objects.requireNonNull(parentCode, "parentCode");
+    Objects.requireNonNull(status, "status");
     if (parentCode.isPresent() && parentCode.get().equals(code)) {
       throw new IllegalArgumentException("account cannot be its own parent");
     }
@@ -35,5 +36,10 @@ public record Account(
 
   public NormalSide normalSide() {
     return type.normalSide();
+  }
+
+  /** Convenience read accessor: {@code true} iff {@link #status()} is {@code ACTIVE}. */
+  public boolean isActive() {
+    return status == AccountStatus.ACTIVE;
   }
 }

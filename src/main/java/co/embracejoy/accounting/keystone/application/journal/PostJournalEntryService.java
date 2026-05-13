@@ -8,6 +8,7 @@ import co.embracejoy.accounting.keystone.domain.journal.JournalEntry;
 import co.embracejoy.accounting.keystone.domain.journal.JournalEntryRepository;
 import co.embracejoy.accounting.keystone.domain.journal.JournalError;
 import co.embracejoy.accounting.keystone.domain.journal.JournalValidationContext;
+import co.embracejoy.accounting.keystone.domain.journal.JournalValidationMode;
 import co.embracejoy.accounting.keystone.domain.journal.PersistedJournalEntry;
 import co.embracejoy.accounting.keystone.domain.journal.Posting;
 import co.embracejoy.accounting.keystone.domain.period.PeriodStatus;
@@ -52,7 +53,8 @@ public final class PostJournalEntryService {
             .collect(Collectors.toUnmodifiableSet());
     PeriodStatus periodStatus = periodService.findByYearMonth(YearMonth.from(occurredOn)).status();
     JournalValidationContext ctx =
-        new JournalValidationContext(accounts, nonLeafCodes, periodStatus, baseCurrency, false);
+        new JournalValidationContext(
+            accounts, nonLeafCodes, periodStatus, baseCurrency, JournalValidationMode.STRICT);
     return JournalEntry.of(occurredOn, description, postings, ctx).map(journalRepository::save);
   }
 }

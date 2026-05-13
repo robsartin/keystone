@@ -46,7 +46,7 @@ public class AccountRepositoryAdapter implements AccountRepository {
     AccountEntity entity = jpa.findById(account.code().value()).orElseThrow();
     entity.setName(account.name());
     entity.setParentCode(account.parentCode().map(AccountCode::value).orElse(null));
-    entity.setActive(account.active());
+    entity.setActive(account.isActive());
     return Result.success(AccountEntityMapper.toDomain(jpa.save(entity)));
   }
 

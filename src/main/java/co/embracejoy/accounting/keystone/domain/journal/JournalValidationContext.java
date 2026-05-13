@@ -20,13 +20,14 @@ public record JournalValidationContext(
     Set<AccountCode> nonLeafCodes,
     PeriodStatus periodStatus,
     Currency baseCurrency,
-    boolean permissiveMode) {
+    JournalValidationMode mode) {
 
   public JournalValidationContext {
     Objects.requireNonNull(accounts, "accounts");
     Objects.requireNonNull(nonLeafCodes, "nonLeafCodes");
     Objects.requireNonNull(periodStatus, "periodStatus");
     Objects.requireNonNull(baseCurrency, "baseCurrency");
+    Objects.requireNonNull(mode, "mode");
     accounts = Map.copyOf(accounts);
     nonLeafCodes = Set.copyOf(nonLeafCodes);
   }
@@ -36,19 +37,33 @@ public record JournalValidationContext(
       Map<AccountCode, Account> accounts,
       Set<AccountCode> nonLeafCodes,
       PeriodStatus periodStatus,
-      boolean permissiveMode) {
-    this(accounts, nonLeafCodes, periodStatus, Currency.getInstance("USD"), permissiveMode);
+      JournalValidationMode mode) {
+    this(accounts, nonLeafCodes, periodStatus, Currency.getInstance("USD"), mode);
   }
 
-  /** Back-compat 2-arg constructor; defaults to OPEN period, USD base, non-permissive. */
+  /** Back-compat 2-arg constructor; defaults to OPEN period, USD base, STRICT mode. */
   public JournalValidationContext(
       Map<AccountCode, Account> accounts, Set<AccountCode> nonLeafCodes) {
-    this(accounts, nonLeafCodes, PeriodStatus.OPEN, Currency.getInstance("USD"), false);
+    this(
+        accounts,
+        nonLeafCodes,
+        PeriodStatus.OPEN,
+        Currency.getInstance("USD"),
+        JournalValidationMode.STRICT);
   }
 
-  /** Permissive context — skip both account and period checks. */
+  /** Permissive context — skip account, period, and base-currency checks. */
   public static JournalValidationContext permissive() {
     return new JournalValidationContext(
-        Map.of(), Set.of(), PeriodStatus.OPEN, Currency.getInstance("USD"), true);
+        Map.of(),
+        Set.of(),
+        PeriodStatus.OPEN,
+        Currency.getInstance("USD"),
+        JournalValidationMode.PERMISSIVE);
+  }
+
+  /** Convenience read accessor: {@code true} iff {@link #mode()} is {@code PERMISSIVE}. */
+  public boolean isPermissive() {
+    return mode == JournalValidationMode.PERMISSIVE;
   }
 }

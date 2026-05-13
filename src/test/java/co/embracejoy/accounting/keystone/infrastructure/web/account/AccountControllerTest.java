@@ -16,6 +16,7 @@ import co.embracejoy.accounting.keystone.application.account.AccountService;
 import co.embracejoy.accounting.keystone.domain.account.Account;
 import co.embracejoy.accounting.keystone.domain.account.AccountCode;
 import co.embracejoy.accounting.keystone.domain.account.AccountError;
+import co.embracejoy.accounting.keystone.domain.account.AccountStatus;
 import co.embracejoy.accounting.keystone.domain.account.AccountType;
 import co.embracejoy.accounting.keystone.domain.shared.Result;
 import java.util.Currency;
@@ -41,7 +42,8 @@ class AccountControllerTest {
   private static final AccountCode CODE_1000 = new AccountCode("1000");
 
   private static Account anAccount() {
-    return new Account(CODE_1000, "Cash", AccountType.ASSET, USD, Optional.empty(), true);
+    return new Account(
+        CODE_1000, "Cash", AccountType.ASSET, USD, Optional.empty(), AccountStatus.ACTIVE);
   }
 
   @Test
@@ -147,7 +149,12 @@ class AccountControllerTest {
   void shouldReturn200WhenRenameSucceeds() throws Exception {
     Account renamed =
         new Account(
-            new AccountCode("1001"), "Cash", AccountType.ASSET, USD, Optional.empty(), true);
+            new AccountCode("1001"),
+            "Cash",
+            AccountType.ASSET,
+            USD,
+            Optional.empty(),
+            AccountStatus.ACTIVE);
     Mockito.when(service.rename(Mockito.any(), Mockito.any())).thenReturn(Result.success(renamed));
     Mockito.when(service.findByCode(new AccountCode("1001"))).thenReturn(Optional.of(renamed));
 
@@ -186,7 +193,8 @@ class AccountControllerTest {
   @DisplayName("POST /accounts/{code}/deactivate returns 200")
   void shouldReturn200WhenDeactivateSucceeds() throws Exception {
     Account inactive =
-        new Account(CODE_1000, "Cash", AccountType.ASSET, USD, Optional.empty(), false);
+        new Account(
+            CODE_1000, "Cash", AccountType.ASSET, USD, Optional.empty(), AccountStatus.INACTIVE);
     Mockito.when(service.deactivate(CODE_1000)).thenReturn(Result.success(inactive));
 
     mvc.perform(post("/accounts/1000/deactivate"))

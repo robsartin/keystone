@@ -13,6 +13,6 @@ public record AccountResponse(
         a.type().name(),
         a.currency().getCurrencyCode(),
         a.parentCode().map(AccountCode::value).orElse(null),
-        a.active());
+        a.isActive());
   }
 }

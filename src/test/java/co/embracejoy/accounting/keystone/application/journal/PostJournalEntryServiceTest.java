@@ -9,6 +9,7 @@ import co.embracejoy.accounting.keystone.domain.account.Account;
 import co.embracejoy.accounting.keystone.domain.account.AccountCode;
 import co.embracejoy.accounting.keystone.domain.account.AccountError;
 import co.embracejoy.accounting.keystone.domain.account.AccountRepository;
+import co.embracejoy.accounting.keystone.domain.account.AccountStatus;
 import co.embracejoy.accounting.keystone.domain.account.AccountType;
 import co.embracejoy.accounting.keystone.domain.journal.JournalEntry;
 import co.embracejoy.accounting.keystone.domain.journal.JournalEntryId;
@@ -57,9 +58,16 @@ class PostJournalEntryServiceTest {
     accountRepo = new FakeAccountRepo();
     periodRepo = new FakePeriodRepo();
     // Seed the accounts used in posting tests
-    accountRepo.seed(new Account(CASH, "Cash", AccountType.ASSET, USD, Optional.empty(), true));
     accountRepo.seed(
-        new Account(EQUITY, "Owner Equity", AccountType.EQUITY, USD, Optional.empty(), true));
+        new Account(CASH, "Cash", AccountType.ASSET, USD, Optional.empty(), AccountStatus.ACTIVE));
+    accountRepo.seed(
+        new Account(
+            EQUITY,
+            "Owner Equity",
+            AccountType.EQUITY,
+            USD,
+            Optional.empty(),
+            AccountStatus.ACTIVE));
     PeriodService periodService = new PeriodService(periodRepo, journalRepo);
     service =
         new PostJournalEntryService(
@@ -207,7 +215,7 @@ class PostJournalEntryServiceTest {
         return Result.failure(new AccountError.NotFound(existing));
       }
       Account renamed =
-          new Account(newCode, a.name(), a.type(), a.currency(), a.parentCode(), a.active());
+          new Account(newCode, a.name(), a.type(), a.currency(), a.parentCode(), a.status());
       store.put(newCode, renamed);
       return Result.success(renamed);
     }

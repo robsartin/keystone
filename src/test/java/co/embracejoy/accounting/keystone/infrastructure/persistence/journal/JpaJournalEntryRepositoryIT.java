@@ -4,6 +4,7 @@ import static org.assertj.core.api.Assertions.assertThat;
 
 import co.embracejoy.accounting.keystone.domain.account.Account;
 import co.embracejoy.accounting.keystone.domain.account.AccountCode;
+import co.embracejoy.accounting.keystone.domain.account.AccountStatus;
 import co.embracejoy.accounting.keystone.domain.account.AccountType;
 import co.embracejoy.accounting.keystone.domain.journal.JournalEntry;
 import co.embracejoy.accounting.keystone.domain.journal.JournalEntryId;
@@ -130,7 +131,8 @@ class JpaJournalEntryRepositoryIT {
   void shouldRoundTripMultiCurrencyEntry() {
     // Create an EUR cash account.
     accountRepository.save(
-        new Account(CASH_EUR, "Cash EUR", AccountType.ASSET, EUR, Optional.empty(), true));
+        new Account(
+            CASH_EUR, "Cash EUR", AccountType.ASSET, EUR, Optional.empty(), AccountStatus.ACTIVE));
 
     // USD→EUR entry: debit 9200 EUR (≡ $100 USD), credit 10000 USD ($100 USD).
     Posting debit =
