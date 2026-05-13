@@ -12,6 +12,7 @@ for the rationale and the full picture.
 - [x] Plan 3 — local infra (Docker compose), GitHub Actions CI, repo provisioning
 - [x] Slice 2 — chart of accounts (#13)
 - [x] Slice 3 — period model (#14)
+- [x] Slice 6 — multi-currency journal entries (#17)
 
 ## Quick start
 
@@ -25,12 +26,13 @@ Brings up Postgres, the app, Prometheus, and Grafana. Wait ~30 seconds for the a
 curl -i -X POST http://localhost:8080/journal-entries \
   -H "Content-Type: application/json" \
   -d '{
-    "occurredOn": "2026-05-11",
+    "occurredOn": "2026-05-13",
     "description": "opening balance",
-    "currency": "USD",
     "postings": [
-      { "account": "1000", "side": "DEBIT",  "minorUnits": 10000 },
-      { "account": "3000", "side": "CREDIT", "minorUnits": 10000 }
+      { "account": "1000", "side": "DEBIT",  "minorUnits": 10000,
+        "currency": "USD", "baseMinorUnits": 10000 },
+      { "account": "3000", "side": "CREDIT", "minorUnits": 10000,
+        "currency": "USD", "baseMinorUnits": 10000 }
     ]
   }'
 ```
