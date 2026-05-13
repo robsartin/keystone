@@ -165,6 +165,99 @@ class ApplicationSmokeIT {
         .toEntity(String.class);
   }
 
+  @Test
+  @DisplayName("Period lifecycle: close → reject posting → reopen → accept posting")
+  void shouldEnforceClosedPeriodAndReopenSuccessfully() {
+    RestClient client = RestClient.builder().baseUrl("http://localhost:" + port).build();
+
+    // Step 1: post a balanced entry in June 2026 → should succeed
+    ResponseEntity<String> firstPost = postJuneEntry(client);
+    assertThat(firstPost.getStatusCode()).isEqualTo(HttpStatus.CREATED);
+
+    // Other tests post in May 2026; close May first (idempotent) to satisfy sequential check.
+    closePeriodSwallowError(client, "2026-05");
+
+    // Step 2: close June 2026
+    ResponseEntity<String> closeResponse = closePeriod(client, "2026-06");
+    assertThat(closeResponse.getStatusCode()).isEqualTo(HttpStatus.OK);
+    assertThat(closeResponse.getBody()).contains("\"status\":\"CLOSED\"");
+
+    // Step 3: post same entry again → should be rejected
+    ResponseEntity<String> rejectedPost = postJuneEntrySwallowError(client);
+    assertThat(rejectedPost.getStatusCode()).isEqualTo(HttpStatus.BAD_REQUEST);
+    assertThat(rejectedPost.getBody()).contains("/problems/journal/posting-in-closed-period");
+
+    // Step 4: reopen June 2026
+    ResponseEntity<String> reopenResponse = reopenPeriod(client, "2026-06");
+    assertThat(reopenResponse.getStatusCode()).isEqualTo(HttpStatus.OK);
+    assertThat(reopenResponse.getBody()).contains("\"status\":\"OPEN\"");
+    assertThat(reopenResponse.getBody()).contains("reopenedAt");
+
+    // Step 5: post entry again → should succeed
+    ResponseEntity<String> secondPost = postJuneEntry(client);
+    assertThat(secondPost.getStatusCode()).isEqualTo(HttpStatus.CREATED);
+  }
+
+  private ResponseEntity<String> postJuneEntry(RestClient client) {
+    return client
+        .post()
+        .uri("/journal-entries")
+        .contentType(MediaType.APPLICATION_JSON)
+        .body(juneEntryBody())
+        .retrieve()
+        .toEntity(String.class);
+  }
+
+  private ResponseEntity<String> postJuneEntrySwallowError(RestClient client) {
+    return client
+        .post()
+        .uri("/journal-entries")
+        .contentType(MediaType.APPLICATION_JSON)
+        .body(juneEntryBody())
+        .retrieve()
+        .onStatus(
+            HttpStatusCode::isError,
+            (req, res) -> {
+              /* swallow */
+            })
+        .toEntity(String.class);
+  }
+
+  private ResponseEntity<String> closePeriod(RestClient client, String yyyymm) {
+    return client.post().uri("/periods/" + yyyymm + "/close").retrieve().toEntity(String.class);
+  }
+
+  private void closePeriodSwallowError(RestClient client, String yyyymm) {
+    client
+        .post()
+        .uri("/periods/" + yyyymm + "/close")
+        .retrieve()
+        .onStatus(
+            HttpStatusCode::isError,
+            (req, res) -> {
+              /* swallow */
+            })
+        .toEntity(String.class);
+  }
+
+  private ResponseEntity<String> reopenPeriod(RestClient client, String yyyymm) {
+    return client.post().uri("/periods/" + yyyymm + "/reopen").retrieve().toEntity(String.class);
+  }
+
+  private static String juneEntryBody() {
+    return """
+        {
+          "occurredOn": "2026-06-15",
+          "description": "june smoke test",
+          "currency": "USD",
+          "postings": [
+            { "account": "1000", "side": "DEBIT",  "minorUnits": 7500 },
+            { "account": "3000", "side": "CREDIT", "minorUnits": 7500 }
+          ]
+        }
+        """;
+  }
+
   private void ensureAccount5000Exists(RestClient client) {
     // Idempotent: ignore failure if already created by another test
     client
