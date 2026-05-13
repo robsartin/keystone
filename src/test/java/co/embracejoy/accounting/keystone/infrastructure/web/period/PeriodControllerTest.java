@@ -14,6 +14,7 @@ import co.embracejoy.accounting.keystone.domain.period.Period;
 import co.embracejoy.accounting.keystone.domain.period.PeriodError;
 import co.embracejoy.accounting.keystone.domain.period.PeriodStatus;
 import co.embracejoy.accounting.keystone.domain.shared.Result;
+import co.embracejoy.accounting.keystone.infrastructure.security.TenantContext;
 import java.time.Instant;
 import java.time.YearMonth;
 import java.util.List;
@@ -32,6 +33,7 @@ class PeriodControllerTest {
 
   @Autowired MockMvc mvc;
   @MockitoBean PeriodService service;
+  @MockitoBean TenantContext tenantContext;
 
   private static final YearMonth JUN_2026 = YearMonth.of(2026, 6);
   private static final YearMonth MAY_2026 = YearMonth.of(2026, 5);

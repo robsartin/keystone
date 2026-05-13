@@ -9,6 +9,7 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 import co.embracejoy.accounting.keystone.application.reports.TrialBalanceService;
 import co.embracejoy.accounting.keystone.domain.account.AccountCode;
 import co.embracejoy.accounting.keystone.domain.reports.TrialBalanceRow;
+import co.embracejoy.accounting.keystone.infrastructure.security.TenantContext;
 import java.time.LocalDate;
 import java.time.ZoneOffset;
 import java.util.Currency;
@@ -28,6 +29,7 @@ class TrialBalanceControllerTest {
 
   @Autowired MockMvc mvc;
   @MockitoBean TrialBalanceService service;
+  @MockitoBean TenantContext tenantContext;
 
   private static final Currency USD = Currency.getInstance("USD");
 
