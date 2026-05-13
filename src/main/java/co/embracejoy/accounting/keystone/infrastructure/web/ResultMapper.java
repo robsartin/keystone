@@ -2,6 +2,7 @@ package co.embracejoy.accounting.keystone.infrastructure.web;
 
 import co.embracejoy.accounting.keystone.domain.account.AccountError;
 import co.embracejoy.accounting.keystone.domain.journal.JournalError;
+import co.embracejoy.accounting.keystone.domain.period.PeriodError;
 import java.net.URI;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ProblemDetail;
@@ -26,6 +27,37 @@ public final class ResultMapper {
       case JournalError.AccountNotALeaf a -> journalAccountNotALeaf(a);
       case JournalError.AccountCurrencyMismatch a -> journalAccountCurrencyMismatch(a);
       case JournalError.PostingInClosedPeriod p -> journalPostingInClosedPeriod(p);
+    };
+  }
+
+  public static ProblemDetail toProblemDetail(PeriodError err) {
+    return switch (err) {
+      case PeriodError.NotSequentiallyClosable n ->
+          problem(
+              HttpStatus.BAD_REQUEST,
+              "/period/not-sequentially-closable",
+              "Period close is out of order",
+              "Cannot close "
+                  + n.attempted()
+                  + "; close "
+                  + n.earliestOpenActive()
+                  + " (or an earlier month) first.");
+      case PeriodError.NotMostRecentlyClosed n ->
+          problem(
+              HttpStatus.BAD_REQUEST,
+              "/period/not-most-recently-closed",
+              "Period reopen requires the most-recently-closed period",
+              "Cannot reopen "
+                  + n.attempted()
+                  + n.latestClosed()
+                      .map(lc -> "; latest closed is " + lc)
+                      .orElse("; no closed periods"));
+      case PeriodError.NotFound nf ->
+          problem(
+              HttpStatus.NOT_FOUND,
+              "/period/not-found",
+              "Period not found",
+              "No period row for " + nf.yearMonth() + ".");
     };
   }
 
