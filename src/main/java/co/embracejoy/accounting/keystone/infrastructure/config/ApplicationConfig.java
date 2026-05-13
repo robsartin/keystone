@@ -3,9 +3,11 @@ package co.embracejoy.accounting.keystone.infrastructure.config;
 import co.embracejoy.accounting.keystone.application.account.AccountService;
 import co.embracejoy.accounting.keystone.application.journal.PostJournalEntryService;
 import co.embracejoy.accounting.keystone.application.period.PeriodService;
+import co.embracejoy.accounting.keystone.application.reports.TrialBalanceService;
 import co.embracejoy.accounting.keystone.domain.account.AccountRepository;
 import co.embracejoy.accounting.keystone.domain.journal.JournalEntryRepository;
 import co.embracejoy.accounting.keystone.domain.period.PeriodRepository;
+import co.embracejoy.accounting.keystone.domain.reports.TrialBalanceReadModel;
 import java.util.Currency;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
@@ -38,5 +40,10 @@ public class ApplicationConfig {
   @Bean
   public AccountService accountService(AccountRepository accountRepository) {
     return new AccountService(accountRepository);
+  }
+
+  @Bean
+  public TrialBalanceService trialBalanceService(TrialBalanceReadModel readModel) {
+    return new TrialBalanceService(readModel);
   }
 }

@@ -170,6 +170,33 @@ paths:
             '*/*':
               schema:
                 type: object
+  /reports/trial-balance:
+    get:
+      tags:
+      - trial-balance-controller
+      operationId: get_1
+      parameters:
+      - name: asOf
+        in: query
+        required: false
+        schema:
+          type: string
+          format: date
+      - name: includeZero
+        in: query
+        required: false
+        schema:
+          type: boolean
+          default: false
+      responses:
+        "200":
+          description: OK
+          content:
+            '*/*':
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/TrialBalanceRowResponse"
   /periods:
     get:
       tags:
@@ -194,7 +221,7 @@ paths:
     get:
       tags:
       - period-controller
-      operationId: get_1
+      operationId: get_2
       parameters:
       - name: yyyymm
         in: path
@@ -292,6 +319,31 @@ components:
           type: string
           maxLength: 64
           minLength: 0
+    TrialBalanceRowResponse:
+      type: object
+      properties:
+        accountCode:
+          type: string
+        currency:
+          type: string
+        debits:
+          type: integer
+          format: int64
+        credits:
+          type: integer
+          format: int64
+        balance:
+          type: integer
+          format: int64
+        baseDebits:
+          type: integer
+          format: int64
+        baseCredits:
+          type: integer
+          format: int64
+        baseBalance:
+          type: integer
+          format: int64
     PeriodResponse:
       type: object
       properties:
