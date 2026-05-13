@@ -2,7 +2,10 @@ package co.embracejoy.accounting.keystone.infrastructure.persistence.journal;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
+import co.embracejoy.accounting.keystone.domain.account.Account;
 import co.embracejoy.accounting.keystone.domain.account.AccountCode;
+import co.embracejoy.accounting.keystone.domain.account.AccountStatus;
+import co.embracejoy.accounting.keystone.domain.account.AccountType;
 import co.embracejoy.accounting.keystone.domain.journal.JournalEntry;
 import co.embracejoy.accounting.keystone.domain.journal.JournalEntryId;
 import co.embracejoy.accounting.keystone.domain.journal.JournalError;
@@ -11,6 +14,7 @@ import co.embracejoy.accounting.keystone.domain.journal.Posting;
 import co.embracejoy.accounting.keystone.domain.journal.Side;
 import co.embracejoy.accounting.keystone.domain.money.Money;
 import co.embracejoy.accounting.keystone.domain.shared.Result;
+import co.embracejoy.accounting.keystone.infrastructure.persistence.account.AccountRepositoryAdapter;
 import java.time.LocalDate;
 import java.time.YearMonth;
 import java.util.Currency;
@@ -39,10 +43,13 @@ class JpaJournalEntryRepositoryIT {
           .withPassword("test");
 
   @Autowired JpaJournalEntryRepository repository;
+  @Autowired AccountRepositoryAdapter accountRepository;
 
   private static final Currency USD = Currency.getInstance("USD");
+  private static final Currency EUR = Currency.getInstance("EUR");
   private static final AccountCode CASH = new AccountCode("1000");
   private static final AccountCode EQUITY = new AccountCode("3000");
+  private static final AccountCode CASH_EUR = new AccountCode("1000-EUR");
 
   private static JournalEntry validEntry() {
     Result<JournalEntry, JournalError> r =
@@ -116,5 +123,37 @@ class JpaJournalEntryRepositoryIT {
 
     Set<YearMonth> months = repository.distinctOccurredMonths();
     assertThat(months).contains(YearMonth.of(2026, 5), YearMonth.of(2026, 6));
+  }
+
+  @Test
+  @DisplayName(
+      "save+findById round-trips a multi-currency entry preserving currency and baseAmount")
+  void shouldRoundTripMultiCurrencyEntry() {
+    // Create an EUR cash account.
+    accountRepository.save(
+        new Account(
+            CASH_EUR, "Cash EUR", AccountType.ASSET, EUR, Optional.empty(), AccountStatus.ACTIVE));
+
+    // USD→EUR entry: debit 9200 EUR (≡ $100 USD), credit 10000 USD ($100 USD).
+    Posting debit =
+        new Posting(CASH_EUR, Side.DEBIT, new Money(9200L, EUR), new Money(10000L, USD));
+    Posting credit = new Posting(CASH, Side.CREDIT, new Money(10000L, USD), new Money(10000L, USD));
+
+    JournalEntry entry =
+        new JournalEntry(LocalDate.of(2026, 5, 13), "USD→EUR transfer", List.of(debit, credit));
+
+    PersistedJournalEntry saved = repository.save(entry);
+    PersistedJournalEntry found = repository.findById(saved.id()).orElseThrow();
+
+    assertThat(found.entry().postings()).hasSize(2);
+    Posting debitOut =
+        found.entry().postings().stream()
+            .filter(p -> p.side() == Side.DEBIT)
+            .findFirst()
+            .orElseThrow();
+    assertThat(debitOut.amount().currency()).isEqualTo(EUR);
+    assertThat(debitOut.amount().minorUnits()).isEqualTo(9200L);
+    assertThat(debitOut.baseAmount().currency()).isEqualTo(USD);
+    assertThat(debitOut.baseAmount().minorUnits()).isEqualTo(10000L);
   }
 }

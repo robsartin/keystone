@@ -116,7 +116,7 @@ class AccountServiceTest {
     service.deactivate(new AccountCode("1000"));
     Result<Account, AccountError> r = service.deactivate(new AccountCode("1000"));
     assertThat(r).isInstanceOf(Result.Success.class);
-    assertThat(repo.byCode.get(new AccountCode("1000")).active()).isFalse();
+    assertThat(repo.byCode.get(new AccountCode("1000")).isActive()).isFalse();
   }
 
   @Test
@@ -126,7 +126,7 @@ class AccountServiceTest {
     service.deactivate(new AccountCode("1000"));
     Result<Account, AccountError> r = service.reactivate(new AccountCode("1000"));
     assertThat(r).isInstanceOf(Result.Success.class);
-    assertThat(repo.byCode.get(new AccountCode("1000")).active()).isTrue();
+    assertThat(repo.byCode.get(new AccountCode("1000")).isActive()).isTrue();
   }
 
   // ---- fake ----
@@ -168,7 +168,7 @@ class AccountServiceTest {
         return Result.failure(new AccountError.NotFound(existing));
       }
       Account renamed =
-          new Account(newCode, a.name(), a.type(), a.currency(), a.parentCode(), a.active());
+          new Account(newCode, a.name(), a.type(), a.currency(), a.parentCode(), a.status());
       byCode.put(newCode, renamed);
       parents.clear();
       for (Account acc : byCode.values()) {

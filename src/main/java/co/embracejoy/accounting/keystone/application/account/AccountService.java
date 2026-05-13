@@ -4,6 +4,7 @@ import co.embracejoy.accounting.keystone.domain.account.Account;
 import co.embracejoy.accounting.keystone.domain.account.AccountCode;
 import co.embracejoy.accounting.keystone.domain.account.AccountError;
 import co.embracejoy.accounting.keystone.domain.account.AccountRepository;
+import co.embracejoy.accounting.keystone.domain.account.AccountStatus;
 import co.embracejoy.accounting.keystone.domain.account.AccountType;
 import co.embracejoy.accounting.keystone.domain.shared.Result;
 import java.util.Currency;
@@ -32,7 +33,8 @@ public final class AccountService {
     if (parentCode.isPresent() && repository.findByCode(parentCode.get()).isEmpty()) {
       return Result.failure(new AccountError.ParentNotFound(parentCode.get()));
     }
-    return repository.save(new Account(code, name, type, currency, parentCode, true));
+    return repository.save(
+        new Account(code, name, type, currency, parentCode, AccountStatus.ACTIVE));
   }
 
   /** Rename an account to a new code. Delegates to the repository's atomic rename primitive. */
@@ -57,17 +59,17 @@ public final class AccountService {
     }
     Account a = opt.get();
     return repository.update(
-        new Account(a.code(), a.name(), a.type(), a.currency(), newParentCode, a.active()));
+        new Account(a.code(), a.name(), a.type(), a.currency(), newParentCode, a.status()));
   }
 
   /** Deactivate an account. Idempotent: already-inactive accounts return Success. */
   public Result<Account, AccountError> deactivate(AccountCode code) {
-    return setActive(code, false);
+    return setStatus(code, AccountStatus.INACTIVE);
   }
 
   /** Reactivate an account. Idempotent: already-active accounts return Success. */
   public Result<Account, AccountError> reactivate(AccountCode code) {
-    return setActive(code, true);
+    return setStatus(code, AccountStatus.ACTIVE);
   }
 
   /** Look up a single account by code. */
@@ -80,17 +82,17 @@ public final class AccountService {
     return repository.findAll();
   }
 
-  private Result<Account, AccountError> setActive(AccountCode code, boolean active) {
+  private Result<Account, AccountError> setStatus(AccountCode code, AccountStatus status) {
     Optional<Account> opt = repository.findByCode(code);
     if (opt.isEmpty()) {
       return Result.failure(new AccountError.NotFound(code));
     }
     Account a = opt.get();
-    if (a.active() == active) {
+    if (a.status() == status) {
       return Result.success(a); // idempotent
     }
     return repository.update(
-        new Account(a.code(), a.name(), a.type(), a.currency(), a.parentCode(), active));
+        new Account(a.code(), a.name(), a.type(), a.currency(), a.parentCode(), status));
   }
 
   private boolean wouldCreateCycle(AccountCode child, AccountCode proposedParent) {

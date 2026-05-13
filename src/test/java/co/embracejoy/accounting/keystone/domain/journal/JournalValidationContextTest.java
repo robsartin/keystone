@@ -3,9 +3,11 @@ package co.embracejoy.accounting.keystone.domain.journal;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertSame;
 import static org.junit.jupiter.api.Assertions.assertThrows;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import co.embracejoy.accounting.keystone.domain.account.Account;
 import co.embracejoy.accounting.keystone.domain.account.AccountCode;
+import co.embracejoy.accounting.keystone.domain.account.AccountStatus;
 import co.embracejoy.accounting.keystone.domain.account.AccountType;
 import co.embracejoy.accounting.keystone.domain.period.PeriodStatus;
 import java.util.Currency;
@@ -23,7 +25,12 @@ class JournalValidationContextTest {
 
   private static Account cash() {
     return new Account(
-        new AccountCode("1000"), "Cash", AccountType.ASSET, USD, Optional.empty(), true);
+        new AccountCode("1000"),
+        "Cash",
+        AccountType.ASSET,
+        USD,
+        Optional.empty(),
+        AccountStatus.ACTIVE);
   }
 
   @Test
@@ -43,23 +50,36 @@ class JournalValidationContextTest {
   void shouldThrowWhenPeriodStatusIsNull() {
     assertThrows(
         NullPointerException.class,
-        () -> new JournalValidationContext(Map.of(), Set.of(), null, false));
+        () -> new JournalValidationContext(Map.of(), Set.of(), null, JournalValidationMode.STRICT));
   }
 
   @Test
-  @DisplayName("two-arg constructor defaults to OPEN, non-permissive")
+  @DisplayName("rejects null mode in 5-arg constructor")
+  void shouldThrowWhenModeIsNull() {
+    assertThrows(
+        NullPointerException.class,
+        () ->
+            new JournalValidationContext(
+                Map.of(), Set.of(), PeriodStatus.OPEN, USD, (JournalValidationMode) null));
+  }
+
+  @Test
+  @DisplayName("two-arg constructor defaults to OPEN, STRICT mode")
   void shouldDefaultToOpenWhenTwoArgConstructorUsed() {
     JournalValidationContext ctx = new JournalValidationContext(Map.of(), Set.of());
     assertEquals(PeriodStatus.OPEN, ctx.periodStatus());
-    assertEquals(false, ctx.permissiveMode());
+    assertEquals(JournalValidationMode.STRICT, ctx.mode());
+    assertEquals(false, ctx.isPermissive());
   }
 
   @Test
-  @DisplayName("permissive() returns an empty-accounts context")
+  @DisplayName("permissive() returns an empty-accounts context in PERMISSIVE mode")
   void shouldReturnEmptyAccountsWhenPermissive() {
     JournalValidationContext ctx = JournalValidationContext.permissive();
     assertEquals(Map.of(), ctx.accounts());
     assertEquals(Set.of(), ctx.nonLeafCodes());
+    assertEquals(JournalValidationMode.PERMISSIVE, ctx.mode());
+    assertTrue(ctx.isPermissive());
   }
 
   @Test
@@ -95,14 +115,17 @@ class JournalValidationContextTest {
   void shouldThrowWhenBaseCurrencyIsNull() {
     assertThrows(
         NullPointerException.class,
-        () -> new JournalValidationContext(Map.of(), Set.of(), PeriodStatus.OPEN, null, false));
+        () ->
+            new JournalValidationContext(
+                Map.of(), Set.of(), PeriodStatus.OPEN, null, JournalValidationMode.STRICT));
   }
 
   @Test
   @DisplayName("4-arg back-compat constructor defaults baseCurrency to USD")
   void shouldDefaultBaseCurrencyToUsdWhen4ArgConstructorUsed() {
     JournalValidationContext ctx =
-        new JournalValidationContext(Map.of(), Set.of(), PeriodStatus.OPEN, false);
+        new JournalValidationContext(
+            Map.of(), Set.of(), PeriodStatus.OPEN, JournalValidationMode.STRICT);
     assertEquals(Currency.getInstance("USD"), ctx.baseCurrency());
   }
 }

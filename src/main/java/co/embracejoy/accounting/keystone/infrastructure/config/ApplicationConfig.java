@@ -6,12 +6,18 @@ import co.embracejoy.accounting.keystone.application.period.PeriodService;
 import co.embracejoy.accounting.keystone.domain.account.AccountRepository;
 import co.embracejoy.accounting.keystone.domain.journal.JournalEntryRepository;
 import co.embracejoy.accounting.keystone.domain.period.PeriodRepository;
+import java.util.Currency;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 
 /** Wires application-layer (domain-pure) services as Spring beans. */
 @Configuration
 public class ApplicationConfig {
+
+  @Bean
+  public Currency keystoneBaseCurrency(KeystoneProperties properties) {
+    return properties.baseCurrency();
+  }
 
   @Bean
   public PeriodService periodService(
@@ -23,8 +29,10 @@ public class ApplicationConfig {
   public PostJournalEntryService postJournalEntryService(
       JournalEntryRepository journalRepository,
       AccountRepository accountRepository,
-      PeriodService periodService) {
-    return new PostJournalEntryService(journalRepository, accountRepository, periodService);
+      PeriodService periodService,
+      KeystoneProperties properties) {
+    return new PostJournalEntryService(
+        journalRepository, accountRepository, periodService, properties.baseCurrency());
   }
 
   @Bean

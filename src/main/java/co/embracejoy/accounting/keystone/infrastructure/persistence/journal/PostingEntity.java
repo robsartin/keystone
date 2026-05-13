@@ -30,6 +30,12 @@ class PostingEntity {
   @Column(name = "amount_minor_units", nullable = false)
   private long amountMinorUnits;
 
+  @Column(name = "currency", nullable = false, length = 3)
+  private String currency;
+
+  @Column(name = "base_minor_units", nullable = false)
+  private long baseMinorUnits;
+
   @Column(name = "sequence_in_entry", nullable = false)
   private int sequenceInEntry;
 
@@ -38,11 +44,19 @@ class PostingEntity {
   }
 
   PostingEntity(
-      UUID id, String accountCode, String side, long amountMinorUnits, int sequenceInEntry) {
+      UUID id,
+      String accountCode,
+      String side,
+      long amountMinorUnits,
+      String currency,
+      long baseMinorUnits,
+      int sequenceInEntry) {
     this.id = id;
     this.accountCode = accountCode;
     this.side = side;
     this.amountMinorUnits = amountMinorUnits;
+    this.currency = currency;
+    this.baseMinorUnits = baseMinorUnits;
     this.sequenceInEntry = sequenceInEntry;
   }
 
@@ -60,6 +74,14 @@ class PostingEntity {
 
   long getAmountMinorUnits() {
     return amountMinorUnits;
+  }
+
+  String getCurrency() {
+    return currency;
+  }
+
+  long getBaseMinorUnits() {
+    return baseMinorUnits;
   }
 
   JournalEntryEntity getJournalEntry() {
