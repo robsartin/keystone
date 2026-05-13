@@ -37,4 +37,7 @@ public sealed interface JournalError {
       java.util.Currency expectedByAccount,
       java.util.Currency actualOnPosting)
       implements JournalError {}
+
+  /** Entry's occurredOn falls in a YearMonth that has been closed. */
+  record PostingInClosedPeriod(java.time.YearMonth period) implements JournalError {}
 }
