@@ -40,4 +40,17 @@ public sealed interface JournalError {
 
   /** Entry's occurredOn falls in a YearMonth that has been closed. */
   record PostingInClosedPeriod(java.time.YearMonth period) implements JournalError {}
+
+  /**
+   * A posting's baseAmount currency differs from the configured base currency.
+   *
+   * @param code the offending account code
+   * @param expectedByConfig the configured base from {@code keystone.base-currency}
+   * @param actualOnPosting the currency the posting's baseAmount was sent with
+   */
+  record BaseCurrencyMismatch(
+      co.embracejoy.accounting.keystone.domain.account.AccountCode code,
+      java.util.Currency expectedByConfig,
+      java.util.Currency actualOnPosting)
+      implements JournalError {}
 }
