@@ -174,6 +174,19 @@ class ResultMapperTest {
     assertThat(pd.getDetail()).contains("4000").contains("USD").contains("EUR");
   }
 
+  @Test
+  @DisplayName("JournalError.BaseCurrencyMismatch maps to 400 with stable type URI and detail")
+  void shouldMapBaseCurrencyMismatchToProblemDetail() {
+    Currency eur = Currency.getInstance("EUR");
+    ProblemDetail pd =
+        ResultMapper.toProblemDetail(
+            new JournalError.BaseCurrencyMismatch(new AccountCode("1000-EUR"), USD, eur));
+
+    assertThat(pd.getStatus()).isEqualTo(HttpStatus.BAD_REQUEST.value());
+    assertThat(pd.getType().toString()).endsWith("/journal/base-currency-mismatch");
+    assertThat(pd.getDetail()).contains("1000-EUR").contains("USD").contains("EUR");
+  }
+
   // --- PeriodError variants ---
 
   @Test
