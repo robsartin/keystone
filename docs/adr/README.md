@@ -26,6 +26,7 @@ See [ADR-0001](0001-record-decisions-in-adrs.md) for the meta-decision.
 | [0013](0013-journal-validation-context.md) | Domain validation that needs external data uses a context record | Accepted |
 | [0014](0014-multi-currency-base-anchoring.md) | Multi-currency journal entries with base-currency anchoring | Accepted |
 | [0015](0015-no-url-versioning.md) | No URL versioning | Accepted |
+| [0016](0016-multi-tenant-row-level-isolation.md) | Multi-tenant row-level isolation with Postgres RLS | Accepted |
 
 ## Numbering
 
