@@ -6,7 +6,7 @@
 
 **Architecture:** Trial balance is a read-only projection over `postings` joined to `journal_entries`. No new domain aggregate. A domain-side port `TrialBalanceReadModel` lives in `domain/reports/`; the JDBC adapter does a single `GROUP BY` query under the hood. `TrialBalanceService` is a thin pass-through that exists to keep the controller domain-agnostic. The hexagonal ArchUnit rules already enforce the layering.
 
-**Tech Stack:** Spring `JdbcTemplate` (pulled in by `spring-boot-starter-data-jpa`), Spring Web MVC, Testcontainers Postgres, JUnit Jupiter 6, AssertJ, MockMvc.
+**Tech Stack:** Spring `JdbcClient` (the modern Spring 6.1+ fluent client; pulled in transitively by `spring-boot-starter-data-jpa`), Spring Web MVC, Testcontainers Postgres, JUnit Jupiter 6, AssertJ, MockMvc.
 
 **Spec reference:** [`docs/superpowers/specs/2026-05-13-slices-4-6-multi-currency-and-trial-balance-design.md`](../specs/2026-05-13-slices-4-6-multi-currency-and-trial-balance-design.md), §5 (endpoint, response shape, SQL, service+controller), §9.5–9.7 (testing strategy), §10 (data migration — already done in Slice 6).
 
@@ -25,7 +25,7 @@
 
 **Phase B — Persistence (1 commit)**
 
-- Create: `src/main/java/co/embracejoy/accounting/keystone/infrastructure/persistence/reports/TrialBalanceJdbcReadModel.java` — `JdbcTemplate`-backed adapter; one `GROUP BY` query.
+- Create: `src/main/java/co/embracejoy/accounting/keystone/infrastructure/persistence/reports/TrialBalanceJdbcReadModel.java` — `JdbcClient`-backed adapter (named params, fluent style); one `GROUP BY` query.
 - Create: `src/test/java/co/embracejoy/accounting/keystone/infrastructure/persistence/reports/TrialBalanceJdbcReadModelIT.java` — Testcontainers IT seeding entries and asserting row shape.
 
 **Phase C — Web + smoke + close #15 (3 commits)**
@@ -547,7 +547,7 @@ Expected: all green.
 
 # Phase B — JDBC read-model adapter + integration test
 
-Phase B implements `TrialBalanceReadModel` against Postgres via `JdbcTemplate`. One commit.
+Phase B implements `TrialBalanceReadModel` against Postgres via `JdbcClient` (Spring 6.1+ fluent client, auto-configured by Spring Boot whenever a `DataSource` is on the classpath). One commit.
 
 ---
 
@@ -775,8 +775,8 @@ import co.embracejoy.accounting.keystone.domain.reports.TrialBalanceRow;
 import java.time.LocalDate;
 import java.util.Currency;
 import java.util.List;
-import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.jdbc.core.RowMapper;
+import org.springframework.jdbc.core.simple.JdbcClient;
 import org.springframework.stereotype.Repository;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -784,7 +784,10 @@ import org.springframework.transaction.annotation.Transactional;
  * JDBC adapter for {@link TrialBalanceReadModel}.
  *
  * <p>One GROUP BY query against {@code postings} joined to {@code journal_entries}; rows are
- * filtered by {@code je.occurred_on <= :asOf} and (optionally) {@code balance != 0}.
+ * filtered by {@code je.occurred_on <= :asOf} and (optionally) {@code balance != 0}. Uses
+ * Spring 6.1+ {@link JdbcClient} (the modern fluent client) with named parameters — the
+ * {@code :includeZero} flag is referenced once in the {@code HAVING} clause and Spring binds
+ * it for us.
  */
 @Repository
 @Transactional(readOnly = true)
@@ -800,10 +803,10 @@ public class TrialBalanceJdbcReadModel implements TrialBalanceReadModel {
              SUM(CASE WHEN p.side = 'CREDIT' THEN p.base_minor_units    ELSE 0 END) AS base_credits
       FROM   postings p
       JOIN   journal_entries je ON je.id = p.journal_entry_id
-      WHERE  je.occurred_on <= ?
+      WHERE  je.occurred_on <= :asOf
       GROUP  BY p.account_code, p.currency
-      HAVING ? OR (SUM(CASE WHEN p.side = 'DEBIT'  THEN p.amount_minor_units ELSE 0 END)
-                 - SUM(CASE WHEN p.side = 'CREDIT' THEN p.amount_minor_units ELSE 0 END)) <> 0
+      HAVING :includeZero OR (SUM(CASE WHEN p.side = 'DEBIT'  THEN p.amount_minor_units ELSE 0 END)
+                            - SUM(CASE WHEN p.side = 'CREDIT' THEN p.amount_minor_units ELSE 0 END)) <> 0
       ORDER  BY p.account_code, p.currency
       """;
 
@@ -817,15 +820,19 @@ public class TrialBalanceJdbcReadModel implements TrialBalanceReadModel {
               rs.getLong("base_debits"),
               rs.getLong("base_credits"));
 
-  private final JdbcTemplate jdbc;
+  private final JdbcClient jdbc;
 
-  public TrialBalanceJdbcReadModel(JdbcTemplate jdbc) {
+  public TrialBalanceJdbcReadModel(JdbcClient jdbc) {
     this.jdbc = jdbc;
   }
 
   @Override
   public List<TrialBalanceRow> fetch(LocalDate asOf, boolean includeZero) {
-    return jdbc.query(SQL, MAPPER, java.sql.Date.valueOf(asOf), includeZero);
+    return jdbc.sql(SQL)
+        .param("asOf", asOf)
+        .param("includeZero", includeZero)
+        .query(MAPPER)
+        .list();
   }
 }
 ```
@@ -857,9 +864,11 @@ git add src/main/java/co/embracejoy/accounting/keystone/infrastructure/persisten
 git commit -m "$(cat <<'EOF'
 feat(persistence): TrialBalanceJdbcReadModel adapter + IT
 
-JdbcTemplate-backed implementation of TrialBalanceReadModel. One
-GROUP BY query against postings joined to journal_entries, filtering
-by occurred_on <= asOf and (optionally) by balance != 0.
+JdbcClient-backed implementation of TrialBalanceReadModel (Spring
+6.1+ fluent client, auto-configured by Spring Boot). One GROUP BY
+query against postings joined to journal_entries, filtering by
+occurred_on <= :asOf and (optionally) by balance != 0. Named
+parameters keep the HAVING clause readable.
 
 IT (Testcontainers Postgres) seeds entries and asserts:
 - non-zero rows only by default, sorted by (accountCode, currency)
