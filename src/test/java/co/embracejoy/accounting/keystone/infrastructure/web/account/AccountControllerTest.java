@@ -19,6 +19,7 @@ import co.embracejoy.accounting.keystone.domain.account.AccountError;
 import co.embracejoy.accounting.keystone.domain.account.AccountStatus;
 import co.embracejoy.accounting.keystone.domain.account.AccountType;
 import co.embracejoy.accounting.keystone.domain.shared.Result;
+import co.embracejoy.accounting.keystone.infrastructure.security.TenantContext;
 import java.util.Currency;
 import java.util.List;
 import java.util.Optional;
@@ -37,6 +38,7 @@ class AccountControllerTest {
 
   @Autowired MockMvc mvc;
   @MockitoBean AccountService service;
+  @MockitoBean TenantContext tenantContext;
 
   private static final Currency USD = Currency.getInstance("USD");
   private static final AccountCode CODE_1000 = new AccountCode("1000");

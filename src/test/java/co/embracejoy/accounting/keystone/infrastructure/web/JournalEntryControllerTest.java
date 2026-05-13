@@ -20,6 +20,7 @@ import co.embracejoy.accounting.keystone.domain.journal.Side;
 import co.embracejoy.accounting.keystone.domain.money.Money;
 import co.embracejoy.accounting.keystone.domain.shared.Result;
 import co.embracejoy.accounting.keystone.infrastructure.observability.MetricsConfig;
+import co.embracejoy.accounting.keystone.infrastructure.security.TenantContext;
 import io.micrometer.core.instrument.Counter;
 import io.micrometer.core.instrument.Timer;
 import java.time.LocalDate;
@@ -47,6 +48,7 @@ class JournalEntryControllerTest {
 
   @Autowired MockMvc mvc;
   @MockitoBean PostJournalEntryService service;
+  @MockitoBean TenantContext tenantContext;
   @MockitoBean Counter journalEntriesPostedOk;
   @MockitoBean Counter journalEntriesPostedInvalid;
   @MockitoBean Timer journalEntriesPostDuration;
