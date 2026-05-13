@@ -53,7 +53,12 @@ jobs:
           node-version: "20"
 
       - name: Verify
-        run: ./mvnw -B clean verify -Pmutation,openapi-gate
+        # The `breaking-change-approved` label on a PR opts out of Layer 4
+        # (openapi-diff vs main). All other gates still run. Use sparingly —
+        # set only for intentional, reviewed wire-format breaks.
+        env:
+          OPENAPI_DIFF_SKIP: ${{ contains(github.event.pull_request.labels.*.name, 'breaking-change-approved') }}
+        run: ./mvnw -B clean verify -Pmutation,openapi-gate -Dopenapi.diff.skip=${OPENAPI_DIFF_SKIP:-false}
 
       - name: Upload JaCoCo report
         if: ${{ always() }}

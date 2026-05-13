@@ -221,17 +221,12 @@ components:
           type: string
           maxLength: 500
           minLength: 0
-        currency:
-          type: string
-          minLength: 1
-          pattern: "^[A-Z]{3}$"
         postings:
           type: array
           items:
             $ref: "#/components/schemas/PostingRequest"
           minItems: 1
       required:
-      - currency
       - description
       - occurredOn
       - postings
@@ -247,8 +242,16 @@ components:
         minorUnits:
           type: integer
           format: int64
+        currency:
+          type: string
+          minLength: 1
+          pattern: "^[A-Z]{3}$"
+        baseMinorUnits:
+          type: integer
+          format: int64
       required:
       - account
+      - currency
       - side
     CreateAccountRequest:
       type: object

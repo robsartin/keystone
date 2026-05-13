@@ -32,14 +32,16 @@ import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.mockito.Mockito;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.boot.test.context.TestConfiguration;
 import org.springframework.boot.webmvc.test.autoconfigure.WebMvcTest;
+import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Import;
 import org.springframework.http.MediaType;
 import org.springframework.test.context.bean.override.mockito.MockitoBean;
 import org.springframework.test.web.servlet.MockMvc;
 
 @WebMvcTest(JournalEntryController.class)
-@Import(MetricsConfig.class)
+@Import({MetricsConfig.class, JournalEntryControllerTest.BaseCurrencyTestConfig.class})
 @DisplayName("JournalEntryController")
 class JournalEntryControllerTest {
 
@@ -51,15 +53,25 @@ class JournalEntryControllerTest {
 
   private static final Currency USD = Currency.getInstance("USD");
 
+  /** Provides the {@code keystoneBaseCurrency} bean (USD) for {@code @WebMvcTest}. */
+  @TestConfiguration
+  static class BaseCurrencyTestConfig {
+    @Bean
+    Currency keystoneBaseCurrency() {
+      return Currency.getInstance("USD");
+    }
+  }
+
   private static String validBody() {
     return """
         {
           "occurredOn": "2026-05-10",
           "description": "opening",
-          "currency": "USD",
           "postings": [
-            { "account": "1000", "side": "DEBIT",  "minorUnits": 10000 },
-            { "account": "3000", "side": "CREDIT", "minorUnits": 10000 }
+            { "account": "1000", "side": "DEBIT",  "minorUnits": 10000,
+              "currency": "USD", "baseMinorUnits": 10000 },
+            { "account": "3000", "side": "CREDIT", "minorUnits": 10000,
+              "currency": "USD", "baseMinorUnits": 10000 }
           ]
         }
         """;
@@ -102,7 +114,9 @@ class JournalEntryControllerTest {
                 .string(
                     "Location", endsWith("/journal-entries/01902f9f-0000-7000-8000-000000000000")))
         .andExpect(jsonPath("$.id").value("01902f9f-0000-7000-8000-000000000000"))
-        .andExpect(jsonPath("$.postings.length()").value(2));
+        .andExpect(jsonPath("$.postings.length()").value(2))
+        .andExpect(jsonPath("$.postings[0].currency").value("USD"))
+        .andExpect(jsonPath("$.postings[0].baseMinorUnits").value(10000));
   }
 
   @Test
@@ -192,6 +206,27 @@ class JournalEntryControllerTest {
   }
 
   @Test
+  @DisplayName("returns 400 ProblemDetail when service returns Failure(BaseCurrencyMismatch)")
+  void shouldReturn400WhenBaseCurrencyMismatch() throws Exception {
+    Mockito.when(journalEntriesPostDuration.record(Mockito.any(Supplier.class)))
+        .thenAnswer(inv -> inv.<Supplier<?>>getArgument(0).get());
+    Currency eur = Currency.getInstance("EUR");
+    Mockito.when(service.post(Mockito.any(LocalDate.class), Mockito.anyString(), Mockito.anyList()))
+        .thenReturn(
+            Result.failure(
+                new JournalError.BaseCurrencyMismatch(new AccountCode("1000-EUR"), USD, eur)));
+
+    mvc.perform(
+            post("/journal-entries").contentType(MediaType.APPLICATION_JSON).content(validBody()))
+        .andExpect(status().isBadRequest())
+        .andExpect(content().contentType("application/problem+json"))
+        .andExpect(jsonPath("$.type").value(endsWith("/journal/base-currency-mismatch")))
+        .andExpect(jsonPath("$.detail", containsString("1000-EUR")))
+        .andExpect(jsonPath("$.detail", containsString("USD")))
+        .andExpect(jsonPath("$.detail", containsString("EUR")));
+  }
+
+  @Test
   @DisplayName("returns 400 ProblemDetail when service returns Failure(PostingInClosedPeriod)")
   void shouldReturn400WhenPostingInClosedPeriod() throws Exception {
     Mockito.when(journalEntriesPostDuration.record(Mockito.any(Supplier.class)))
@@ -215,7 +250,6 @@ class JournalEntryControllerTest {
         {
           "occurredOn": "2026-05-10",
           "description": "",
-          "currency": "usd",
           "postings": []
         }
         """;

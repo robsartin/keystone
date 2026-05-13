@@ -30,16 +30,19 @@ import org.springframework.web.bind.annotation.RestController;
 public class JournalEntryController {
 
   private final PostJournalEntryService service;
+  private final Currency baseCurrency;
   private final Counter postedOk;
   private final Counter postedInvalid;
   private final Timer postDuration;
 
   public JournalEntryController(
       PostJournalEntryService service,
+      @Qualifier("keystoneBaseCurrency") Currency keystoneBaseCurrency,
       @Qualifier("journalEntriesPostedOk") Counter journalEntriesPostedOk,
       @Qualifier("journalEntriesPostedInvalid") Counter journalEntriesPostedInvalid,
       @Qualifier("journalEntriesPostDuration") Timer journalEntriesPostDuration) {
     this.service = service;
+    this.baseCurrency = keystoneBaseCurrency;
     this.postedOk = journalEntriesPostedOk;
     this.postedInvalid = journalEntriesPostedInvalid;
     this.postDuration = journalEntriesPostDuration;
@@ -51,9 +54,7 @@ public class JournalEntryController {
   }
 
   private ResponseEntity<?> handle(PostJournalEntryRequest request) {
-    Currency currency = Currency.getInstance(request.currency());
-    List<Posting> postings =
-        request.postings().stream().map(p -> toDomainPosting(p, currency)).toList();
+    List<Posting> postings = request.postings().stream().map(this::toDomainPosting).toList();
 
     Result<PersistedJournalEntry, JournalError> result =
         service.post(request.occurredOn(), request.description(), postings);
@@ -72,8 +73,10 @@ public class JournalEntryController {
         });
   }
 
-  private static Posting toDomainPosting(PostingRequest p, Currency currency) {
-    Money amount = new Money(p.minorUnits(), currency);
-    return new Posting(new AccountCode(p.account()), Side.valueOf(p.side()), amount, amount);
+  private Posting toDomainPosting(PostingRequest p) {
+    Currency txCurrency = Currency.getInstance(p.currency());
+    Money amount = new Money(p.minorUnits(), txCurrency);
+    Money baseAmount = new Money(p.baseMinorUnits(), baseCurrency);
+    return new Posting(new AccountCode(p.account()), Side.valueOf(p.side()), amount, baseAmount);
   }
 }

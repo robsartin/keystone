@@ -40,10 +40,11 @@ class ApplicationSmokeIT {
                 {
                   "occurredOn": "2026-05-10",
                   "description": "smoke",
-                  "currency": "USD",
                   "postings": [
-                    { "account": "1000", "side": "DEBIT",  "minorUnits": 1234 },
-                    { "account": "3000", "side": "CREDIT", "minorUnits": 1234 }
+                    { "account": "1000", "side": "DEBIT",  "minorUnits": 1234,
+                      "currency": "USD", "baseMinorUnits": 1234 },
+                    { "account": "3000", "side": "CREDIT", "minorUnits": 1234,
+                      "currency": "USD", "baseMinorUnits": 1234 }
                   ]
                 }
                 """;
@@ -104,10 +105,11 @@ class ApplicationSmokeIT {
                 {
                   "occurredOn": "2026-05-12",
                   "description": "bad entry",
-                  "currency": "USD",
                   "postings": [
-                    { "account": "9999", "side": "DEBIT",  "minorUnits": 100 },
-                    { "account": "3000", "side": "CREDIT", "minorUnits": 100 }
+                    { "account": "9999", "side": "DEBIT",  "minorUnits": 100,
+                      "currency": "USD", "baseMinorUnits": 100 },
+                    { "account": "3000", "side": "CREDIT", "minorUnits": 100,
+                      "currency": "USD", "baseMinorUnits": 100 }
                   ]
                 }
                 """;
@@ -146,10 +148,11 @@ class ApplicationSmokeIT {
             {
               "occurredOn": "2026-05-12",
               "description": "office supplies purchase",
-              "currency": "USD",
               "postings": [
-                { "account": "5000", "side": "DEBIT",  "minorUnits": 5000 },
-                { "account": "3000", "side": "CREDIT", "minorUnits": 5000 }
+                { "account": "5000", "side": "DEBIT",  "minorUnits": 5000,
+                  "currency": "USD", "baseMinorUnits": 5000 },
+                { "account": "3000", "side": "CREDIT", "minorUnits": 5000,
+                  "currency": "USD", "baseMinorUnits": 5000 }
               ]
             }
             """;
@@ -249,10 +252,11 @@ class ApplicationSmokeIT {
         {
           "occurredOn": "2026-06-15",
           "description": "june smoke test",
-          "currency": "USD",
           "postings": [
-            { "account": "1000", "side": "DEBIT",  "minorUnits": 7500 },
-            { "account": "3000", "side": "CREDIT", "minorUnits": 7500 }
+            { "account": "1000", "side": "DEBIT",  "minorUnits": 7500,
+              "currency": "USD", "baseMinorUnits": 7500 },
+            { "account": "3000", "side": "CREDIT", "minorUnits": 7500,
+              "currency": "USD", "baseMinorUnits": 7500 }
           ]
         }
         """;
@@ -272,5 +276,69 @@ class ApplicationSmokeIT {
               /* swallow */
             })
         .toEntity(String.class);
+  }
+
+  @Test
+  @DisplayName("Multi-currency: create EUR account, post USD→EUR transfer → 201 with base info")
+  void shouldPostMultiCurrencyEntry() {
+    RestClient client = RestClient.builder().baseUrl("http://localhost:" + port).build();
+    ensureCashEurExists(client);
+
+    ResponseEntity<String> entry =
+        client
+            .post()
+            .uri("/journal-entries")
+            .contentType(MediaType.APPLICATION_JSON)
+            .body(usdToEurEntryBody())
+            .retrieve()
+            .toEntity(String.class);
+
+    assertThat(entry.getStatusCode()).isEqualTo(HttpStatus.CREATED);
+    // Per-posting currency + baseMinorUnits round-trip in the response.
+    assertThat(entry.getBody()).contains("\"currency\":\"EUR\"").contains("\"currency\":\"USD\"");
+    assertThat(entry.getBody()).contains("\"baseMinorUnits\":10000");
+  }
+
+  private void ensureCashEurExists(RestClient client) {
+    client
+        .post()
+        .uri("/accounts")
+        .contentType(MediaType.APPLICATION_JSON)
+        .body(cashEurAccountBody())
+        .retrieve()
+        .onStatus(
+            HttpStatusCode::isError,
+            (req, res) -> {
+              /* swallow */
+            })
+        .toEntity(String.class);
+  }
+
+  private static String cashEurAccountBody() {
+    return """
+        {
+          "code": "1000-EUR",
+          "name": "Cash EUR",
+          "type": "ASSET",
+          "currency": "EUR"
+        }
+        """;
+  }
+
+  // USD→EUR transfer at 0.92 rate. baseAmount is USD on both legs; the entry
+  // balances in USD (10000 USD debit base ≡ 10000 USD credit base).
+  private static String usdToEurEntryBody() {
+    return """
+        {
+          "occurredOn": "2026-05-13",
+          "description": "USD->EUR transfer",
+          "postings": [
+            { "account": "1000-EUR", "side": "DEBIT",  "minorUnits": 9200,
+              "currency": "EUR", "baseMinorUnits": 10000 },
+            { "account": "1000",     "side": "CREDIT", "minorUnits": 10000,
+              "currency": "USD", "baseMinorUnits": 10000 }
+          ]
+        }
+        """;
   }
 }
