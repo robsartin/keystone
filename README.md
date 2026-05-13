@@ -12,6 +12,7 @@ for the rationale and the full picture.
 - [x] Plan 3 — local infra (Docker compose), GitHub Actions CI, repo provisioning
 - [x] Slice 2 — chart of accounts (#13)
 - [x] Slice 3 — period model (#14)
+- [x] Slice 4 — trial balance (#15)
 - [x] Slice 6 — multi-currency journal entries (#17)
 
 ## Quick start
@@ -35,6 +36,12 @@ curl -i -X POST http://localhost:8080/journal-entries \
         "currency": "USD", "baseMinorUnits": 10000 }
     ]
   }'
+```
+
+After posting some entries, get the trial balance:
+
+```bash
+curl -s 'http://localhost:8080/reports/trial-balance?asOf=2026-05-13' | jq
 ```
 
 Open the Grafana dashboard at [http://localhost:3000/d/keystone-overview](http://localhost:3000/d/keystone-overview). To shut down:
