@@ -44,10 +44,23 @@ public class ValidationExceptionHandler {
   ProblemDetail handle(MethodArgumentTypeMismatchException ex) {
     String required =
         ex.getRequiredType() != null ? ex.getRequiredType().getSimpleName() : "expected type";
-    String detail = ex.getName() + ": could not convert '" + ex.getValue() + "' to " + required;
+    // Reflect the offending value into the ProblemDetail (defense in depth: cap length and
+    // strip control chars so a hostile or oversized query string can't bloat the body or
+    // poison logs that record it).
+    String detail =
+        ex.getName() + ": could not convert '" + sanitize(ex.getValue()) + "' to " + required;
     ProblemDetail pd = ProblemDetail.forStatusAndDetail(HttpStatus.BAD_REQUEST, detail);
     pd.setType(URI.create(PROBLEM_BASE + "/validation"));
     pd.setTitle("Request validation failed");
     return pd;
   }
+
+  private static String sanitize(Object value) {
+    String raw = String.valueOf(value).replaceAll("\\p{Cntrl}", "?");
+    return raw.length() > MAX_REFLECTED_VALUE_LENGTH
+        ? raw.substring(0, MAX_REFLECTED_VALUE_LENGTH) + "..."
+        : raw;
+  }
+
+  private static final int MAX_REFLECTED_VALUE_LENGTH = 64;
 }

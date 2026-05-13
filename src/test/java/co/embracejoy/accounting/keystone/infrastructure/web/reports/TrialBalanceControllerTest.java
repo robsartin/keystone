@@ -10,6 +10,7 @@ import co.embracejoy.accounting.keystone.application.reports.TrialBalanceService
 import co.embracejoy.accounting.keystone.domain.account.AccountCode;
 import co.embracejoy.accounting.keystone.domain.reports.TrialBalanceRow;
 import java.time.LocalDate;
+import java.time.ZoneOffset;
 import java.util.Currency;
 import java.util.List;
 import org.junit.jupiter.api.DisplayName;
@@ -63,12 +64,13 @@ class TrialBalanceControllerTest {
 
     mvc.perform(get("/reports/trial-balance")).andExpect(status().isOk());
 
+    // The controller calls LocalDate.now(ZoneOffset.UTC); the test does the same in the
+    // same JVM. The values match exactly unless a UTC day boundary crosses between the two
+    // reads, so accept "today" or "yesterday" (no future tolerance possible).
     ArgumentCaptor<LocalDate> captor = ArgumentCaptor.forClass(LocalDate.class);
     Mockito.verify(service).query(captor.capture(), Mockito.eq(false));
-    // Allow ± 1 day for UTC vs. local timezone skew on the runner.
-    LocalDate today = LocalDate.now(java.time.ZoneOffset.UTC);
-    org.assertj.core.api.Assertions.assertThat(captor.getValue())
-        .isBetween(today.minusDays(1), today.plusDays(1));
+    LocalDate today = LocalDate.now(ZoneOffset.UTC);
+    org.assertj.core.api.Assertions.assertThat(captor.getValue()).isIn(today.minusDays(1), today);
   }
 
   @Test
