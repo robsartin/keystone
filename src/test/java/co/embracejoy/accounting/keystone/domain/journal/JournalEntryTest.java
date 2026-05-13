@@ -8,8 +8,10 @@ import co.embracejoy.accounting.keystone.domain.account.Account;
 import co.embracejoy.accounting.keystone.domain.account.AccountCode;
 import co.embracejoy.accounting.keystone.domain.account.AccountType;
 import co.embracejoy.accounting.keystone.domain.money.Money;
+import co.embracejoy.accounting.keystone.domain.period.PeriodStatus;
 import co.embracejoy.accounting.keystone.domain.shared.Result;
 import java.time.LocalDate;
+import java.time.YearMonth;
 import java.util.Currency;
 import java.util.List;
 import java.util.Map;
@@ -213,5 +215,21 @@ class JournalEntryTest {
         JournalEntry.of(
             TODAY, "opening", List.of(debit(CASH, 100L, USD), credit(EQUITY, 100L, USD)), ctx);
     assertInstanceOf(Result.Success.class, r);
+  }
+
+  @Test
+  @DisplayName("of(ctx) returns Failure(PostingInClosedPeriod) when periodStatus is CLOSED")
+  void shouldReturnPostingInClosedPeriodWhenPeriodClosed() {
+    Account cash = new Account(CASH, "Cash", AccountType.ASSET, USD, Optional.empty(), true);
+    Account equity = new Account(EQUITY, "Equity", AccountType.EQUITY, USD, Optional.empty(), true);
+    JournalValidationContext ctx =
+        new JournalValidationContext(
+            Map.of(CASH, cash, EQUITY, equity), Set.of(), PeriodStatus.CLOSED, false);
+    Result<JournalEntry, JournalError> r =
+        JournalEntry.of(TODAY, "x", List.of(debit(CASH, 1L, USD), credit(EQUITY, 1L, USD)), ctx);
+    JournalError.PostingInClosedPeriod e =
+        (JournalError.PostingInClosedPeriod)
+            ((Result.Failure<JournalEntry, JournalError>) r).error();
+    assertEquals(YearMonth.from(TODAY), e.period());
   }
 }

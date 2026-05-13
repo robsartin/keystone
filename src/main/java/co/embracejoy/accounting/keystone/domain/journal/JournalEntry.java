@@ -4,8 +4,10 @@ import co.embracejoy.accounting.keystone.domain.account.Account;
 import co.embracejoy.accounting.keystone.domain.account.AccountCode;
 import co.embracejoy.accounting.keystone.domain.money.Money;
 import co.embracejoy.accounting.keystone.domain.money.MoneyError;
+import co.embracejoy.accounting.keystone.domain.period.PeriodStatus;
 import co.embracejoy.accounting.keystone.domain.shared.Result;
 import java.time.LocalDate;
+import java.time.YearMonth;
 import java.util.Currency;
 import java.util.List;
 import java.util.Objects;
@@ -54,6 +56,10 @@ public record JournalEntry(
       return Result.failure(new JournalError.MixedCurrencies(currencies));
     }
     Currency currency = currencies.iterator().next();
+    // Period check — must precede the per-posting account loop.
+    if (!ctx.permissiveMode() && ctx.periodStatus() == PeriodStatus.CLOSED) {
+      return Result.failure(new JournalError.PostingInClosedPeriod(YearMonth.from(occurredOn)));
+    }
     if (!ctx.permissiveMode()) {
       Result<JournalEntry, JournalError> err = checkAccounts(postings, ctx);
       if (err != null) {

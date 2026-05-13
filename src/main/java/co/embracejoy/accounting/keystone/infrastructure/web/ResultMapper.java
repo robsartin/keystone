@@ -25,6 +25,7 @@ public final class ResultMapper {
       case JournalError.AccountInactive a -> journalAccountInactive(a);
       case JournalError.AccountNotALeaf a -> journalAccountNotALeaf(a);
       case JournalError.AccountCurrencyMismatch a -> journalAccountCurrencyMismatch(a);
+      case JournalError.PostingInClosedPeriod p -> journalPostingInClosedPeriod(p);
     };
   }
 
@@ -148,6 +149,13 @@ public final class ResultMapper {
             + " "
             + u.credits().currency().getCurrencyCode()
             + ").");
+  }
+
+  private static ProblemDetail journalPostingInClosedPeriod(JournalError.PostingInClosedPeriod p) {
+    return problem(
+        "/journal/posting-in-closed-period",
+        "Posting falls in a closed period",
+        "Period " + p.period() + " is closed; reopen it before posting.");
   }
 
   private static ProblemDetail overflow(JournalError.Overflow o) {

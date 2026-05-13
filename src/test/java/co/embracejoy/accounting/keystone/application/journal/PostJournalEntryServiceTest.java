@@ -4,6 +4,7 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertInstanceOf;
 import static org.junit.jupiter.api.Assertions.assertSame;
 
+import co.embracejoy.accounting.keystone.application.period.PeriodService;
 import co.embracejoy.accounting.keystone.domain.account.Account;
 import co.embracejoy.accounting.keystone.domain.account.AccountCode;
 import co.embracejoy.accounting.keystone.domain.account.AccountError;
@@ -17,8 +18,13 @@ import co.embracejoy.accounting.keystone.domain.journal.PersistedJournalEntry;
 import co.embracejoy.accounting.keystone.domain.journal.Posting;
 import co.embracejoy.accounting.keystone.domain.journal.Side;
 import co.embracejoy.accounting.keystone.domain.money.Money;
+import co.embracejoy.accounting.keystone.domain.period.Period;
+import co.embracejoy.accounting.keystone.domain.period.PeriodRepository;
+import co.embracejoy.accounting.keystone.domain.period.PeriodStatus;
 import co.embracejoy.accounting.keystone.domain.shared.Result;
+import java.time.Instant;
 import java.time.LocalDate;
+import java.time.YearMonth;
 import java.util.ArrayList;
 import java.util.Currency;
 import java.util.HashMap;
@@ -42,17 +48,20 @@ class PostJournalEntryServiceTest {
 
   private FakeJournalRepo journalRepo;
   private FakeAccountRepo accountRepo;
+  private FakePeriodRepo periodRepo;
   private PostJournalEntryService service;
 
   @BeforeEach
   void setup() {
     journalRepo = new FakeJournalRepo();
     accountRepo = new FakeAccountRepo();
+    periodRepo = new FakePeriodRepo();
     // Seed the accounts used in posting tests
     accountRepo.seed(new Account(CASH, "Cash", AccountType.ASSET, USD, Optional.empty(), true));
     accountRepo.seed(
         new Account(EQUITY, "Owner Equity", AccountType.EQUITY, USD, Optional.empty(), true));
-    service = new PostJournalEntryService(journalRepo, accountRepo);
+    PeriodService periodService = new PeriodService(periodRepo, journalRepo);
+    service = new PostJournalEntryService(journalRepo, accountRepo, periodService);
   }
 
   private static Posting debit(AccountCode a, long amt) {
@@ -115,6 +124,23 @@ class PostJournalEntryServiceTest {
     assertEquals(0, journalRepo.saved.size());
   }
 
+  @Test
+  @DisplayName("returns PostingInClosedPeriod when period is closed")
+  void shouldReturnPostingInClosedPeriodWhenPeriodClosed() {
+    // Seed a closed period for the month of TODAY
+    YearMonth todayMonth = YearMonth.from(TODAY);
+    periodRepo.seedClosed(todayMonth);
+
+    Result<PersistedJournalEntry, JournalError> r =
+        service.post(TODAY, "bad", List.of(debit(CASH, 100L), credit(EQUITY, 100L)));
+
+    assertInstanceOf(Result.Failure.class, r);
+    JournalError error = ((Result.Failure<PersistedJournalEntry, JournalError>) r).error();
+    assertInstanceOf(JournalError.PostingInClosedPeriod.class, error);
+    assertEquals(todayMonth, ((JournalError.PostingInClosedPeriod) error).period());
+    assertEquals(0, journalRepo.saved.size());
+  }
+
   // ---- fakes ----
 
   private static final class FakeJournalRepo implements JournalEntryRepository {
@@ -131,6 +157,11 @@ class PostJournalEntryServiceTest {
     @Override
     public Optional<PersistedJournalEntry> findById(JournalEntryId id) {
       return Optional.empty();
+    }
+
+    @Override
+    public java.util.Set<java.time.YearMonth> distinctOccurredMonths() {
+      return java.util.Set.of();
     }
   }
 
@@ -202,6 +233,52 @@ class PostJournalEntryServiceTest {
     @Override
     public boolean hasChildren(AccountCode code) {
       return parents.contains(code);
+    }
+  }
+
+  private static final class FakePeriodRepo implements PeriodRepository {
+    private final Map<YearMonth, Period> store = new HashMap<>();
+
+    void seedClosed(YearMonth ym) {
+      store.put(
+          ym,
+          new Period(
+              ym,
+              PeriodStatus.CLOSED,
+              Optional.of(Instant.parse("2026-06-01T09:00:00Z")),
+              Optional.of("system"),
+              Optional.empty(),
+              Optional.empty()));
+    }
+
+    @Override
+    public Period save(Period period) {
+      store.put(period.yearMonth(), period);
+      return period;
+    }
+
+    @Override
+    public Period update(Period period) {
+      store.put(period.yearMonth(), period);
+      return period;
+    }
+
+    @Override
+    public Optional<Period> findByYearMonth(YearMonth yearMonth) {
+      return Optional.ofNullable(store.get(yearMonth));
+    }
+
+    @Override
+    public List<Period> findAllClosed() {
+      return store.values().stream()
+          .filter(p -> p.status() == PeriodStatus.CLOSED)
+          .sorted((a, b) -> b.yearMonth().compareTo(a.yearMonth()))
+          .toList();
+    }
+
+    @Override
+    public Optional<Period> findLatestClosed() {
+      return findAllClosed().stream().findFirst();
     }
   }
 }

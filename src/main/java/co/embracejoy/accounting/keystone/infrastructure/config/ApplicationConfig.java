@@ -2,8 +2,10 @@ package co.embracejoy.accounting.keystone.infrastructure.config;
 
 import co.embracejoy.accounting.keystone.application.account.AccountService;
 import co.embracejoy.accounting.keystone.application.journal.PostJournalEntryService;
+import co.embracejoy.accounting.keystone.application.period.PeriodService;
 import co.embracejoy.accounting.keystone.domain.account.AccountRepository;
 import co.embracejoy.accounting.keystone.domain.journal.JournalEntryRepository;
+import co.embracejoy.accounting.keystone.domain.period.PeriodRepository;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 
@@ -12,9 +14,17 @@ import org.springframework.context.annotation.Configuration;
 public class ApplicationConfig {
 
   @Bean
+  public PeriodService periodService(
+      PeriodRepository periodRepository, JournalEntryRepository journalRepository) {
+    return new PeriodService(periodRepository, journalRepository);
+  }
+
+  @Bean
   public PostJournalEntryService postJournalEntryService(
-      JournalEntryRepository journalRepository, AccountRepository accountRepository) {
-    return new PostJournalEntryService(journalRepository, accountRepository);
+      JournalEntryRepository journalRepository,
+      AccountRepository accountRepository,
+      PeriodService periodService) {
+    return new PostJournalEntryService(journalRepository, accountRepository, periodService);
   }
 
   @Bean
