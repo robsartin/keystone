@@ -1,3 +1,6 @@
+keystone:
+  base-currency: USD
+
 spring:
   application:
     name: keystone

@@ -14,6 +14,7 @@ import co.embracejoy.accounting.keystone.domain.period.PeriodStatus;
 import co.embracejoy.accounting.keystone.domain.shared.Result;
 import java.time.LocalDate;
 import java.time.YearMonth;
+import java.util.Currency;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
@@ -27,14 +28,17 @@ public final class PostJournalEntryService {
   private final JournalEntryRepository journalRepository;
   private final AccountRepository accountRepository;
   private final PeriodService periodService;
+  private final Currency baseCurrency;
 
   public PostJournalEntryService(
       JournalEntryRepository journalRepository,
       AccountRepository accountRepository,
-      PeriodService periodService) {
+      PeriodService periodService,
+      Currency baseCurrency) {
     this.journalRepository = Objects.requireNonNull(journalRepository, "journalRepository");
     this.accountRepository = Objects.requireNonNull(accountRepository, "accountRepository");
     this.periodService = Objects.requireNonNull(periodService, "periodService");
+    this.baseCurrency = Objects.requireNonNull(baseCurrency, "baseCurrency");
   }
 
   public Result<PersistedJournalEntry, JournalError> post(
@@ -48,7 +52,7 @@ public final class PostJournalEntryService {
             .collect(Collectors.toUnmodifiableSet());
     PeriodStatus periodStatus = periodService.findByYearMonth(YearMonth.from(occurredOn)).status();
     JournalValidationContext ctx =
-        new JournalValidationContext(accounts, nonLeafCodes, periodStatus, false);
+        new JournalValidationContext(accounts, nonLeafCodes, periodStatus, baseCurrency, false);
     return JournalEntry.of(occurredOn, description, postings, ctx).map(journalRepository::save);
   }
 }

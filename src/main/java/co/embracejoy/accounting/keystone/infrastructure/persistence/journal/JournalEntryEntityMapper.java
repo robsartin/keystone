@@ -19,14 +19,7 @@ final class JournalEntryEntityMapper {
   }
 
   static JournalEntryEntity toEntity(JournalEntry entry, UUID id) {
-    // Phase A: use the first posting's amount currency as the entry-level currency for the
-    // entity column (Phase B's V5 migration will move currency to postings and drop this column).
-    String currencyCode =
-        entry.postings().isEmpty()
-            ? "USD"
-            : entry.postings().get(0).amount().currency().getCurrencyCode();
-    JournalEntryEntity je =
-        new JournalEntryEntity(id, entry.occurredOn(), entry.description(), currencyCode);
+    JournalEntryEntity je = new JournalEntryEntity(id, entry.occurredOn(), entry.description());
     java.util.List<Posting> postings = entry.postings();
     for (int i = 0; i < postings.size(); i++) {
       Posting p = postings.get(i);
@@ -36,27 +29,35 @@ final class JournalEntryEntityMapper {
               p.account().value(),
               p.side().name(),
               p.amount().minorUnits(),
+              p.amount().currency().getCurrencyCode(),
+              p.baseAmount().minorUnits(),
               i));
     }
     return je;
   }
 
-  static PersistedJournalEntry toDomain(JournalEntryEntity entity) {
-    Currency currency = Currency.getInstance(entity.getCurrency());
+  /**
+   * Reconstitutes a domain {@link PersistedJournalEntry} from the entity graph.
+   *
+   * @param entity the JPA entity
+   * @param baseCurrency the configured base currency (from {@code keystone.base-currency}), used to
+   *     set {@code Posting.baseAmount.currency()} on reconstitution
+   */
+  static PersistedJournalEntry toDomain(JournalEntryEntity entity, Currency baseCurrency) {
     java.util.List<Posting> postings =
         entity.getPostings().stream()
             .map(
                 pe -> {
-                  Money money = new Money(pe.getAmountMinorUnits(), currency);
+                  Currency txCurrency = Currency.getInstance(pe.getCurrency());
+                  Money amount = new Money(pe.getAmountMinorUnits(), txCurrency);
+                  Money baseAmount = new Money(pe.getBaseMinorUnits(), baseCurrency);
                   return new Posting(
                       new AccountCode(pe.getAccountCode()),
                       Side.valueOf(pe.getSide()),
-                      money,
-                      money);
+                      amount,
+                      baseAmount);
                 })
             .toList();
-    // currency read from entity but not forwarded — JournalEntry dropped the field in Slice 6.
-    // Phase B's V5 migration will move currency to the postings table.
     JournalEntry entry =
         new JournalEntry(entity.getOccurredOn(), entity.getDescription(), postings);
     return new PersistedJournalEntry(new JournalEntryId(entity.getId()), entry);

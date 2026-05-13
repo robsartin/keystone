@@ -28,9 +28,6 @@ class JournalEntryEntity {
   @Column(name = "description", nullable = false, length = 500)
   private String description;
 
-  @Column(name = "currency", nullable = false, length = 3)
-  private String currency;
-
   @Column(name = "created_at", nullable = false, updatable = false, insertable = false)
   private Instant createdAt;
 
@@ -46,11 +43,10 @@ class JournalEntryEntity {
     // JPA required no-arg constructor
   }
 
-  JournalEntryEntity(UUID id, LocalDate occurredOn, String description, String currency) {
+  JournalEntryEntity(UUID id, LocalDate occurredOn, String description) {
     this.id = id;
     this.occurredOn = occurredOn;
     this.description = description;
-    this.currency = currency;
   }
 
   UUID getId() {
@@ -63,10 +59,6 @@ class JournalEntryEntity {
 
   String getDescription() {
     return description;
-  }
-
-  String getCurrency() {
-    return currency;
   }
 
   List<PostingEntity> getPostings() {

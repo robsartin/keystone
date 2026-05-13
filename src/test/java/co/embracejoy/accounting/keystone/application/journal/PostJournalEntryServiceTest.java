@@ -61,7 +61,9 @@ class PostJournalEntryServiceTest {
     accountRepo.seed(
         new Account(EQUITY, "Owner Equity", AccountType.EQUITY, USD, Optional.empty(), true));
     PeriodService periodService = new PeriodService(periodRepo, journalRepo);
-    service = new PostJournalEntryService(journalRepo, accountRepo, periodService);
+    service =
+        new PostJournalEntryService(
+            journalRepo, accountRepo, periodService, Currency.getInstance("USD"));
   }
 
   private static Posting debit(AccountCode a, long amt) {
