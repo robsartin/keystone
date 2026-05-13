@@ -27,6 +27,18 @@ public final class ResultMapper {
       case JournalError.AccountNotALeaf a -> journalAccountNotALeaf(a);
       case JournalError.AccountCurrencyMismatch a -> journalAccountCurrencyMismatch(a);
       case JournalError.PostingInClosedPeriod p -> journalPostingInClosedPeriod(p);
+      case JournalError.BaseCurrencyMismatch m ->
+          problem(
+              HttpStatus.BAD_REQUEST,
+              "/journal/base-currency-mismatch",
+              "Posting baseAmount currency does not match the configured base",
+              "Account '"
+                  + m.code().value()
+                  + "' posting carries baseAmount in "
+                  + m.actualOnPosting().getCurrencyCode()
+                  + " but the configured base currency is "
+                  + m.expectedByConfig().getCurrencyCode()
+                  + ".");
     };
   }
 

@@ -89,4 +89,20 @@ class JournalValidationContextTest {
     JournalValidationContext ctx = new JournalValidationContext(Map.of(), Set.of(code));
     assertThrows(UnsupportedOperationException.class, () -> ctx.nonLeafCodes().clear());
   }
+
+  @Test
+  @DisplayName("rejects null baseCurrency")
+  void shouldThrowWhenBaseCurrencyIsNull() {
+    assertThrows(
+        NullPointerException.class,
+        () -> new JournalValidationContext(Map.of(), Set.of(), PeriodStatus.OPEN, null, false));
+  }
+
+  @Test
+  @DisplayName("4-arg back-compat constructor defaults baseCurrency to USD")
+  void shouldDefaultBaseCurrencyToUsdWhen4ArgConstructorUsed() {
+    JournalValidationContext ctx =
+        new JournalValidationContext(Map.of(), Set.of(), PeriodStatus.OPEN, false);
+    assertEquals(Currency.getInstance("USD"), ctx.baseCurrency());
+  }
 }

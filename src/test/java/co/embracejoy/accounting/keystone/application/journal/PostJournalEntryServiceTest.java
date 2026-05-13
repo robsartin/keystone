@@ -65,11 +65,13 @@ class PostJournalEntryServiceTest {
   }
 
   private static Posting debit(AccountCode a, long amt) {
-    return new Posting(a, Side.DEBIT, new Money(amt, USD));
+    Money m = new Money(amt, USD);
+    return new Posting(a, Side.DEBIT, m, m);
   }
 
   private static Posting credit(AccountCode a, long amt) {
-    return new Posting(a, Side.CREDIT, new Money(amt, USD));
+    Money m = new Money(amt, USD);
+    return new Posting(a, Side.CREDIT, m, m);
   }
 
   @Test

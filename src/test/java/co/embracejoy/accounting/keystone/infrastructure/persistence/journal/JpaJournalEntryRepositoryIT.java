@@ -50,8 +50,8 @@ class JpaJournalEntryRepositoryIT {
             LocalDate.parse("2026-05-10"),
             "opening",
             List.of(
-                new Posting(CASH, Side.DEBIT, new Money(10000L, USD)),
-                new Posting(EQUITY, Side.CREDIT, new Money(10000L, USD))));
+                new Posting(CASH, Side.DEBIT, new Money(10000L, USD), new Money(10000L, USD)),
+                new Posting(EQUITY, Side.CREDIT, new Money(10000L, USD), new Money(10000L, USD))));
     return ((Result.Success<JournalEntry, JournalError>) r).value();
   }
 
@@ -61,8 +61,8 @@ class JpaJournalEntryRepositoryIT {
             d,
             "test",
             List.of(
-                new Posting(CASH, Side.DEBIT, new Money(1L, USD)),
-                new Posting(EQUITY, Side.CREDIT, new Money(1L, USD))));
+                new Posting(CASH, Side.DEBIT, new Money(1L, USD), new Money(1L, USD)),
+                new Posting(EQUITY, Side.CREDIT, new Money(1L, USD), new Money(1L, USD))));
     return ((Result.Success<JournalEntry, JournalError>) r).value();
   }
 
@@ -96,7 +96,6 @@ class JpaJournalEntryRepositoryIT {
     PersistedJournalEntry hydrated = found.get();
     assertThat(hydrated.id()).isEqualTo(saved.id());
     assertThat(hydrated.entry().description()).isEqualTo("opening");
-    assertThat(hydrated.entry().currency()).isEqualTo(USD);
     assertThat(hydrated.entry().postings()).hasSize(2);
   }
 

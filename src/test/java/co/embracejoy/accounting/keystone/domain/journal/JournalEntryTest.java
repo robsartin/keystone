@@ -24,17 +24,18 @@ import org.junit.jupiter.api.Test;
 class JournalEntryTest {
 
   private static final Currency USD = Currency.getInstance("USD");
-  private static final Currency EUR = Currency.getInstance("EUR");
   private static final AccountCode CASH = new AccountCode("1000");
   private static final AccountCode EQUITY = new AccountCode("3000");
   private static final LocalDate TODAY = LocalDate.parse("2026-05-09");
 
   private static Posting debit(AccountCode a, long amt, Currency c) {
-    return new Posting(a, Side.DEBIT, new Money(amt, c));
+    Money m = new Money(amt, c);
+    return new Posting(a, Side.DEBIT, m, m);
   }
 
   private static Posting credit(AccountCode a, long amt, Currency c) {
-    return new Posting(a, Side.CREDIT, new Money(amt, c));
+    Money m = new Money(amt, c);
+    return new Posting(a, Side.CREDIT, m, m);
   }
 
   @Test
@@ -44,17 +45,6 @@ class JournalEntryTest {
     assertInstanceOf(Result.Failure.class, r);
     assertInstanceOf(
         JournalError.NoPostings.class, ((Result.Failure<JournalEntry, JournalError>) r).error());
-  }
-
-  @Test
-  @DisplayName("of() returns Failure(MixedCurrencies) when postings span currencies")
-  void shouldReturnMixedCurrenciesWhenCurrenciesDiffer() {
-    Result<JournalEntry, JournalError> r =
-        JournalEntry.of(TODAY, "x", List.of(debit(CASH, 100L, USD), credit(EQUITY, 100L, EUR)));
-    assertInstanceOf(Result.Failure.class, r);
-    assertInstanceOf(
-        JournalError.MixedCurrencies.class,
-        ((Result.Failure<JournalEntry, JournalError>) r).error());
   }
 
   @Test
@@ -80,7 +70,6 @@ class JournalEntryTest {
     assertEquals(TODAY, je.occurredOn());
     assertEquals("opening", je.description());
     assertEquals(2, je.postings().size());
-    assertEquals(USD, je.currency());
   }
 
   @Test
@@ -132,10 +121,11 @@ class JournalEntryTest {
   @DisplayName("of() returns Failure(Overflow) when same-side postings sum past Long.MAX_VALUE")
   void shouldReturnOverflowWhenSameSidePostingsExceedLongRange() {
     long half = Long.MAX_VALUE / 2 + 1;
-    Posting bigDebit1 = new Posting(CASH, Side.DEBIT, new Money(half, USD));
+    Posting bigDebit1 = new Posting(CASH, Side.DEBIT, new Money(half, USD), new Money(half, USD));
     AccountCode receivable = new AccountCode("1100");
-    Posting bigDebit2 = new Posting(receivable, Side.DEBIT, new Money(half, USD));
-    Posting smallCredit = new Posting(EQUITY, Side.CREDIT, new Money(1L, USD));
+    Posting bigDebit2 =
+        new Posting(receivable, Side.DEBIT, new Money(half, USD), new Money(half, USD));
+    Posting smallCredit = new Posting(EQUITY, Side.CREDIT, new Money(1L, USD), new Money(1L, USD));
 
     Result<JournalEntry, JournalError> r =
         JournalEntry.of(TODAY, "overflow", List.of(bigDebit1, bigDebit2, smallCredit));

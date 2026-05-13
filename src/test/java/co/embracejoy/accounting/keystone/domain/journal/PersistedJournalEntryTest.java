@@ -25,8 +25,10 @@ class PersistedJournalEntryTest {
             LocalDate.parse("2026-05-10"),
             "x",
             List.of(
-                new Posting(new AccountCode("1000"), Side.DEBIT, new Money(1L, USD)),
-                new Posting(new AccountCode("3000"), Side.CREDIT, new Money(1L, USD))));
+                new Posting(
+                    new AccountCode("1000"), Side.DEBIT, new Money(1L, USD), new Money(1L, USD)),
+                new Posting(
+                    new AccountCode("3000"), Side.CREDIT, new Money(1L, USD), new Money(1L, USD))));
     return ((Result.Success<JournalEntry, JournalError>) r).value();
   }
 

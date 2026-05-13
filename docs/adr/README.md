@@ -24,6 +24,7 @@ See [ADR-0001](0001-record-decisions-in-adrs.md) for the meta-decision.
 | [0011](0011-account-hierarchy-leaf-only-posting.md) | Account aggregate with hierarchy and leaf-only posting | Accepted |
 | [0012](0012-period-model-sequential-close.md) | Period model — fixed monthly, sequential close, audit fields | Accepted |
 | [0013](0013-journal-validation-context.md) | Domain validation that needs external data uses a context record | Accepted |
+| [0014](0014-multi-currency-base-anchoring.md) | Multi-currency journal entries with base-currency anchoring | Accepted |
 
 ## Numbering
 
