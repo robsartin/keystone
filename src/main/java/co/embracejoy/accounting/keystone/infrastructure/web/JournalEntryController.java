@@ -73,7 +73,7 @@ public class JournalEntryController {
   }
 
   private static Posting toDomainPosting(PostingRequest p, Currency currency) {
-    return new Posting(
-        new AccountCode(p.account()), Side.valueOf(p.side()), new Money(p.minorUnits(), currency));
+    Money amount = new Money(p.minorUnits(), currency);
+    return new Posting(new AccountCode(p.account()), Side.valueOf(p.side()), amount, amount);
   }
 }

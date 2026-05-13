@@ -71,8 +71,16 @@ class JournalEntryControllerTest {
             LocalDate.parse("2026-05-10"),
             "opening",
             List.of(
-                new Posting(new AccountCode("1000"), Side.DEBIT, new Money(10000L, USD)),
-                new Posting(new AccountCode("3000"), Side.CREDIT, new Money(10000L, USD))));
+                new Posting(
+                    new AccountCode("1000"),
+                    Side.DEBIT,
+                    new Money(10000L, USD),
+                    new Money(10000L, USD)),
+                new Posting(
+                    new AccountCode("3000"),
+                    Side.CREDIT,
+                    new Money(10000L, USD),
+                    new Money(10000L, USD))));
     JournalEntry entry = ((Result.Success<JournalEntry, JournalError>) r).value();
     return new PersistedJournalEntry(
         new JournalEntryId(UUID.fromString("01902f9f-0000-7000-8000-000000000000")), entry);

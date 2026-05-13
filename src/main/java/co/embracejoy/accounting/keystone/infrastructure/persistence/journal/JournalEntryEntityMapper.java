@@ -41,11 +41,14 @@ final class JournalEntryEntityMapper {
     java.util.List<Posting> postings =
         entity.getPostings().stream()
             .map(
-                pe ->
-                    new Posting(
-                        new AccountCode(pe.getAccountCode()),
-                        Side.valueOf(pe.getSide()),
-                        new Money(pe.getAmountMinorUnits(), currency)))
+                pe -> {
+                  Money money = new Money(pe.getAmountMinorUnits(), currency);
+                  return new Posting(
+                      new AccountCode(pe.getAccountCode()),
+                      Side.valueOf(pe.getSide()),
+                      money,
+                      money);
+                })
             .toList();
     JournalEntry entry =
         new JournalEntry(entity.getOccurredOn(), entity.getDescription(), currency, postings);
