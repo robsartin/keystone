@@ -51,6 +51,17 @@ public record JournalEntry(LocalDate occurredOn, String description, List<Postin
     if (accountCheck != null) {
       return accountCheck;
     }
+    // BaseCurrencyMismatch check: every posting's baseAmount must be in the configured base
+    // currency. Permissive contexts (backward-compat 3-arg of() callers) skip this check.
+    if (!ctx.permissiveMode()) {
+      for (Posting p : postings) {
+        if (!p.baseAmount().currency().equals(ctx.baseCurrency())) {
+          return Result.failure(
+              new JournalError.BaseCurrencyMismatch(
+                  p.account(), ctx.baseCurrency(), p.baseAmount().currency()));
+        }
+      }
+    }
     return checkBalance(occurredOn, description, postings, ctx);
   }
 

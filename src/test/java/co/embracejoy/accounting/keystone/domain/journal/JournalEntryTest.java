@@ -222,4 +222,56 @@ class JournalEntryTest {
             ((Result.Failure<JournalEntry, JournalError>) r).error();
     assertEquals(YearMonth.from(TODAY), e.period());
   }
+
+  @Test
+  @DisplayName(
+      "of(ctx) returns Failure(BaseCurrencyMismatch) when posting baseAmount currency differs")
+  void shouldReturnBaseCurrencyMismatchWhenBaseCurrencyDiffers() {
+    Currency eur = Currency.getInstance("EUR");
+    Account cash = new Account(CASH, "Cash", AccountType.ASSET, USD, Optional.empty(), true);
+    Account equity = new Account(EQUITY, "Equity", AccountType.EQUITY, USD, Optional.empty(), true);
+    JournalValidationContext ctx =
+        new JournalValidationContext(
+            Map.of(CASH, cash, EQUITY, equity),
+            Set.of(),
+            PeriodStatus.OPEN,
+            Currency.getInstance("USD"),
+            false);
+    // Posting carries baseAmount in EUR but the configured base is USD.
+    Posting bad = new Posting(CASH, Side.DEBIT, new Money(100L, USD), new Money(92L, eur));
+    Posting good = new Posting(EQUITY, Side.CREDIT, new Money(100L, USD), new Money(100L, USD));
+
+    Result<JournalEntry, JournalError> r = JournalEntry.of(TODAY, "x", List.of(bad, good), ctx);
+
+    JournalError.BaseCurrencyMismatch e =
+        (JournalError.BaseCurrencyMismatch)
+            ((Result.Failure<JournalEntry, JournalError>) r).error();
+    assertEquals(CASH, e.code());
+    assertEquals(Currency.getInstance("USD"), e.expectedByConfig());
+    assertEquals(eur, e.actualOnPosting());
+  }
+
+  @Test
+  @DisplayName("of(ctx) returns Success for a multi-currency entry that balances in base")
+  void shouldReturnSuccessWhenMultiCurrencyBalancesInBase() {
+    Currency eur = Currency.getInstance("EUR");
+    AccountCode cashEurCode = new AccountCode("1000-EUR");
+    Account cashUsd = new Account(CASH, "Cash USD", AccountType.ASSET, USD, Optional.empty(), true);
+    Account cashEur =
+        new Account(cashEurCode, "Cash EUR", AccountType.ASSET, eur, Optional.empty(), true);
+    JournalValidationContext ctx =
+        new JournalValidationContext(
+            Map.of(CASH, cashUsd, cashEurCode, cashEur), Set.of(), PeriodStatus.OPEN, USD, false);
+    // USD → EUR transfer at 0.92 rate: 100 USD = 92 EUR.
+    // baseAmount on both is the USD-equivalent.
+    Posting debitEur =
+        new Posting(cashEurCode, Side.DEBIT, new Money(9200L, eur), new Money(10000L, USD));
+    Posting creditUsd =
+        new Posting(CASH, Side.CREDIT, new Money(10000L, USD), new Money(10000L, USD));
+
+    Result<JournalEntry, JournalError> r =
+        JournalEntry.of(TODAY, "USD→EUR transfer", List.of(debitEur, creditUsd), ctx);
+
+    assertInstanceOf(Result.Success.class, r);
+  }
 }
