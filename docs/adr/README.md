@@ -22,6 +22,7 @@ See [ADR-0001](0001-record-decisions-in-adrs.md) for the meta-decision.
 | [0009](0009-trunk-based-development.md) | Trunk-based development with squash-merged PRs and required CI | Accepted |
 | [0010](0010-journal-entry-id-wrapper.md) | JournalEntryId wrapper with UUID v7; PersistedJournalEntry separates intent from persisted state | Accepted |
 | [0011](0011-account-hierarchy-leaf-only-posting.md) | Account aggregate with hierarchy and leaf-only posting | Accepted |
+| [0012](0012-period-model-sequential-close.md) | Period model — fixed monthly, sequential close, audit fields | Accepted |
 | [0013](0013-journal-validation-context.md) | Domain validation that needs external data uses a context record | Accepted |
 
 ## Numbering
