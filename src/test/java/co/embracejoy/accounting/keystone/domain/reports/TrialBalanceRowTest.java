@@ -15,11 +15,13 @@ class TrialBalanceRowTest {
   private static final AccountCode CASH = new AccountCode("1000");
 
   @Test
-  @DisplayName("balance() returns debits - credits")
+  @DisplayName("balance() returns debits - credits; baseBalance() returns baseDebits - baseCredits")
   void shouldComputeBalanceFromDebitsMinusCredits() {
-    TrialBalanceRow row = new TrialBalanceRow(CASH, USD, 9200L, 3200L, 10000L, 4000L);
+    // Asymmetric values catch a hypothetical copy-paste where baseBalance()
+    // accidentally subtracts (debits - credits) instead of (baseDebits - baseCredits).
+    TrialBalanceRow row = new TrialBalanceRow(CASH, USD, 9200L, 3200L, 15000L, 3000L);
     assertEquals(6000L, row.balance());
-    assertEquals(6000L, row.baseBalance());
+    assertEquals(12000L, row.baseBalance());
   }
 
   @Test
