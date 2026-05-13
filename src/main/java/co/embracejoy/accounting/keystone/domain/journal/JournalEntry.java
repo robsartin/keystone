@@ -8,11 +8,8 @@ import co.embracejoy.accounting.keystone.domain.period.PeriodStatus;
 import co.embracejoy.accounting.keystone.domain.shared.Result;
 import java.time.LocalDate;
 import java.time.YearMonth;
-import java.util.Currency;
 import java.util.List;
 import java.util.Objects;
-import java.util.Set;
-import java.util.stream.Collectors;
 
 /**
  * A balanced double-entry journal entry.
@@ -20,20 +17,18 @@ import java.util.stream.Collectors;
  * <p>Construct via {@link #of(LocalDate, String, List)} or {@link #of(LocalDate, String, List,
  * JournalValidationContext)}; the factory enforces the invariants and returns a {@code Result}.
  */
-public record JournalEntry(
-    LocalDate occurredOn, String description, Currency currency, List<Posting> postings) {
+public record JournalEntry(LocalDate occurredOn, String description, List<Posting> postings) {
 
   public JournalEntry {
     Objects.requireNonNull(occurredOn, "occurredOn");
     Objects.requireNonNull(description, "description");
-    Objects.requireNonNull(currency, "currency");
     Objects.requireNonNull(postings, "postings");
     postings = List.copyOf(postings);
   }
 
   /**
-   * Build a journal entry with account validation. Validates: non-empty → single-currency →
-   * per-posting account checks (exists → active → leaf → currency match) → no overflow → balanced.
+   * Build a journal entry with account validation. Validates: non-empty → per-posting account
+   * checks (exists → active → leaf → currency match) → no overflow → balanced in base currency.
    *
    * <p>Use {@link JournalValidationContext#permissive()} to skip account checks (backward compat).
    */
@@ -46,27 +41,17 @@ public record JournalEntry(
     Objects.requireNonNull(description, "description");
     Objects.requireNonNull(postings, "postings");
     Objects.requireNonNull(ctx, "ctx");
-
     if (postings.isEmpty()) {
       return Result.failure(new JournalError.NoPostings());
     }
-    Set<Currency> currencies =
-        postings.stream().map(p -> p.amount().currency()).collect(Collectors.toUnmodifiableSet());
-    if (currencies.size() > 1) {
-      return Result.failure(new JournalError.MixedCurrencies(currencies));
-    }
-    Currency currency = currencies.iterator().next();
-    // Period check — must precede the per-posting account loop.
     if (!ctx.permissiveMode() && ctx.periodStatus() == PeriodStatus.CLOSED) {
       return Result.failure(new JournalError.PostingInClosedPeriod(YearMonth.from(occurredOn)));
     }
-    if (!ctx.permissiveMode()) {
-      Result<JournalEntry, JournalError> err = checkAccounts(postings, ctx);
-      if (err != null) {
-        return err;
-      }
+    Result<JournalEntry, JournalError> accountCheck = checkAccounts(postings, ctx);
+    if (accountCheck != null) {
+      return accountCheck;
     }
-    return checkBalance(occurredOn, description, currency, postings);
+    return checkBalance(occurredOn, description, postings, ctx);
   }
 
   /**
@@ -84,6 +69,9 @@ public record JournalEntry(
       AccountCode code = p.account();
       Account account = ctx.accounts().get(code);
       if (account == null) {
+        if (ctx.permissiveMode()) {
+          continue;
+        }
         return Result.failure(new JournalError.AccountNotFound(code));
       }
       if (!account.active()) {
@@ -101,9 +89,14 @@ public record JournalEntry(
     return null;
   }
 
+  // Phase A interim balance check: balance on baseAmount per the spec.
+  // Phase B will add BaseCurrencyMismatch check before this step.
   private static Result<JournalEntry, JournalError> checkBalance(
-      LocalDate occurredOn, String description, Currency currency, List<Posting> postings) {
-    Money zero = new Money(0L, currency);
+      LocalDate occurredOn,
+      String description,
+      List<Posting> postings,
+      JournalValidationContext ctx) {
+    Money zero = new Money(0L, ctx.baseCurrency());
     return sum(postings, Side.DEBIT, zero)
         .flatMap(
             debits ->
@@ -114,15 +107,16 @@ public record JournalEntry(
                             return Result.failure(new JournalError.Unbalanced(debits, credits));
                           }
                           return Result.success(
-                              new JournalEntry(occurredOn, description, currency, postings));
+                              new JournalEntry(occurredOn, description, postings));
                         }));
   }
 
+  // sum() sums baseAmount; the zero is in base currency.
   private static Result<Money, JournalError> sum(List<Posting> postings, Side side, Money zero) {
     Money acc = zero;
     for (Posting p : postings) {
       if (p.side() == side) {
-        Result<Money, MoneyError> next = acc.plus(p.amount());
+        Result<Money, MoneyError> next = acc.plus(p.baseAmount());
         if (next instanceof Result.Success<Money, MoneyError> s) {
           acc = s.value();
         } else {

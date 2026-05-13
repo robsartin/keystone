@@ -19,9 +19,14 @@ final class JournalEntryEntityMapper {
   }
 
   static JournalEntryEntity toEntity(JournalEntry entry, UUID id) {
+    // Phase A: use the first posting's amount currency as the entry-level currency for the
+    // entity column (Phase B's V5 migration will move currency to postings and drop this column).
+    String currencyCode =
+        entry.postings().isEmpty()
+            ? "USD"
+            : entry.postings().get(0).amount().currency().getCurrencyCode();
     JournalEntryEntity je =
-        new JournalEntryEntity(
-            id, entry.occurredOn(), entry.description(), entry.currency().getCurrencyCode());
+        new JournalEntryEntity(id, entry.occurredOn(), entry.description(), currencyCode);
     java.util.List<Posting> postings = entry.postings();
     for (int i = 0; i < postings.size(); i++) {
       Posting p = postings.get(i);
@@ -50,8 +55,10 @@ final class JournalEntryEntityMapper {
                       money);
                 })
             .toList();
+    // currency read from entity but not forwarded — JournalEntry dropped the field in Slice 6.
+    // Phase B's V5 migration will move currency to the postings table.
     JournalEntry entry =
-        new JournalEntry(entity.getOccurredOn(), entity.getDescription(), currency, postings);
+        new JournalEntry(entity.getOccurredOn(), entity.getDescription(), postings);
     return new PersistedJournalEntry(new JournalEntryId(entity.getId()), entry);
   }
 }

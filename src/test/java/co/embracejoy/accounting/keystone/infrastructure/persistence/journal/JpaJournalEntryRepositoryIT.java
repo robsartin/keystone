@@ -96,7 +96,6 @@ class JpaJournalEntryRepositoryIT {
     PersistedJournalEntry hydrated = found.get();
     assertThat(hydrated.id()).isEqualTo(saved.id());
     assertThat(hydrated.entry().description()).isEqualTo("opening");
-    assertThat(hydrated.entry().currency()).isEqualTo(USD);
     assertThat(hydrated.entry().postings()).hasSize(2);
   }
 

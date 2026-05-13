@@ -102,7 +102,6 @@ class JournalEntryControllerTest {
                 .string(
                     "Location", endsWith("/journal-entries/01902f9f-0000-7000-8000-000000000000")))
         .andExpect(jsonPath("$.id").value("01902f9f-0000-7000-8000-000000000000"))
-        .andExpect(jsonPath("$.currency").value("USD"))
         .andExpect(jsonPath("$.postings.length()").value(2));
   }
 

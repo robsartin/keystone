@@ -7,11 +7,7 @@ import java.util.List;
 
 /** Outbound representation of a persisted journal entry. */
 public record JournalEntryResponse(
-    String id,
-    LocalDate occurredOn,
-    String description,
-    String currency,
-    List<PostingResponse> postings) {
+    String id, LocalDate occurredOn, String description, List<PostingResponse> postings) {
 
   public static JournalEntryResponse of(PersistedJournalEntry persisted) {
     List<PostingResponse> postings =
@@ -20,7 +16,6 @@ public record JournalEntryResponse(
         persisted.id().value().toString(),
         persisted.entry().occurredOn(),
         persisted.entry().description(),
-        persisted.entry().currency().getCurrencyCode(),
         postings);
   }
 

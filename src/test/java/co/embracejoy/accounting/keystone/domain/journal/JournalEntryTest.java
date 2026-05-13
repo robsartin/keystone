@@ -24,7 +24,6 @@ import org.junit.jupiter.api.Test;
 class JournalEntryTest {
 
   private static final Currency USD = Currency.getInstance("USD");
-  private static final Currency EUR = Currency.getInstance("EUR");
   private static final AccountCode CASH = new AccountCode("1000");
   private static final AccountCode EQUITY = new AccountCode("3000");
   private static final LocalDate TODAY = LocalDate.parse("2026-05-09");
@@ -46,17 +45,6 @@ class JournalEntryTest {
     assertInstanceOf(Result.Failure.class, r);
     assertInstanceOf(
         JournalError.NoPostings.class, ((Result.Failure<JournalEntry, JournalError>) r).error());
-  }
-
-  @Test
-  @DisplayName("of() returns Failure(MixedCurrencies) when postings span currencies")
-  void shouldReturnMixedCurrenciesWhenCurrenciesDiffer() {
-    Result<JournalEntry, JournalError> r =
-        JournalEntry.of(TODAY, "x", List.of(debit(CASH, 100L, USD), credit(EQUITY, 100L, EUR)));
-    assertInstanceOf(Result.Failure.class, r);
-    assertInstanceOf(
-        JournalError.MixedCurrencies.class,
-        ((Result.Failure<JournalEntry, JournalError>) r).error());
   }
 
   @Test
@@ -82,7 +70,6 @@ class JournalEntryTest {
     assertEquals(TODAY, je.occurredOn());
     assertEquals("opening", je.description());
     assertEquals(2, je.postings().size());
-    assertEquals(USD, je.currency());
   }
 
   @Test
