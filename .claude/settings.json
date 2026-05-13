@@ -1,0 +1,18 @@
+{
+  "permissions": {
+    "allow": [
+      "mcp__ccd_session__mark_chapter",
+      "Bash(./mvnw -B verify)",
+      "Bash(./mvnw -B spotless:apply)",
+      "Bash(./mvnw -B spotless:apply -q)",
+      "Bash(./mvnw -B -q verify)",
+      "Bash(./mvnw -B test)",
+      "Bash(./mvnw -B -q compile)",
+      "Bash(./mvnw -B verify -Popenapi-gate -Dopenapi.diff.skip=true)",
+      "Bash(./mvnw -B compile)",
+      "Bash(./mvnw -B clean verify -Pmutation,openapi-gate)",
+      "Bash(./mvnw -B verify -Popenapi-gate)",
+      "Bash(./mvnw -B -q validate)"
+    ]
+  }
+}
