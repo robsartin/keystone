@@ -1,5 +1,6 @@
 package co.embracejoy.accounting.keystone.domain.period;
 
+import co.embracejoy.accounting.keystone.domain.tenancy.TenantId;
 import java.time.Instant;
 import java.time.YearMonth;
 import java.util.Objects;
@@ -11,6 +12,7 @@ import java.util.Optional;
  * been changed at least once.
  */
 public record Period(
+    TenantId tenantId,
     YearMonth yearMonth,
     PeriodStatus status,
     Optional<Instant> closedAt,
@@ -19,6 +21,7 @@ public record Period(
     Optional<String> reopenedBy) {
 
   public Period {
+    Objects.requireNonNull(tenantId, "tenantId");
     Objects.requireNonNull(yearMonth, "yearMonth");
     Objects.requireNonNull(status, "status");
     Objects.requireNonNull(closedAt, "closedAt");
@@ -31,8 +34,9 @@ public record Period(
   }
 
   /** Factory for the synthesized "no row exists" OPEN state. */
-  public static Period openFor(YearMonth yearMonth) {
+  public static Period openFor(TenantId tenantId, YearMonth yearMonth) {
     return new Period(
+        tenantId,
         yearMonth,
         PeriodStatus.OPEN,
         Optional.empty(),

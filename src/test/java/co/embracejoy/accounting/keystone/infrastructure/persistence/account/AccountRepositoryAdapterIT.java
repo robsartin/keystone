@@ -9,10 +9,13 @@ import co.embracejoy.accounting.keystone.domain.account.AccountError;
 import co.embracejoy.accounting.keystone.domain.account.AccountStatus;
 import co.embracejoy.accounting.keystone.domain.account.AccountType;
 import co.embracejoy.accounting.keystone.domain.shared.Result;
+import co.embracejoy.accounting.keystone.infrastructure.security.TenantContext;
+import co.embracejoy.accounting.keystone.infrastructure.security.Tenants;
 import java.util.Currency;
 import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
+import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -37,6 +40,7 @@ class AccountRepositoryAdapterIT {
           .withPassword("test");
 
   @Autowired AccountRepositoryAdapter repository;
+  @Autowired TenantContext tenantContext;
 
   private static final Currency USD = Currency.getInstance("USD");
   // Use codes outside the V4 seed range (1000, 1100, 3000, 4000) to avoid conflicts.
@@ -44,8 +48,20 @@ class AccountRepositoryAdapterIT {
   private static final AccountCode CASH = new AccountCode("2000");
   private static final AccountCode RECEIVABLES = new AccountCode("2100");
 
+  @BeforeEach
+  void setupTenant() {
+    tenantContext.set(Tenants.DEFAULT_TENANT_ID);
+  }
+
   private static Account asset(AccountCode code, String name, Optional<AccountCode> parent) {
-    return new Account(code, name, AccountType.ASSET, USD, parent, AccountStatus.ACTIVE);
+    return new Account(
+        Tenants.DEFAULT_TENANT_ID,
+        code,
+        name,
+        AccountType.ASSET,
+        USD,
+        parent,
+        AccountStatus.ACTIVE);
   }
 
   @Test

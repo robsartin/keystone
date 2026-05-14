@@ -11,6 +11,7 @@ import co.embracejoy.accounting.keystone.domain.period.PeriodError;
 import co.embracejoy.accounting.keystone.domain.period.PeriodRepository;
 import co.embracejoy.accounting.keystone.domain.period.PeriodStatus;
 import co.embracejoy.accounting.keystone.domain.shared.Result;
+import co.embracejoy.accounting.keystone.domain.tenancy.TenantId;
 import java.time.Instant;
 import java.time.YearMonth;
 import java.util.HashMap;
@@ -19,6 +20,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
+import java.util.UUID;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
@@ -26,6 +28,8 @@ import org.junit.jupiter.api.Test;
 @DisplayName("PeriodService")
 class PeriodServiceTest {
 
+  private static final TenantId TENANT =
+      new TenantId(UUID.fromString("01902f9f-0000-7000-8000-00000000d1f1"));
   private static final YearMonth MAY_2026 = YearMonth.of(2026, 5);
   private static final YearMonth JUNE_2026 = YearMonth.of(2026, 6);
   private static final String ACTOR = "system";
@@ -44,7 +48,7 @@ class PeriodServiceTest {
   @Test
   @DisplayName("close succeeds when no postings exist in any month")
   void shouldCloseWhenSequentiallyValid() {
-    Result<Period, PeriodError> r = service.close(MAY_2026, ACTOR);
+    Result<Period, PeriodError> r = service.close(TENANT, MAY_2026, ACTOR);
 
     assertThat(r).isInstanceOf(Result.Success.class);
     Period p = ((Result.Success<Period, PeriodError>) r).value();
@@ -62,7 +66,7 @@ class PeriodServiceTest {
     Period mayClosed = closedPeriod(MAY_2026);
     periodRepo.store(mayClosed);
 
-    Result<Period, PeriodError> r = service.close(JUNE_2026, ACTOR);
+    Result<Period, PeriodError> r = service.close(TENANT, JUNE_2026, ACTOR);
 
     assertThat(r).isInstanceOf(Result.Success.class);
     assertThat(((Result.Success<Period, PeriodError>) r).value().yearMonth()).isEqualTo(JUNE_2026);
@@ -75,7 +79,7 @@ class PeriodServiceTest {
     journalRepo.addOccurredMonth(MAY_2026);
     journalRepo.addOccurredMonth(JUNE_2026);
 
-    Result<Period, PeriodError> r = service.close(JUNE_2026, ACTOR);
+    Result<Period, PeriodError> r = service.close(TENANT, JUNE_2026, ACTOR);
 
     assertThat(r).isInstanceOf(Result.Failure.class);
     PeriodError error = ((Result.Failure<Period, PeriodError>) r).error();
@@ -91,7 +95,7 @@ class PeriodServiceTest {
     Period mayClosed = closedPeriod(MAY_2026);
     periodRepo.store(mayClosed);
 
-    Result<Period, PeriodError> r = service.close(MAY_2026, ACTOR);
+    Result<Period, PeriodError> r = service.close(TENANT, MAY_2026, ACTOR);
 
     assertThat(r).isInstanceOf(Result.Success.class);
     // Should return the existing period unchanged — no second row saved
@@ -104,7 +108,7 @@ class PeriodServiceTest {
     Period mayClosed = closedPeriod(MAY_2026);
     periodRepo.store(mayClosed);
 
-    Result<Period, PeriodError> r = service.reopen(MAY_2026, ACTOR);
+    Result<Period, PeriodError> r = service.reopen(TENANT, MAY_2026, ACTOR);
 
     assertThat(r).isInstanceOf(Result.Success.class);
     Period reopened = ((Result.Success<Period, PeriodError>) r).value();
@@ -124,7 +128,7 @@ class PeriodServiceTest {
     periodRepo.store(mayClosed);
     periodRepo.store(juneClosed);
 
-    Result<Period, PeriodError> r = service.reopen(MAY_2026, ACTOR);
+    Result<Period, PeriodError> r = service.reopen(TENANT, MAY_2026, ACTOR);
 
     assertThat(r).isInstanceOf(Result.Failure.class);
     PeriodError error = ((Result.Failure<Period, PeriodError>) r).error();
@@ -137,7 +141,7 @@ class PeriodServiceTest {
   @Test
   @DisplayName("reopen rejects when there are no closed periods")
   void shouldRejectReopenWhenNoClosedExist() {
-    Result<Period, PeriodError> r = service.reopen(MAY_2026, ACTOR);
+    Result<Period, PeriodError> r = service.reopen(TENANT, MAY_2026, ACTOR);
 
     assertThat(r).isInstanceOf(Result.Failure.class);
     PeriodError error = ((Result.Failure<Period, PeriodError>) r).error();
@@ -150,7 +154,7 @@ class PeriodServiceTest {
   @Test
   @DisplayName("findByYearMonth synthesizes an OPEN period when no row exists")
   void shouldSynthesizeOpenWhenNoRowForFindByYearMonth() {
-    Period p = service.findByYearMonth(MAY_2026);
+    Period p = service.findByYearMonth(TENANT, MAY_2026);
 
     assertThat(p.yearMonth()).isEqualTo(MAY_2026);
     assertThat(p.status()).isEqualTo(PeriodStatus.OPEN);
@@ -162,6 +166,7 @@ class PeriodServiceTest {
 
   private static Period closedPeriod(YearMonth ym) {
     return new Period(
+        TENANT,
         ym,
         PeriodStatus.CLOSED,
         Optional.of(Instant.parse("2026-06-01T09:00:00Z")),
@@ -194,12 +199,12 @@ class PeriodServiceTest {
     }
 
     @Override
-    public Optional<Period> findByYearMonth(YearMonth yearMonth) {
+    public Optional<Period> findByYearMonth(TenantId tenantId, YearMonth yearMonth) {
       return Optional.ofNullable(store.get(yearMonth));
     }
 
     @Override
-    public List<Period> findAllClosed() {
+    public List<Period> findAllClosed(TenantId tenantId) {
       return store.values().stream()
           .filter(p -> p.status() == PeriodStatus.CLOSED)
           .sorted((a, b) -> b.yearMonth().compareTo(a.yearMonth()))
@@ -207,8 +212,8 @@ class PeriodServiceTest {
     }
 
     @Override
-    public Optional<Period> findLatestClosed() {
-      return findAllClosed().stream().findFirst();
+    public Optional<Period> findLatestClosed(TenantId tenantId) {
+      return findAllClosed(tenantId).stream().findFirst();
     }
   }
 
@@ -225,12 +230,12 @@ class PeriodServiceTest {
     }
 
     @Override
-    public Optional<PersistedJournalEntry> findById(JournalEntryId id) {
+    public Optional<PersistedJournalEntry> findById(TenantId tenantId, JournalEntryId id) {
       throw new UnsupportedOperationException("not needed in PeriodServiceTest");
     }
 
     @Override
-    public Set<YearMonth> distinctOccurredMonths() {
+    public Set<YearMonth> distinctOccurredMonths(TenantId tenantId) {
       return Set.copyOf(months);
     }
   }

@@ -22,6 +22,9 @@ class JournalEntryEntity {
   @Column(name = "id", nullable = false, updatable = false)
   private UUID id;
 
+  @Column(name = "tenant_id", nullable = false, updatable = false)
+  private UUID tenantId;
+
   @Column(name = "occurred_on", nullable = false)
   private LocalDate occurredOn;
 
@@ -46,14 +49,19 @@ class JournalEntryEntity {
     // JPA required no-arg constructor
   }
 
-  JournalEntryEntity(UUID id, LocalDate occurredOn, String description) {
+  JournalEntryEntity(UUID id, UUID tenantId, LocalDate occurredOn, String description) {
     this.id = id;
+    this.tenantId = tenantId;
     this.occurredOn = occurredOn;
     this.description = description;
   }
 
   UUID getId() {
     return id;
+  }
+
+  UUID getTenantId() {
+    return tenantId;
   }
 
   LocalDate getOccurredOn() {
@@ -70,6 +78,7 @@ class JournalEntryEntity {
 
   void addPosting(PostingEntity posting) {
     posting.setJournalEntry(this);
+    posting.setTenantId(this.tenantId);
     postings.add(posting);
   }
 }

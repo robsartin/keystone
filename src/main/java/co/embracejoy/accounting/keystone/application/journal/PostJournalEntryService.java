@@ -13,6 +13,7 @@ import co.embracejoy.accounting.keystone.domain.journal.PersistedJournalEntry;
 import co.embracejoy.accounting.keystone.domain.journal.Posting;
 import co.embracejoy.accounting.keystone.domain.period.PeriodStatus;
 import co.embracejoy.accounting.keystone.domain.shared.Result;
+import co.embracejoy.accounting.keystone.domain.tenancy.TenantId;
 import java.time.LocalDate;
 import java.time.YearMonth;
 import java.util.Currency;
@@ -43,7 +44,7 @@ public final class PostJournalEntryService {
   }
 
   public Result<PersistedJournalEntry, JournalError> post(
-      LocalDate occurredOn, String description, List<Posting> postings) {
+      TenantId tenantId, LocalDate occurredOn, String description, List<Posting> postings) {
     Set<AccountCode> codes =
         postings.stream().map(Posting::account).collect(Collectors.toCollection(HashSet::new));
     Map<AccountCode, Account> accounts = accountRepository.findByCodeIn(codes);
@@ -51,10 +52,12 @@ public final class PostJournalEntryService {
         accounts.keySet().stream()
             .filter(accountRepository::hasChildren)
             .collect(Collectors.toUnmodifiableSet());
-    PeriodStatus periodStatus = periodService.findByYearMonth(YearMonth.from(occurredOn)).status();
+    PeriodStatus periodStatus =
+        periodService.findByYearMonth(tenantId, YearMonth.from(occurredOn)).status();
     JournalValidationContext ctx =
         new JournalValidationContext(
             accounts, nonLeafCodes, periodStatus, baseCurrency, JournalValidationMode.STRICT);
-    return JournalEntry.of(occurredOn, description, postings, ctx).map(journalRepository::save);
+    return JournalEntry.of(tenantId, occurredOn, description, postings, ctx)
+        .map(journalRepository::save);
   }
 }

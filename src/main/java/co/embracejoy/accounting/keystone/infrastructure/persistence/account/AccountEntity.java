@@ -3,12 +3,21 @@ package co.embracejoy.accounting.keystone.infrastructure.persistence.account;
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
 import jakarta.persistence.Id;
+import jakarta.persistence.IdClass;
 import jakarta.persistence.Table;
+import java.io.Serializable;
 import java.time.Instant;
+import java.util.Objects;
+import java.util.UUID;
 
 @Entity
 @Table(name = "accounts")
+@IdClass(AccountEntity.Key.class)
 class AccountEntity {
+
+  @Id
+  @Column(name = "tenant_id", nullable = false, updatable = false)
+  private UUID tenantId;
 
   @Id
   @Column(name = "code", nullable = false, length = 64, updatable = false)
@@ -40,13 +49,24 @@ class AccountEntity {
   }
 
   AccountEntity(
-      String code, String name, String type, String currency, String parentCode, boolean active) {
+      UUID tenantId,
+      String code,
+      String name,
+      String type,
+      String currency,
+      String parentCode,
+      boolean active) {
+    this.tenantId = tenantId;
     this.code = code;
     this.name = name;
     this.type = type;
     this.currency = currency;
     this.parentCode = parentCode;
     this.active = active;
+  }
+
+  UUID getTenantId() {
+    return tenantId;
   }
 
   String getCode() {
@@ -83,5 +103,36 @@ class AccountEntity {
 
   void setActive(boolean active) {
     this.active = active;
+  }
+
+  /** Composite primary key for {@link AccountEntity}. */
+  static class Key implements Serializable {
+    private UUID tenantId;
+    private String code;
+
+    public Key() {
+      // JPA required no-arg constructor
+    }
+
+    public Key(UUID tenantId, String code) {
+      this.tenantId = tenantId;
+      this.code = code;
+    }
+
+    @Override
+    public boolean equals(Object o) {
+      if (this == o) {
+        return true;
+      }
+      if (!(o instanceof Key k)) {
+        return false;
+      }
+      return Objects.equals(tenantId, k.tenantId) && Objects.equals(code, k.code);
+    }
+
+    @Override
+    public int hashCode() {
+      return Objects.hash(tenantId, code);
+    }
   }
 }

@@ -8,6 +8,7 @@ import co.embracejoy.accounting.keystone.domain.account.AccountError;
 import co.embracejoy.accounting.keystone.domain.account.AccountRepository;
 import co.embracejoy.accounting.keystone.domain.account.AccountType;
 import co.embracejoy.accounting.keystone.domain.shared.Result;
+import co.embracejoy.accounting.keystone.domain.tenancy.TenantId;
 import java.util.ArrayList;
 import java.util.Currency;
 import java.util.HashMap;
@@ -16,6 +17,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
+import java.util.UUID;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
@@ -26,6 +28,8 @@ class AccountServiceTest {
   private FakeAccountRepository repo;
   private AccountService service;
   private static final Currency USD = Currency.getInstance("USD");
+  private static final TenantId TENANT =
+      new TenantId(UUID.fromString("01902f9f-0000-7000-8000-00000000d1f1"));
 
   @BeforeEach
   void setup() {
@@ -37,7 +41,8 @@ class AccountServiceTest {
   @DisplayName("create persists when code is fresh")
   void shouldCreateWhenCodeFresh() {
     Result<Account, AccountError> r =
-        service.create(new AccountCode("1000"), "Cash", AccountType.ASSET, USD, Optional.empty());
+        service.create(
+            TENANT, new AccountCode("1000"), "Cash", AccountType.ASSET, USD, Optional.empty());
     assertThat(r).isInstanceOf(Result.Success.class);
     assertThat(repo.byCode).containsKey(new AccountCode("1000"));
   }
@@ -45,9 +50,11 @@ class AccountServiceTest {
   @Test
   @DisplayName("create returns CodeAlreadyExists on duplicate")
   void shouldReturnDuplicateWhenCodeExists() {
-    service.create(new AccountCode("1000"), "Cash", AccountType.ASSET, USD, Optional.empty());
+    service.create(
+        TENANT, new AccountCode("1000"), "Cash", AccountType.ASSET, USD, Optional.empty());
     Result<Account, AccountError> r =
-        service.create(new AccountCode("1000"), "Cash 2", AccountType.ASSET, USD, Optional.empty());
+        service.create(
+            TENANT, new AccountCode("1000"), "Cash 2", AccountType.ASSET, USD, Optional.empty());
     assertThat(((Result.Failure<Account, AccountError>) r).error())
         .isInstanceOf(AccountError.CodeAlreadyExists.class);
   }
@@ -57,6 +64,7 @@ class AccountServiceTest {
   void shouldReturnParentNotFoundWhenParentMissing() {
     Result<Account, AccountError> r =
         service.create(
+            TENANT,
             new AccountCode("1000"),
             "Cash",
             AccountType.ASSET,
@@ -69,15 +77,22 @@ class AccountServiceTest {
   @Test
   @DisplayName("setParent returns CycleWouldBeCreated when target is a descendant")
   void shouldDetectCycleWhenReparenting() {
-    service.create(new AccountCode("1"), "Assets", AccountType.ASSET, USD, Optional.empty());
     service.create(
+        TENANT, new AccountCode("1"), "Assets", AccountType.ASSET, USD, Optional.empty());
+    service.create(
+        TENANT,
         new AccountCode("10"),
         "Current",
         AccountType.ASSET,
         USD,
         Optional.of(new AccountCode("1")));
     service.create(
-        new AccountCode("100"), "Cash", AccountType.ASSET, USD, Optional.of(new AccountCode("10")));
+        TENANT,
+        new AccountCode("100"),
+        "Cash",
+        AccountType.ASSET,
+        USD,
+        Optional.of(new AccountCode("10")));
 
     // Re-parent "1" under "100" → cycle (1 → 10 → 100 → 1).
     Result<Account, AccountError> r =
@@ -89,7 +104,8 @@ class AccountServiceTest {
   @Test
   @DisplayName("rename to an unused code succeeds")
   void shouldRenameWhenNewCodeFree() {
-    service.create(new AccountCode("1000"), "Cash", AccountType.ASSET, USD, Optional.empty());
+    service.create(
+        TENANT, new AccountCode("1000"), "Cash", AccountType.ASSET, USD, Optional.empty());
     Result<Account, AccountError> r =
         service.rename(new AccountCode("1000"), new AccountCode("1001"));
     assertThat(r).isInstanceOf(Result.Success.class);
@@ -100,8 +116,10 @@ class AccountServiceTest {
   @Test
   @DisplayName("rename to an in-use code returns CodeInUseByPosting")
   void shouldReturnCodeInUseWhenRenameClashes() {
-    service.create(new AccountCode("1000"), "Cash", AccountType.ASSET, USD, Optional.empty());
-    service.create(new AccountCode("1001"), "Petty Cash", AccountType.ASSET, USD, Optional.empty());
+    service.create(
+        TENANT, new AccountCode("1000"), "Cash", AccountType.ASSET, USD, Optional.empty());
+    service.create(
+        TENANT, new AccountCode("1001"), "Petty Cash", AccountType.ASSET, USD, Optional.empty());
 
     Result<Account, AccountError> r =
         service.rename(new AccountCode("1000"), new AccountCode("1001"));
@@ -112,7 +130,8 @@ class AccountServiceTest {
   @Test
   @DisplayName("deactivate marks active=false and is idempotent")
   void shouldDeactivateIdempotently() {
-    service.create(new AccountCode("1000"), "Cash", AccountType.ASSET, USD, Optional.empty());
+    service.create(
+        TENANT, new AccountCode("1000"), "Cash", AccountType.ASSET, USD, Optional.empty());
     service.deactivate(new AccountCode("1000"));
     Result<Account, AccountError> r = service.deactivate(new AccountCode("1000"));
     assertThat(r).isInstanceOf(Result.Success.class);
@@ -122,7 +141,8 @@ class AccountServiceTest {
   @Test
   @DisplayName("reactivate flips active back to true")
   void shouldReactivate() {
-    service.create(new AccountCode("1000"), "Cash", AccountType.ASSET, USD, Optional.empty());
+    service.create(
+        TENANT, new AccountCode("1000"), "Cash", AccountType.ASSET, USD, Optional.empty());
     service.deactivate(new AccountCode("1000"));
     Result<Account, AccountError> r = service.reactivate(new AccountCode("1000"));
     assertThat(r).isInstanceOf(Result.Success.class);
@@ -168,7 +188,8 @@ class AccountServiceTest {
         return Result.failure(new AccountError.NotFound(existing));
       }
       Account renamed =
-          new Account(newCode, a.name(), a.type(), a.currency(), a.parentCode(), a.status());
+          new Account(
+              a.tenantId(), newCode, a.name(), a.type(), a.currency(), a.parentCode(), a.status());
       byCode.put(newCode, renamed);
       parents.clear();
       for (Account acc : byCode.values()) {

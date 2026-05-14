@@ -2,6 +2,7 @@ package co.embracejoy.accounting.keystone.infrastructure.persistence.period;
 
 import co.embracejoy.accounting.keystone.domain.period.Period;
 import co.embracejoy.accounting.keystone.domain.period.PeriodStatus;
+import co.embracejoy.accounting.keystone.domain.tenancy.TenantId;
 import java.time.YearMonth;
 import java.util.Optional;
 
@@ -13,6 +14,7 @@ final class PeriodEntityMapper {
 
   static PeriodEntity toEntity(Period p) {
     return new PeriodEntity(
+        p.tenantId().value(),
         p.yearMonth().toString(),
         p.status().name(),
         p.closedAt().orElse(null),
@@ -23,6 +25,7 @@ final class PeriodEntityMapper {
 
   static Period toDomain(PeriodEntity e) {
     return new Period(
+        new TenantId(e.getTenantId()),
         YearMonth.parse(e.getYearMonth()),
         PeriodStatus.valueOf(e.getStatus()),
         Optional.ofNullable(e.getClosedAt()),

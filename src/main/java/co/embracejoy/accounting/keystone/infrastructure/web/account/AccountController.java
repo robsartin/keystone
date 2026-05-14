@@ -6,6 +6,7 @@ import co.embracejoy.accounting.keystone.domain.account.AccountCode;
 import co.embracejoy.accounting.keystone.domain.account.AccountError;
 import co.embracejoy.accounting.keystone.domain.account.AccountType;
 import co.embracejoy.accounting.keystone.domain.shared.Result;
+import co.embracejoy.accounting.keystone.infrastructure.security.TenantContext;
 import co.embracejoy.accounting.keystone.infrastructure.web.ResultMapper;
 import co.embracejoy.accounting.keystone.infrastructure.web.account.dto.AccountResponse;
 import co.embracejoy.accounting.keystone.infrastructure.web.account.dto.CreateAccountRequest;
@@ -32,9 +33,11 @@ import org.springframework.web.bind.annotation.RestController;
 public class AccountController {
 
   private final AccountService service;
+  private final TenantContext tenantContext;
 
-  public AccountController(AccountService service) {
+  public AccountController(AccountService service, TenantContext tenantContext) {
     this.service = service;
+    this.tenantContext = tenantContext;
   }
 
   @PostMapping
@@ -48,6 +51,7 @@ public class AccountController {
     Optional<AccountCode> parent = Optional.ofNullable(req.parentCode()).map(AccountCode::new);
     Result<Account, AccountError> r =
         service.create(
+            tenantContext.require(),
             new AccountCode(req.code()),
             req.name(),
             AccountType.valueOf(req.type()),

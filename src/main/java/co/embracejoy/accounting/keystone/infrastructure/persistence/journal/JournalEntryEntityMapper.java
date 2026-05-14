@@ -7,6 +7,7 @@ import co.embracejoy.accounting.keystone.domain.journal.PersistedJournalEntry;
 import co.embracejoy.accounting.keystone.domain.journal.Posting;
 import co.embracejoy.accounting.keystone.domain.journal.Side;
 import co.embracejoy.accounting.keystone.domain.money.Money;
+import co.embracejoy.accounting.keystone.domain.tenancy.TenantId;
 import co.embracejoy.accounting.keystone.infrastructure.shared.UuidV7Generator;
 import java.util.Currency;
 import java.util.UUID;
@@ -19,10 +20,13 @@ final class JournalEntryEntityMapper {
   }
 
   static JournalEntryEntity toEntity(JournalEntry entry, UUID id) {
-    JournalEntryEntity je = new JournalEntryEntity(id, entry.occurredOn(), entry.description());
+    JournalEntryEntity je =
+        new JournalEntryEntity(
+            id, entry.tenantId().value(), entry.occurredOn(), entry.description());
     java.util.List<Posting> postings = entry.postings();
     for (int i = 0; i < postings.size(); i++) {
       Posting p = postings.get(i);
+      // tenantId is stamped on the posting by JournalEntryEntity.addPosting()
       je.addPosting(
           new PostingEntity(
               UuidV7Generator.create(),
@@ -59,7 +63,11 @@ final class JournalEntryEntityMapper {
                 })
             .toList();
     JournalEntry entry =
-        new JournalEntry(entity.getOccurredOn(), entity.getDescription(), postings);
+        new JournalEntry(
+            new TenantId(entity.getTenantId()),
+            entity.getOccurredOn(),
+            entity.getDescription(),
+            postings);
     return new PersistedJournalEntry(new JournalEntryId(entity.getId()), entry);
   }
 }

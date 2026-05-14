@@ -14,13 +14,17 @@ import co.embracejoy.accounting.keystone.domain.journal.Posting;
 import co.embracejoy.accounting.keystone.domain.journal.Side;
 import co.embracejoy.accounting.keystone.domain.money.Money;
 import co.embracejoy.accounting.keystone.domain.shared.Result;
+import co.embracejoy.accounting.keystone.domain.tenancy.TenantId;
 import co.embracejoy.accounting.keystone.infrastructure.persistence.account.AccountRepositoryAdapter;
+import co.embracejoy.accounting.keystone.infrastructure.security.TenantContext;
+import co.embracejoy.accounting.keystone.infrastructure.security.Tenants;
 import java.time.LocalDate;
 import java.time.YearMonth;
 import java.util.Currency;
 import java.util.List;
 import java.util.Optional;
 import java.util.Set;
+import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -44,16 +48,24 @@ class JpaJournalEntryRepositoryIT {
 
   @Autowired JpaJournalEntryRepository repository;
   @Autowired AccountRepositoryAdapter accountRepository;
+  @Autowired TenantContext tenantContext;
 
   private static final Currency USD = Currency.getInstance("USD");
   private static final Currency EUR = Currency.getInstance("EUR");
   private static final AccountCode CASH = new AccountCode("1000");
   private static final AccountCode EQUITY = new AccountCode("3000");
   private static final AccountCode CASH_EUR = new AccountCode("1000-EUR");
+  private static final TenantId TENANT = Tenants.DEFAULT_TENANT_ID;
+
+  @BeforeEach
+  void setupTenant() {
+    tenantContext.set(Tenants.DEFAULT_TENANT_ID);
+  }
 
   private static JournalEntry validEntry() {
     Result<JournalEntry, JournalError> r =
         JournalEntry.of(
+            TENANT,
             LocalDate.parse("2026-05-10"),
             "opening",
             List.of(
@@ -65,6 +77,7 @@ class JpaJournalEntryRepositoryIT {
   private JournalEntry entryOn(LocalDate d) {
     Result<JournalEntry, JournalError> r =
         JournalEntry.of(
+            TENANT,
             d,
             "test",
             List.of(
@@ -87,7 +100,7 @@ class JpaJournalEntryRepositoryIT {
   @DisplayName("findById() returns Optional.empty for unknown id")
   void shouldReturnEmptyWhenIdUnknown() {
     Optional<PersistedJournalEntry> found =
-        repository.findById(new JournalEntryId(java.util.UUID.randomUUID()));
+        repository.findById(TENANT, new JournalEntryId(java.util.UUID.randomUUID()));
 
     assertThat(found).isEmpty();
   }
@@ -97,7 +110,7 @@ class JpaJournalEntryRepositoryIT {
   void shouldRoundTripWhenSavingAndReadingBack() {
     PersistedJournalEntry saved = repository.save(validEntry());
 
-    Optional<PersistedJournalEntry> found = repository.findById(saved.id());
+    Optional<PersistedJournalEntry> found = repository.findById(TENANT, saved.id());
 
     assertThat(found).isPresent();
     PersistedJournalEntry hydrated = found.get();
@@ -121,7 +134,7 @@ class JpaJournalEntryRepositoryIT {
     repository.save(entryOn(LocalDate.of(2026, 5, 28)));
     repository.save(entryOn(LocalDate.of(2026, 6, 15)));
 
-    Set<YearMonth> months = repository.distinctOccurredMonths();
+    Set<YearMonth> months = repository.distinctOccurredMonths(TENANT);
     assertThat(months).contains(YearMonth.of(2026, 5), YearMonth.of(2026, 6));
   }
 
@@ -132,7 +145,13 @@ class JpaJournalEntryRepositoryIT {
     // Create an EUR cash account.
     accountRepository.save(
         new Account(
-            CASH_EUR, "Cash EUR", AccountType.ASSET, EUR, Optional.empty(), AccountStatus.ACTIVE));
+            TENANT,
+            CASH_EUR,
+            "Cash EUR",
+            AccountType.ASSET,
+            EUR,
+            Optional.empty(),
+            AccountStatus.ACTIVE));
 
     // USD→EUR entry: debit 9200 EUR (≡ $100 USD), credit 10000 USD ($100 USD).
     Posting debit =
@@ -140,10 +159,11 @@ class JpaJournalEntryRepositoryIT {
     Posting credit = new Posting(CASH, Side.CREDIT, new Money(10000L, USD), new Money(10000L, USD));
 
     JournalEntry entry =
-        new JournalEntry(LocalDate.of(2026, 5, 13), "USD→EUR transfer", List.of(debit, credit));
+        new JournalEntry(
+            TENANT, LocalDate.of(2026, 5, 13), "USD→EUR transfer", List.of(debit, credit));
 
     PersistedJournalEntry saved = repository.save(entry);
-    PersistedJournalEntry found = repository.findById(saved.id()).orElseThrow();
+    PersistedJournalEntry found = repository.findById(TENANT, saved.id()).orElseThrow();
 
     assertThat(found.entry().postings()).hasSize(2);
     Posting debitOut =

@@ -9,11 +9,14 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 import co.embracejoy.accounting.keystone.application.reports.TrialBalanceService;
 import co.embracejoy.accounting.keystone.domain.account.AccountCode;
 import co.embracejoy.accounting.keystone.domain.reports.TrialBalanceRow;
+import co.embracejoy.accounting.keystone.domain.tenancy.TenantId;
 import co.embracejoy.accounting.keystone.infrastructure.security.TenantContext;
 import java.time.LocalDate;
 import java.time.ZoneOffset;
 import java.util.Currency;
 import java.util.List;
+import java.util.UUID;
+import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.mockito.ArgumentCaptor;
@@ -32,6 +35,13 @@ class TrialBalanceControllerTest {
   @MockitoBean TenantContext tenantContext;
 
   private static final Currency USD = Currency.getInstance("USD");
+  private static final TenantId TEST_TENANT =
+      new TenantId(UUID.fromString("01902f9f-0000-7000-8000-00000000d1f1"));
+
+  @BeforeEach
+  void setupTenantContext() {
+    Mockito.when(tenantContext.require()).thenReturn(TEST_TENANT);
+  }
 
   @Test
   @DisplayName("GET /reports/trial-balance returns 200 with rows from the service")
@@ -39,7 +49,9 @@ class TrialBalanceControllerTest {
     TrialBalanceRow cash =
         new TrialBalanceRow(new AccountCode("1000"), USD, 10000L, 0L, 10000L, 0L);
     TrialBalanceRow rev = new TrialBalanceRow(new AccountCode("4000"), USD, 0L, 10000L, 0L, 10000L);
-    Mockito.when(service.query(Mockito.any(LocalDate.class), Mockito.anyBoolean()))
+    Mockito.when(
+            service.query(
+                Mockito.eq(TEST_TENANT), Mockito.any(LocalDate.class), Mockito.anyBoolean()))
         .thenReturn(List.of(cash, rev));
 
     mvc.perform(get("/reports/trial-balance?asOf=2026-05-13"))
@@ -61,7 +73,9 @@ class TrialBalanceControllerTest {
   @Test
   @DisplayName("defaults asOf to today (UTC) when no query param given")
   void shouldDefaultAsOfToTodayWhenMissing() throws Exception {
-    Mockito.when(service.query(Mockito.any(LocalDate.class), Mockito.anyBoolean()))
+    Mockito.when(
+            service.query(
+                Mockito.eq(TEST_TENANT), Mockito.any(LocalDate.class), Mockito.anyBoolean()))
         .thenReturn(List.of());
 
     mvc.perform(get("/reports/trial-balance")).andExpect(status().isOk());
@@ -70,7 +84,7 @@ class TrialBalanceControllerTest {
     // same JVM. The values match exactly unless a UTC day boundary crosses between the two
     // reads, so accept "today" or "yesterday" (no future tolerance possible).
     ArgumentCaptor<LocalDate> captor = ArgumentCaptor.forClass(LocalDate.class);
-    Mockito.verify(service).query(captor.capture(), Mockito.eq(false));
+    Mockito.verify(service).query(Mockito.eq(TEST_TENANT), captor.capture(), Mockito.eq(false));
     LocalDate today = LocalDate.now(ZoneOffset.UTC);
     org.assertj.core.api.Assertions.assertThat(captor.getValue()).isIn(today.minusDays(1), today);
   }
@@ -78,13 +92,29 @@ class TrialBalanceControllerTest {
   @Test
   @DisplayName("passes includeZero=true through to the service")
   void shouldPassIncludeZeroThrough() throws Exception {
-    Mockito.when(service.query(Mockito.any(LocalDate.class), Mockito.anyBoolean()))
+    Mockito.when(
+            service.query(
+                Mockito.eq(TEST_TENANT), Mockito.any(LocalDate.class), Mockito.anyBoolean()))
         .thenReturn(List.of());
 
     mvc.perform(get("/reports/trial-balance?asOf=2026-05-13&includeZero=true"))
         .andExpect(status().isOk());
 
-    Mockito.verify(service).query(LocalDate.parse("2026-05-13"), true);
+    Mockito.verify(service).query(TEST_TENANT, LocalDate.parse("2026-05-13"), true);
+  }
+
+  @Test
+  @DisplayName("resolves TenantId from TenantContext and passes it to the service")
+  void shouldResolveTenantFromContextAndPassToService() throws Exception {
+    Mockito.when(
+            service.query(
+                Mockito.eq(TEST_TENANT), Mockito.any(LocalDate.class), Mockito.anyBoolean()))
+        .thenReturn(List.of());
+
+    mvc.perform(get("/reports/trial-balance?asOf=2026-05-13")).andExpect(status().isOk());
+
+    Mockito.verify(tenantContext).require();
+    Mockito.verify(service).query(Mockito.eq(TEST_TENANT), Mockito.any(), Mockito.anyBoolean());
   }
 
   @Test
@@ -98,7 +128,9 @@ class TrialBalanceControllerTest {
   @Test
   @DisplayName("returns 200 with empty array when service returns no rows")
   void shouldReturn200WithEmptyArrayWhenNoRows() throws Exception {
-    Mockito.when(service.query(Mockito.any(LocalDate.class), Mockito.anyBoolean()))
+    Mockito.when(
+            service.query(
+                Mockito.eq(TEST_TENANT), Mockito.any(LocalDate.class), Mockito.anyBoolean()))
         .thenReturn(List.of());
 
     mvc.perform(get("/reports/trial-balance?asOf=2026-05-13"))

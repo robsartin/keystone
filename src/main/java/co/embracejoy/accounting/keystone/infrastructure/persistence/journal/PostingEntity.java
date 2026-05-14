@@ -21,6 +21,9 @@ class PostingEntity {
   @JoinColumn(name = "journal_entry_id", nullable = false, updatable = false)
   private JournalEntryEntity journalEntry;
 
+  @Column(name = "tenant_id", nullable = false, updatable = false)
+  private UUID tenantId;
+
   @Column(name = "account_code", nullable = false, length = 64)
   private String accountCode;
 
@@ -90,5 +93,9 @@ class PostingEntity {
 
   void setJournalEntry(JournalEntryEntity journalEntry) {
     this.journalEntry = journalEntry;
+  }
+
+  void setTenantId(UUID tenantId) {
+    this.tenantId = tenantId;
   }
 }

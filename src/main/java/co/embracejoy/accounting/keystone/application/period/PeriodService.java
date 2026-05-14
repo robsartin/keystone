@@ -6,6 +6,7 @@ import co.embracejoy.accounting.keystone.domain.period.PeriodError;
 import co.embracejoy.accounting.keystone.domain.period.PeriodRepository;
 import co.embracejoy.accounting.keystone.domain.period.PeriodStatus;
 import co.embracejoy.accounting.keystone.domain.shared.Result;
+import co.embracejoy.accounting.keystone.domain.tenancy.TenantId;
 import java.time.Instant;
 import java.time.YearMonth;
 import java.util.List;
@@ -25,19 +26,19 @@ public final class PeriodService {
     this.journals = Objects.requireNonNull(journals, "journals");
   }
 
-  public Result<Period, PeriodError> close(YearMonth target, String actor) {
-    Optional<Period> existing = periods.findByYearMonth(target);
+  public Result<Period, PeriodError> close(TenantId tenantId, YearMonth target, String actor) {
+    Optional<Period> existing = periods.findByYearMonth(tenantId, target);
     if (existing.isPresent() && existing.get().status() == PeriodStatus.CLOSED) {
       return Result.success(existing.get()); // idempotent
     }
 
     // Compute the earliest open YearMonth that has at least one posting.
     Set<YearMonth> closedMonths =
-        periods.findAllClosed().stream()
+        periods.findAllClosed(tenantId).stream()
             .map(Period::yearMonth)
             .collect(Collectors.toUnmodifiableSet());
     TreeSet<YearMonth> openActive = new TreeSet<>();
-    for (YearMonth m : journals.distinctOccurredMonths()) {
+    for (YearMonth m : journals.distinctOccurredMonths(tenantId)) {
       if (!closedMonths.contains(m)) {
         openActive.add(m);
       }
@@ -50,6 +51,7 @@ public final class PeriodService {
 
     Period closed =
         new Period(
+            tenantId,
             target,
             PeriodStatus.CLOSED,
             Optional.of(Instant.now()),
@@ -59,14 +61,15 @@ public final class PeriodService {
     return Result.success(existing.isPresent() ? periods.update(closed) : periods.save(closed));
   }
 
-  public Result<Period, PeriodError> reopen(YearMonth target, String actor) {
-    Optional<Period> latest = periods.findLatestClosed();
+  public Result<Period, PeriodError> reopen(TenantId tenantId, YearMonth target, String actor) {
+    Optional<Period> latest = periods.findLatestClosed(tenantId);
     if (latest.isEmpty() || !latest.get().yearMonth().equals(target)) {
       return Result.failure(
           new PeriodError.NotMostRecentlyClosed(target, latest.map(Period::yearMonth)));
     }
     Period reopened =
         new Period(
+            tenantId,
             target,
             PeriodStatus.OPEN,
             latest.get().closedAt(),
@@ -76,11 +79,13 @@ public final class PeriodService {
     return Result.success(periods.update(reopened));
   }
 
-  public Period findByYearMonth(YearMonth target) {
-    return periods.findByYearMonth(target).orElseGet(() -> Period.openFor(target));
+  public Period findByYearMonth(TenantId tenantId, YearMonth target) {
+    return periods
+        .findByYearMonth(tenantId, target)
+        .orElseGet(() -> Period.openFor(tenantId, target));
   }
 
-  public List<Period> findAllClosed() {
-    return periods.findAllClosed();
+  public List<Period> findAllClosed(TenantId tenantId) {
+    return periods.findAllClosed(tenantId);
   }
 }
