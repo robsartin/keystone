@@ -19,6 +19,7 @@ import co.embracejoy.accounting.keystone.domain.journal.Posting;
 import co.embracejoy.accounting.keystone.domain.journal.Side;
 import co.embracejoy.accounting.keystone.domain.money.Money;
 import co.embracejoy.accounting.keystone.domain.shared.Result;
+import co.embracejoy.accounting.keystone.domain.tenancy.TenantId;
 import co.embracejoy.accounting.keystone.infrastructure.observability.MetricsConfig;
 import co.embracejoy.accounting.keystone.infrastructure.security.TenantContext;
 import io.micrometer.core.instrument.Counter;
@@ -29,6 +30,7 @@ import java.util.Currency;
 import java.util.List;
 import java.util.UUID;
 import java.util.function.Supplier;
+import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.mockito.Mockito;
@@ -54,6 +56,8 @@ class JournalEntryControllerTest {
   @MockitoBean Timer journalEntriesPostDuration;
 
   private static final Currency USD = Currency.getInstance("USD");
+  private static final TenantId TENANT =
+      new TenantId(UUID.fromString("01902f9f-0000-7000-8000-00000000d1f1"));
 
   /** Provides the {@code keystoneBaseCurrency} bean (USD) for {@code @WebMvcTest}. */
   @TestConfiguration
@@ -62,6 +66,11 @@ class JournalEntryControllerTest {
     Currency keystoneBaseCurrency() {
       return Currency.getInstance("USD");
     }
+  }
+
+  @BeforeEach
+  void stubTenant() {
+    Mockito.when(tenantContext.require()).thenReturn(TENANT);
   }
 
   private static String validBody() {
@@ -105,7 +114,12 @@ class JournalEntryControllerTest {
   void shouldReturn201WhenSuccess() throws Exception {
     Mockito.when(journalEntriesPostDuration.record(Mockito.any(Supplier.class)))
         .thenAnswer(inv -> inv.<Supplier<?>>getArgument(0).get());
-    Mockito.when(service.post(Mockito.any(LocalDate.class), Mockito.anyString(), Mockito.anyList()))
+    Mockito.when(
+            service.post(
+                Mockito.any(TenantId.class),
+                Mockito.any(LocalDate.class),
+                Mockito.anyString(),
+                Mockito.anyList()))
         .thenReturn(Result.success(validPersisted()));
 
     mvc.perform(
@@ -126,7 +140,12 @@ class JournalEntryControllerTest {
   void shouldReturn400WhenUnbalanced() throws Exception {
     Mockito.when(journalEntriesPostDuration.record(Mockito.any(Supplier.class)))
         .thenAnswer(inv -> inv.<Supplier<?>>getArgument(0).get());
-    Mockito.when(service.post(Mockito.any(LocalDate.class), Mockito.anyString(), Mockito.anyList()))
+    Mockito.when(
+            service.post(
+                Mockito.any(TenantId.class),
+                Mockito.any(LocalDate.class),
+                Mockito.anyString(),
+                Mockito.anyList()))
         .thenReturn(
             Result.failure(
                 new JournalError.Unbalanced(new Money(10000L, USD), new Money(9000L, USD))));
@@ -145,7 +164,12 @@ class JournalEntryControllerTest {
   void shouldReturn400WhenAccountNotFound() throws Exception {
     Mockito.when(journalEntriesPostDuration.record(Mockito.any(Supplier.class)))
         .thenAnswer(inv -> inv.<Supplier<?>>getArgument(0).get());
-    Mockito.when(service.post(Mockito.any(LocalDate.class), Mockito.anyString(), Mockito.anyList()))
+    Mockito.when(
+            service.post(
+                Mockito.any(TenantId.class),
+                Mockito.any(LocalDate.class),
+                Mockito.anyString(),
+                Mockito.anyList()))
         .thenReturn(Result.failure(new JournalError.AccountNotFound(new AccountCode("9999"))));
 
     mvc.perform(
@@ -161,7 +185,12 @@ class JournalEntryControllerTest {
   void shouldReturn400WhenAccountInactive() throws Exception {
     Mockito.when(journalEntriesPostDuration.record(Mockito.any(Supplier.class)))
         .thenAnswer(inv -> inv.<Supplier<?>>getArgument(0).get());
-    Mockito.when(service.post(Mockito.any(LocalDate.class), Mockito.anyString(), Mockito.anyList()))
+    Mockito.when(
+            service.post(
+                Mockito.any(TenantId.class),
+                Mockito.any(LocalDate.class),
+                Mockito.anyString(),
+                Mockito.anyList()))
         .thenReturn(Result.failure(new JournalError.AccountInactive(new AccountCode("1000"))));
 
     mvc.perform(
@@ -177,7 +206,12 @@ class JournalEntryControllerTest {
   void shouldReturn400WhenAccountNotALeaf() throws Exception {
     Mockito.when(journalEntriesPostDuration.record(Mockito.any(Supplier.class)))
         .thenAnswer(inv -> inv.<Supplier<?>>getArgument(0).get());
-    Mockito.when(service.post(Mockito.any(LocalDate.class), Mockito.anyString(), Mockito.anyList()))
+    Mockito.when(
+            service.post(
+                Mockito.any(TenantId.class),
+                Mockito.any(LocalDate.class),
+                Mockito.anyString(),
+                Mockito.anyList()))
         .thenReturn(Result.failure(new JournalError.AccountNotALeaf(new AccountCode("1000"))));
 
     mvc.perform(
@@ -194,7 +228,12 @@ class JournalEntryControllerTest {
     Mockito.when(journalEntriesPostDuration.record(Mockito.any(Supplier.class)))
         .thenAnswer(inv -> inv.<Supplier<?>>getArgument(0).get());
     Currency eur = Currency.getInstance("EUR");
-    Mockito.when(service.post(Mockito.any(LocalDate.class), Mockito.anyString(), Mockito.anyList()))
+    Mockito.when(
+            service.post(
+                Mockito.any(TenantId.class),
+                Mockito.any(LocalDate.class),
+                Mockito.anyString(),
+                Mockito.anyList()))
         .thenReturn(
             Result.failure(
                 new JournalError.AccountCurrencyMismatch(new AccountCode("4000"), USD, eur)));
@@ -213,7 +252,12 @@ class JournalEntryControllerTest {
     Mockito.when(journalEntriesPostDuration.record(Mockito.any(Supplier.class)))
         .thenAnswer(inv -> inv.<Supplier<?>>getArgument(0).get());
     Currency eur = Currency.getInstance("EUR");
-    Mockito.when(service.post(Mockito.any(LocalDate.class), Mockito.anyString(), Mockito.anyList()))
+    Mockito.when(
+            service.post(
+                Mockito.any(TenantId.class),
+                Mockito.any(LocalDate.class),
+                Mockito.anyString(),
+                Mockito.anyList()))
         .thenReturn(
             Result.failure(
                 new JournalError.BaseCurrencyMismatch(new AccountCode("1000-EUR"), USD, eur)));
@@ -233,7 +277,12 @@ class JournalEntryControllerTest {
   void shouldReturn400WhenPostingInClosedPeriod() throws Exception {
     Mockito.when(journalEntriesPostDuration.record(Mockito.any(Supplier.class)))
         .thenAnswer(inv -> inv.<Supplier<?>>getArgument(0).get());
-    Mockito.when(service.post(Mockito.any(LocalDate.class), Mockito.anyString(), Mockito.anyList()))
+    Mockito.when(
+            service.post(
+                Mockito.any(TenantId.class),
+                Mockito.any(LocalDate.class),
+                Mockito.anyString(),
+                Mockito.anyList()))
         .thenReturn(Result.failure(new JournalError.PostingInClosedPeriod(YearMonth.of(2026, 5))));
 
     mvc.perform(

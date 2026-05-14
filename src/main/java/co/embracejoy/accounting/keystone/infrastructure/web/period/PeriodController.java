@@ -4,6 +4,8 @@ import co.embracejoy.accounting.keystone.application.period.PeriodService;
 import co.embracejoy.accounting.keystone.domain.period.Period;
 import co.embracejoy.accounting.keystone.domain.period.PeriodError;
 import co.embracejoy.accounting.keystone.domain.shared.Result;
+import co.embracejoy.accounting.keystone.domain.tenancy.TenantId;
+import co.embracejoy.accounting.keystone.infrastructure.security.TenantContext;
 import co.embracejoy.accounting.keystone.infrastructure.web.ResultMapper;
 import co.embracejoy.accounting.keystone.infrastructure.web.period.dto.PeriodResponse;
 import io.swagger.v3.oas.annotations.Operation;
@@ -30,9 +32,11 @@ public class PeriodController {
   private static final String ACTOR_DEFAULT = "system";
 
   private final PeriodService service;
+  private final TenantContext tenantContext;
 
-  public PeriodController(PeriodService service) {
+  public PeriodController(PeriodService service, TenantContext tenantContext) {
     this.service = service;
+    this.tenantContext = tenantContext;
   }
 
   @GetMapping
@@ -45,7 +49,8 @@ public class PeriodController {
   public List<PeriodResponse> list(
       @RequestParam(value = "status", required = false) String status) {
     if (status != null && status.equalsIgnoreCase("closed")) {
-      return service.findAllClosed().stream().map(PeriodResponse::of).toList();
+      TenantId tid = tenantContext.require();
+      return service.findAllClosed(tid).stream().map(PeriodResponse::of).toList();
     }
     return List.of(); // OPEN periods are implicit; not enumerable
   }
@@ -58,7 +63,8 @@ public class PeriodController {
               + " closed return status OPEN with no recorded activity.")
   public ResponseEntity<?> get(
       @PathVariable("yyyymm") @Pattern(regexp = YEAR_MONTH_PATTERN) String yyyymm) {
-    Period p = service.findByYearMonth(YearMonth.parse(yyyymm));
+    TenantId tid = tenantContext.require();
+    Period p = service.findByYearMonth(tid, YearMonth.parse(yyyymm));
     return ResponseEntity.ok(PeriodResponse.of(p));
   }
 
@@ -70,7 +76,8 @@ public class PeriodController {
               + " out of order is rejected. Closed periods reject new postings.")
   public ResponseEntity<?> close(
       @PathVariable("yyyymm") @Pattern(regexp = YEAR_MONTH_PATTERN) String yyyymm) {
-    Result<Period, PeriodError> r = service.close(YearMonth.parse(yyyymm), ACTOR_DEFAULT);
+    TenantId tid = tenantContext.require();
+    Result<Period, PeriodError> r = service.close(tid, YearMonth.parse(yyyymm), ACTOR_DEFAULT);
     return r.fold(p -> ResponseEntity.ok(PeriodResponse.of(p)), this::error);
   }
 
@@ -82,7 +89,8 @@ public class PeriodController {
               + " reopening earlier ones is rejected to preserve the sequential close invariant.")
   public ResponseEntity<?> reopen(
       @PathVariable("yyyymm") @Pattern(regexp = YEAR_MONTH_PATTERN) String yyyymm) {
-    Result<Period, PeriodError> r = service.reopen(YearMonth.parse(yyyymm), ACTOR_DEFAULT);
+    TenantId tid = tenantContext.require();
+    Result<Period, PeriodError> r = service.reopen(tid, YearMonth.parse(yyyymm), ACTOR_DEFAULT);
     return r.fold(p -> ResponseEntity.ok(PeriodResponse.of(p)), this::error);
   }
 

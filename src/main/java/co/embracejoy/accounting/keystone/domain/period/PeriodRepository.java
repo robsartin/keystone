@@ -1,5 +1,6 @@
 package co.embracejoy.accounting.keystone.domain.period;
 
+import co.embracejoy.accounting.keystone.domain.tenancy.TenantId;
 import java.time.YearMonth;
 import java.util.List;
 import java.util.Optional;
@@ -16,11 +17,11 @@ public interface PeriodRepository {
   /**
    * Look up the persisted row for a YearMonth; absent if no row exists (status is implicitly OPEN).
    */
-  Optional<Period> findByYearMonth(YearMonth yearMonth);
+  Optional<Period> findByYearMonth(TenantId tenantId, YearMonth yearMonth);
 
-  /** All closed periods, sorted by YearMonth descending. */
-  List<Period> findAllClosed();
+  /** All closed periods for the given tenant, sorted by YearMonth descending. */
+  List<Period> findAllClosed(TenantId tenantId);
 
-  /** The latest-closed period (max by YearMonth), if any. */
-  Optional<Period> findLatestClosed();
+  /** The latest-closed period (max by YearMonth) for the given tenant, if any. */
+  Optional<Period> findLatestClosed(TenantId tenantId);
 }

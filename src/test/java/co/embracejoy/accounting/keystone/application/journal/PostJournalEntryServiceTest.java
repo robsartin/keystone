@@ -93,7 +93,7 @@ class PostJournalEntryServiceTest {
   @DisplayName("persists and returns Success when request is valid")
   void shouldPersistAndReturnSuccessWhenRequestIsValid() {
     Result<PersistedJournalEntry, JournalError> r =
-        service.post(TODAY, "opening", List.of(debit(CASH, 1000L), credit(EQUITY, 1000L)));
+        service.post(TENANT, TODAY, "opening", List.of(debit(CASH, 1000L), credit(EQUITY, 1000L)));
 
     assertInstanceOf(Result.Success.class, r);
     assertEquals(1, journalRepo.saved.size());
@@ -106,7 +106,7 @@ class PostJournalEntryServiceTest {
   @DisplayName("returns Failure and does not persist when entry is unbalanced")
   void shouldReturnFailureAndNotPersistWhenUnbalanced() {
     Result<PersistedJournalEntry, JournalError> r =
-        service.post(TODAY, "bad", List.of(debit(CASH, 1000L), credit(EQUITY, 999L)));
+        service.post(TENANT, TODAY, "bad", List.of(debit(CASH, 1000L), credit(EQUITY, 999L)));
 
     assertInstanceOf(Result.Failure.class, r);
     assertInstanceOf(
@@ -118,7 +118,7 @@ class PostJournalEntryServiceTest {
   @Test
   @DisplayName("returns Failure when postings are empty")
   void shouldReturnFailureWhenPostingsEmpty() {
-    Result<PersistedJournalEntry, JournalError> r = service.post(TODAY, "empty", List.of());
+    Result<PersistedJournalEntry, JournalError> r = service.post(TENANT, TODAY, "empty", List.of());
 
     assertInstanceOf(Result.Failure.class, r);
     assertInstanceOf(
@@ -132,7 +132,7 @@ class PostJournalEntryServiceTest {
   void shouldReturnAccountNotFoundWhenAccountUnknown() {
     AccountCode ghost = new AccountCode("9999");
     Result<PersistedJournalEntry, JournalError> r =
-        service.post(TODAY, "bad", List.of(debit(ghost, 500L), credit(EQUITY, 500L)));
+        service.post(TENANT, TODAY, "bad", List.of(debit(ghost, 500L), credit(EQUITY, 500L)));
 
     assertInstanceOf(Result.Failure.class, r);
     assertInstanceOf(
@@ -149,7 +149,7 @@ class PostJournalEntryServiceTest {
     periodRepo.seedClosed(todayMonth);
 
     Result<PersistedJournalEntry, JournalError> r =
-        service.post(TODAY, "bad", List.of(debit(CASH, 100L), credit(EQUITY, 100L)));
+        service.post(TENANT, TODAY, "bad", List.of(debit(CASH, 100L), credit(EQUITY, 100L)));
 
     assertInstanceOf(Result.Failure.class, r);
     JournalError error = ((Result.Failure<PersistedJournalEntry, JournalError>) r).error();
@@ -261,6 +261,7 @@ class PostJournalEntryServiceTest {
       store.put(
           ym,
           new Period(
+              TENANT,
               ym,
               PeriodStatus.CLOSED,
               Optional.of(Instant.parse("2026-06-01T09:00:00Z")),
@@ -282,12 +283,12 @@ class PostJournalEntryServiceTest {
     }
 
     @Override
-    public Optional<Period> findByYearMonth(YearMonth yearMonth) {
+    public Optional<Period> findByYearMonth(TenantId tenantId, YearMonth yearMonth) {
       return Optional.ofNullable(store.get(yearMonth));
     }
 
     @Override
-    public List<Period> findAllClosed() {
+    public List<Period> findAllClosed(TenantId tenantId) {
       return store.values().stream()
           .filter(p -> p.status() == PeriodStatus.CLOSED)
           .sorted((a, b) -> b.yearMonth().compareTo(a.yearMonth()))
@@ -295,8 +296,8 @@ class PostJournalEntryServiceTest {
     }
 
     @Override
-    public Optional<Period> findLatestClosed() {
-      return findAllClosed().stream().findFirst();
+    public Optional<Period> findLatestClosed(TenantId tenantId) {
+      return findAllClosed(tenantId).stream().findFirst();
     }
   }
 }

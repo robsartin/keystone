@@ -1,11 +1,15 @@
 package co.embracejoy.accounting.keystone.infrastructure.persistence.period;
 
 import java.util.List;
+import java.util.Optional;
+import java.util.UUID;
 import org.springframework.data.jpa.repository.JpaRepository;
-import org.springframework.data.jpa.repository.Query;
 
-interface JpaPeriodRepository extends JpaRepository<PeriodEntity, String> {
+interface JpaPeriodRepository extends JpaRepository<PeriodEntity, PeriodEntity.Key> {
 
-  @Query("SELECT p FROM PeriodEntity p WHERE p.status = 'CLOSED' ORDER BY p.yearMonth DESC")
-  List<PeriodEntity> findAllClosedDesc();
+  Optional<PeriodEntity> findByTenantIdAndYearMonth(UUID tenantId, String yearMonth);
+
+  boolean existsByTenantIdAndYearMonth(UUID tenantId, String yearMonth);
+
+  List<PeriodEntity> findAllByTenantIdAndStatusOrderByYearMonthDesc(UUID tenantId, String status);
 }

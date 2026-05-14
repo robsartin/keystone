@@ -8,6 +8,8 @@ import co.embracejoy.accounting.keystone.domain.journal.Posting;
 import co.embracejoy.accounting.keystone.domain.journal.Side;
 import co.embracejoy.accounting.keystone.domain.money.Money;
 import co.embracejoy.accounting.keystone.domain.shared.Result;
+import co.embracejoy.accounting.keystone.domain.tenancy.TenantId;
+import co.embracejoy.accounting.keystone.infrastructure.security.TenantContext;
 import co.embracejoy.accounting.keystone.infrastructure.web.dto.JournalEntryResponse;
 import co.embracejoy.accounting.keystone.infrastructure.web.dto.PostJournalEntryRequest;
 import co.embracejoy.accounting.keystone.infrastructure.web.dto.PostingRequest;
@@ -32,6 +34,7 @@ public class JournalEntryController {
 
   private final PostJournalEntryService service;
   private final Currency baseCurrency;
+  private final TenantContext tenantContext;
   private final Counter postedOk;
   private final Counter postedInvalid;
   private final Timer postDuration;
@@ -39,11 +42,13 @@ public class JournalEntryController {
   public JournalEntryController(
       PostJournalEntryService service,
       @Qualifier("keystoneBaseCurrency") Currency keystoneBaseCurrency,
+      TenantContext tenantContext,
       @Qualifier("journalEntriesPostedOk") Counter journalEntriesPostedOk,
       @Qualifier("journalEntriesPostedInvalid") Counter journalEntriesPostedInvalid,
       @Qualifier("journalEntriesPostDuration") Timer journalEntriesPostDuration) {
     this.service = service;
     this.baseCurrency = keystoneBaseCurrency;
+    this.tenantContext = tenantContext;
     this.postedOk = journalEntriesPostedOk;
     this.postedInvalid = journalEntriesPostedInvalid;
     this.postDuration = journalEntriesPostDuration;
@@ -58,14 +63,15 @@ public class JournalEntryController {
               + " in the configured base currency. Postings against an unknown, inactive, or"
               + " non-leaf account are rejected; so are postings into a closed period.")
   public ResponseEntity<?> post(@Valid @RequestBody PostJournalEntryRequest request) {
-    return postDuration.record(() -> handle(request));
+    TenantId tid = tenantContext.require();
+    return postDuration.record(() -> handle(tid, request));
   }
 
-  private ResponseEntity<?> handle(PostJournalEntryRequest request) {
+  private ResponseEntity<?> handle(TenantId tid, PostJournalEntryRequest request) {
     List<Posting> postings = request.postings().stream().map(this::toDomainPosting).toList();
 
     Result<PersistedJournalEntry, JournalError> result =
-        service.post(request.occurredOn(), request.description(), postings);
+        service.post(tid, request.occurredOn(), request.description(), postings);
 
     return result.fold(
         persisted -> {

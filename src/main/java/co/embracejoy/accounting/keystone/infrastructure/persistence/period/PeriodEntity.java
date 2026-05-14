@@ -3,12 +3,21 @@ package co.embracejoy.accounting.keystone.infrastructure.persistence.period;
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
 import jakarta.persistence.Id;
+import jakarta.persistence.IdClass;
 import jakarta.persistence.Table;
+import java.io.Serializable;
 import java.time.Instant;
+import java.util.Objects;
+import java.util.UUID;
 
 @Entity
 @Table(name = "periods")
+@IdClass(PeriodEntity.Key.class)
 class PeriodEntity {
+
+  @Id
+  @Column(name = "tenant_id", nullable = false, updatable = false)
+  private UUID tenantId;
 
   @Id
   @Column(name = "year_month", nullable = false, length = 7, updatable = false)
@@ -34,18 +43,24 @@ class PeriodEntity {
   }
 
   PeriodEntity(
+      UUID tenantId,
       String yearMonth,
       String status,
       Instant closedAt,
       String closedBy,
       Instant reopenedAt,
       String reopenedBy) {
+    this.tenantId = tenantId;
     this.yearMonth = yearMonth;
     this.status = status;
     this.closedAt = closedAt;
     this.closedBy = closedBy;
     this.reopenedAt = reopenedAt;
     this.reopenedBy = reopenedBy;
+  }
+
+  UUID getTenantId() {
+    return tenantId;
   }
 
   String getYearMonth() {
@@ -90,5 +105,36 @@ class PeriodEntity {
 
   void setReopenedBy(String reopenedBy) {
     this.reopenedBy = reopenedBy;
+  }
+
+  /** Composite primary key for {@link PeriodEntity}. */
+  static class Key implements Serializable {
+    private UUID tenantId;
+    private String yearMonth;
+
+    public Key() {
+      // JPA required no-arg constructor
+    }
+
+    public Key(UUID tenantId, String yearMonth) {
+      this.tenantId = tenantId;
+      this.yearMonth = yearMonth;
+    }
+
+    @Override
+    public boolean equals(Object o) {
+      if (this == o) {
+        return true;
+      }
+      if (!(o instanceof Key k)) {
+        return false;
+      }
+      return Objects.equals(tenantId, k.tenantId) && Objects.equals(yearMonth, k.yearMonth);
+    }
+
+    @Override
+    public int hashCode() {
+      return Objects.hash(tenantId, yearMonth);
+    }
   }
 }
