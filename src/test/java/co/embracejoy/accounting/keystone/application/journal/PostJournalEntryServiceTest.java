@@ -172,12 +172,12 @@ class PostJournalEntryServiceTest {
     }
 
     @Override
-    public Optional<PersistedJournalEntry> findById(JournalEntryId id) {
+    public Optional<PersistedJournalEntry> findById(TenantId tenantId, JournalEntryId id) {
       return Optional.empty();
     }
 
     @Override
-    public java.util.Set<java.time.YearMonth> distinctOccurredMonths() {
+    public java.util.Set<java.time.YearMonth> distinctOccurredMonths(TenantId tenantId) {
       return java.util.Set.of();
     }
   }

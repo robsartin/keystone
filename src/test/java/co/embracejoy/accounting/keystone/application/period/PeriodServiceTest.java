@@ -230,12 +230,12 @@ class PeriodServiceTest {
     }
 
     @Override
-    public Optional<PersistedJournalEntry> findById(JournalEntryId id) {
+    public Optional<PersistedJournalEntry> findById(TenantId tenantId, JournalEntryId id) {
       throw new UnsupportedOperationException("not needed in PeriodServiceTest");
     }
 
     @Override
-    public Set<YearMonth> distinctOccurredMonths() {
+    public Set<YearMonth> distinctOccurredMonths(TenantId tenantId) {
       return Set.copyOf(months);
     }
   }

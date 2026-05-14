@@ -65,6 +65,7 @@ class JpaJournalEntryRepositoryIT {
   private static JournalEntry validEntry() {
     Result<JournalEntry, JournalError> r =
         JournalEntry.of(
+            TENANT,
             LocalDate.parse("2026-05-10"),
             "opening",
             List.of(
@@ -76,6 +77,7 @@ class JpaJournalEntryRepositoryIT {
   private JournalEntry entryOn(LocalDate d) {
     Result<JournalEntry, JournalError> r =
         JournalEntry.of(
+            TENANT,
             d,
             "test",
             List.of(
@@ -98,7 +100,7 @@ class JpaJournalEntryRepositoryIT {
   @DisplayName("findById() returns Optional.empty for unknown id")
   void shouldReturnEmptyWhenIdUnknown() {
     Optional<PersistedJournalEntry> found =
-        repository.findById(new JournalEntryId(java.util.UUID.randomUUID()));
+        repository.findById(TENANT, new JournalEntryId(java.util.UUID.randomUUID()));
 
     assertThat(found).isEmpty();
   }
@@ -108,7 +110,7 @@ class JpaJournalEntryRepositoryIT {
   void shouldRoundTripWhenSavingAndReadingBack() {
     PersistedJournalEntry saved = repository.save(validEntry());
 
-    Optional<PersistedJournalEntry> found = repository.findById(saved.id());
+    Optional<PersistedJournalEntry> found = repository.findById(TENANT, saved.id());
 
     assertThat(found).isPresent();
     PersistedJournalEntry hydrated = found.get();
@@ -132,7 +134,7 @@ class JpaJournalEntryRepositoryIT {
     repository.save(entryOn(LocalDate.of(2026, 5, 28)));
     repository.save(entryOn(LocalDate.of(2026, 6, 15)));
 
-    Set<YearMonth> months = repository.distinctOccurredMonths();
+    Set<YearMonth> months = repository.distinctOccurredMonths(TENANT);
     assertThat(months).contains(YearMonth.of(2026, 5), YearMonth.of(2026, 6));
   }
 
@@ -157,10 +159,11 @@ class JpaJournalEntryRepositoryIT {
     Posting credit = new Posting(CASH, Side.CREDIT, new Money(10000L, USD), new Money(10000L, USD));
 
     JournalEntry entry =
-        new JournalEntry(LocalDate.of(2026, 5, 13), "USD→EUR transfer", List.of(debit, credit));
+        new JournalEntry(
+            TENANT, LocalDate.of(2026, 5, 13), "USD→EUR transfer", List.of(debit, credit));
 
     PersistedJournalEntry saved = repository.save(entry);
-    PersistedJournalEntry found = repository.findById(saved.id()).orElseThrow();
+    PersistedJournalEntry found = repository.findById(TENANT, saved.id()).orElseThrow();
 
     assertThat(found.entry().postings()).hasSize(2);
     Posting debitOut =

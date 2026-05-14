@@ -6,6 +6,7 @@ import co.embracejoy.accounting.keystone.domain.money.Money;
 import co.embracejoy.accounting.keystone.domain.money.MoneyError;
 import co.embracejoy.accounting.keystone.domain.period.PeriodStatus;
 import co.embracejoy.accounting.keystone.domain.shared.Result;
+import co.embracejoy.accounting.keystone.domain.tenancy.TenantId;
 import java.time.LocalDate;
 import java.time.YearMonth;
 import java.util.List;
@@ -14,12 +15,15 @@ import java.util.Objects;
 /**
  * A balanced double-entry journal entry.
  *
- * <p>Construct via {@link #of(LocalDate, String, List)} or {@link #of(LocalDate, String, List,
- * JournalValidationContext)}; the factory enforces the invariants and returns a {@code Result}.
+ * <p>Construct via {@link #of(TenantId, LocalDate, String, List)} or {@link #of(TenantId,
+ * LocalDate, String, List, JournalValidationContext)}; the factory enforces the invariants and
+ * returns a {@code Result}.
  */
-public record JournalEntry(LocalDate occurredOn, String description, List<Posting> postings) {
+public record JournalEntry(
+    TenantId tenantId, LocalDate occurredOn, String description, List<Posting> postings) {
 
   public JournalEntry {
+    Objects.requireNonNull(tenantId, "tenantId");
     Objects.requireNonNull(occurredOn, "occurredOn");
     Objects.requireNonNull(description, "description");
     Objects.requireNonNull(postings, "postings");
@@ -33,10 +37,12 @@ public record JournalEntry(LocalDate occurredOn, String description, List<Postin
    * <p>Use {@link JournalValidationContext#permissive()} to skip account checks (backward compat).
    */
   public static Result<JournalEntry, JournalError> of(
+      TenantId tenantId,
       LocalDate occurredOn,
       String description,
       List<Posting> postings,
       JournalValidationContext ctx) {
+    Objects.requireNonNull(tenantId, "tenantId");
     Objects.requireNonNull(occurredOn, "occurredOn");
     Objects.requireNonNull(description, "description");
     Objects.requireNonNull(postings, "postings");
@@ -62,16 +68,16 @@ public record JournalEntry(LocalDate occurredOn, String description, List<Postin
         }
       }
     }
-    return checkBalance(occurredOn, description, postings, ctx);
+    return checkBalance(tenantId, occurredOn, description, postings, ctx);
   }
 
   /**
    * Backward-compatible overload: delegates with a permissive context (no account checks). Existing
-   * callers keep compiling; new production callers use the four-arg form.
+   * callers keep compiling; new production callers use the five-arg form.
    */
   public static Result<JournalEntry, JournalError> of(
-      LocalDate occurredOn, String description, List<Posting> postings) {
-    return of(occurredOn, description, postings, JournalValidationContext.permissive());
+      TenantId tenantId, LocalDate occurredOn, String description, List<Posting> postings) {
+    return of(tenantId, occurredOn, description, postings, JournalValidationContext.permissive());
   }
 
   private static Result<JournalEntry, JournalError> checkAccounts(
@@ -100,9 +106,8 @@ public record JournalEntry(LocalDate occurredOn, String description, List<Postin
     return null;
   }
 
-  // Phase A interim balance check: balance on baseAmount per the spec.
-  // Phase B will add BaseCurrencyMismatch check before this step.
   private static Result<JournalEntry, JournalError> checkBalance(
+      TenantId tenantId,
       LocalDate occurredOn,
       String description,
       List<Posting> postings,
@@ -118,7 +123,7 @@ public record JournalEntry(LocalDate occurredOn, String description, List<Postin
                             return Result.failure(new JournalError.Unbalanced(debits, credits));
                           }
                           return Result.success(
-                              new JournalEntry(occurredOn, description, postings));
+                              new JournalEntry(tenantId, occurredOn, description, postings));
                         }));
   }
 

@@ -57,6 +57,7 @@ public final class PostJournalEntryService {
     JournalValidationContext ctx =
         new JournalValidationContext(
             accounts, nonLeafCodes, periodStatus, baseCurrency, JournalValidationMode.STRICT);
-    return JournalEntry.of(occurredOn, description, postings, ctx).map(journalRepository::save);
+    return JournalEntry.of(tenantId, occurredOn, description, postings, ctx)
+        .map(journalRepository::save);
   }
 }

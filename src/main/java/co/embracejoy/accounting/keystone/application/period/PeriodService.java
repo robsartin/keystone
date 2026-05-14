@@ -38,7 +38,7 @@ public final class PeriodService {
             .map(Period::yearMonth)
             .collect(Collectors.toUnmodifiableSet());
     TreeSet<YearMonth> openActive = new TreeSet<>();
-    for (YearMonth m : journals.distinctOccurredMonths()) {
+    for (YearMonth m : journals.distinctOccurredMonths(tenantId)) {
       if (!closedMonths.contains(m)) {
         openActive.add(m);
       }

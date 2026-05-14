@@ -117,7 +117,11 @@ class TrialBalanceJdbcReadModelIT {
     Posting creditUsd =
         new Posting(CASH_USD, Side.CREDIT, new Money(10000L, USD), new Money(10000L, USD));
     JournalEntry entry =
-        new JournalEntry(LocalDate.parse("2026-05-12"), "transfer", List.of(debitEur, creditUsd));
+        new JournalEntry(
+            Tenants.DEFAULT_TENANT_ID,
+            LocalDate.parse("2026-05-12"),
+            "transfer",
+            List.of(debitEur, creditUsd));
     journalRepo.save(entry);
 
     List<TrialBalanceRow> rows = readModel.fetch(LocalDate.parse("2026-05-13"), false);
@@ -191,6 +195,7 @@ class TrialBalanceJdbcReadModelIT {
     Money m = new Money(minorUnits, currency);
     JournalEntry entry =
         new JournalEntry(
+            Tenants.DEFAULT_TENANT_ID,
             occurredOn,
             "seed " + occurredOn,
             List.of(new Posting(debit, Side.DEBIT, m, m), new Posting(credit, Side.CREDIT, m, m)));

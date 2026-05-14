@@ -91,6 +91,7 @@ class JournalEntryControllerTest {
   private static PersistedJournalEntry validPersisted() {
     Result<JournalEntry, JournalError> r =
         JournalEntry.of(
+            TENANT,
             LocalDate.parse("2026-05-10"),
             "opening",
             List.of(
