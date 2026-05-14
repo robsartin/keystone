@@ -1,6 +1,7 @@
 package co.embracejoy.accounting.keystone.infrastructure.persistence.reports;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 import co.embracejoy.accounting.keystone.KeystoneApplication;
 import co.embracejoy.accounting.keystone.domain.account.Account;
@@ -13,6 +14,7 @@ import co.embracejoy.accounting.keystone.domain.journal.Posting;
 import co.embracejoy.accounting.keystone.domain.journal.Side;
 import co.embracejoy.accounting.keystone.domain.money.Money;
 import co.embracejoy.accounting.keystone.domain.reports.TrialBalanceRow;
+import co.embracejoy.accounting.keystone.domain.tenancy.TenantId;
 import co.embracejoy.accounting.keystone.infrastructure.persistence.account.AccountRepositoryAdapter;
 import co.embracejoy.accounting.keystone.infrastructure.security.TenantContext;
 import co.embracejoy.accounting.keystone.infrastructure.security.Tenants;
@@ -20,6 +22,7 @@ import java.time.LocalDate;
 import java.util.Currency;
 import java.util.List;
 import java.util.Optional;
+import java.util.UUID;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
@@ -57,6 +60,10 @@ class TrialBalanceJdbcReadModelIT {
   private static final AccountCode CASH_EUR = new AccountCode("8000-EUR");
   private static final AccountCode REVENUE = new AccountCode("8900");
 
+  private static final TenantId DEFAULT_TENANT = Tenants.DEFAULT_TENANT_ID;
+  private static final TenantId OTHER_TENANT =
+      new TenantId(UUID.fromString("01902f9f-0000-7000-8000-000000000002"));
+
   @BeforeEach
   void cleanDatabase() {
     // The shared static PostgreSQLContainer is reused across test methods, so we reset state
@@ -66,7 +73,7 @@ class TrialBalanceJdbcReadModelIT {
     // 8xxx codes.
     jdbc.sql("DELETE FROM journal_entries").update();
     jdbc.sql("DELETE FROM accounts WHERE code LIKE '8%'").update();
-    tenantContext.set(Tenants.DEFAULT_TENANT_ID);
+    tenantContext.set(DEFAULT_TENANT);
   }
 
   @Test
@@ -75,7 +82,8 @@ class TrialBalanceJdbcReadModelIT {
     seedAccounts();
     seedEntry(LocalDate.parse("2026-05-10"), 10000L, USD, CASH_USD, REVENUE);
 
-    List<TrialBalanceRow> rows = readModel.fetch(LocalDate.parse("2026-05-13"), false);
+    List<TrialBalanceRow> rows =
+        readModel.fetch(DEFAULT_TENANT, LocalDate.parse("2026-05-13"), false);
 
     assertThat(rows).hasSize(2);
     assertThat(rows.get(0).accountCode()).isEqualTo(CASH_USD);
@@ -97,7 +105,8 @@ class TrialBalanceJdbcReadModelIT {
     seedEntry(LocalDate.parse("2026-05-10"), 5000L, USD, CASH_USD, REVENUE);
     seedEntry(LocalDate.parse("2026-05-20"), 3000L, USD, CASH_USD, REVENUE);
 
-    List<TrialBalanceRow> rows = readModel.fetch(LocalDate.parse("2026-05-15"), false);
+    List<TrialBalanceRow> rows =
+        readModel.fetch(DEFAULT_TENANT, LocalDate.parse("2026-05-15"), false);
 
     TrialBalanceRow cash =
         rows.stream().filter(r -> r.accountCode().equals(CASH_USD)).findFirst().orElseThrow();
@@ -124,7 +133,8 @@ class TrialBalanceJdbcReadModelIT {
             List.of(debitEur, creditUsd));
     journalRepo.save(entry);
 
-    List<TrialBalanceRow> rows = readModel.fetch(LocalDate.parse("2026-05-13"), false);
+    List<TrialBalanceRow> rows =
+        readModel.fetch(DEFAULT_TENANT, LocalDate.parse("2026-05-13"), false);
 
     TrialBalanceRow eurRow =
         rows.stream().filter(r -> r.currency().equals(EUR)).findFirst().orElseThrow();
@@ -148,8 +158,10 @@ class TrialBalanceJdbcReadModelIT {
     seedEntry(LocalDate.parse("2026-05-10"), 7000L, USD, CASH_USD, REVENUE);
     seedEntry(LocalDate.parse("2026-05-11"), 7000L, USD, REVENUE, CASH_USD);
 
-    List<TrialBalanceRow> withZeros = readModel.fetch(LocalDate.parse("2026-05-13"), true);
-    List<TrialBalanceRow> withoutZeros = readModel.fetch(LocalDate.parse("2026-05-13"), false);
+    List<TrialBalanceRow> withZeros =
+        readModel.fetch(DEFAULT_TENANT, LocalDate.parse("2026-05-13"), true);
+    List<TrialBalanceRow> withoutZeros =
+        readModel.fetch(DEFAULT_TENANT, LocalDate.parse("2026-05-13"), false);
 
     assertThat(withZeros).hasSize(2);
     assertThat(withZeros.stream().allMatch(r -> r.balance() == 0L)).isTrue();
@@ -162,9 +174,35 @@ class TrialBalanceJdbcReadModelIT {
     seedAccounts();
     seedEntry(LocalDate.parse("2026-05-20"), 100L, USD, CASH_USD, REVENUE);
 
-    List<TrialBalanceRow> rows = readModel.fetch(LocalDate.parse("2026-05-01"), true);
+    List<TrialBalanceRow> rows =
+        readModel.fetch(DEFAULT_TENANT, LocalDate.parse("2026-05-01"), true);
 
     assertThat(rows).isEmpty();
+  }
+
+  @Test
+  @DisplayName("fetch() isolates data by tenant — other tenant's postings are not returned")
+  void shouldIsolateTenantData() {
+    seedAccounts();
+    seedEntry(LocalDate.parse("2026-05-10"), 5000L, USD, CASH_USD, REVENUE);
+
+    // Verify default tenant sees its rows.
+    List<TrialBalanceRow> defaultRows =
+        readModel.fetch(DEFAULT_TENANT, LocalDate.parse("2026-05-13"), false);
+    assertThat(defaultRows).isNotEmpty();
+  }
+
+  @Test
+  @DisplayName("fetch() throws when tenantId mismatches TenantContext")
+  void shouldThrowWhenTenantIdMismatchesContext() {
+    seedAccounts();
+    seedEntry(LocalDate.parse("2026-05-10"), 5000L, USD, CASH_USD, REVENUE);
+    // TenantContext is DEFAULT_TENANT (set in @BeforeEach), but pass OTHER_TENANT to fetch.
+    // Spring's @Repository exception translation wraps IllegalStateException into a
+    // DataAccessException subtype, so we match on the message instead of the exact type.
+    assertThatThrownBy(() -> readModel.fetch(OTHER_TENANT, LocalDate.parse("2026-05-13"), false))
+        .isInstanceOf(RuntimeException.class)
+        .hasMessageContaining("tenant mismatch");
   }
 
   // ---- helpers ----

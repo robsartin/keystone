@@ -1,6 +1,7 @@
 package co.embracejoy.accounting.keystone.infrastructure.web.reports;
 
 import co.embracejoy.accounting.keystone.application.reports.TrialBalanceService;
+import co.embracejoy.accounting.keystone.infrastructure.security.TenantContext;
 import co.embracejoy.accounting.keystone.infrastructure.web.reports.dto.TrialBalanceRowResponse;
 import io.swagger.v3.oas.annotations.Operation;
 import java.time.LocalDate;
@@ -28,9 +29,11 @@ import org.springframework.web.bind.annotation.RestController;
 public class TrialBalanceController {
 
   private final TrialBalanceService service;
+  private final TenantContext tenantContext;
 
-  public TrialBalanceController(TrialBalanceService service) {
+  public TrialBalanceController(TrialBalanceService service, TenantContext tenantContext) {
     this.service = service;
+    this.tenantContext = tenantContext;
   }
 
   @GetMapping("/trial-balance")
@@ -47,6 +50,8 @@ public class TrialBalanceController {
       @RequestParam(value = "includeZero", required = false, defaultValue = "false")
           boolean includeZero) {
     LocalDate effective = (asOf != null) ? asOf : LocalDate.now(ZoneOffset.UTC);
-    return service.query(effective, includeZero).stream().map(TrialBalanceRowResponse::of).toList();
+    return service.query(tenantContext.require(), effective, includeZero).stream()
+        .map(TrialBalanceRowResponse::of)
+        .toList();
   }
 }
