@@ -10,11 +10,13 @@ import co.embracejoy.accounting.keystone.domain.account.AccountCode;
 import co.embracejoy.accounting.keystone.domain.account.AccountStatus;
 import co.embracejoy.accounting.keystone.domain.account.AccountType;
 import co.embracejoy.accounting.keystone.domain.period.PeriodStatus;
+import co.embracejoy.accounting.keystone.domain.tenancy.TenantId;
 import java.util.Currency;
 import java.util.HashMap;
 import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
+import java.util.UUID;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 
@@ -22,9 +24,12 @@ import org.junit.jupiter.api.Test;
 class JournalValidationContextTest {
 
   private static final Currency USD = Currency.getInstance("USD");
+  private static final TenantId TENANT =
+      new TenantId(UUID.fromString("01902f9f-0000-7000-8000-00000000d1f1"));
 
   private static Account cash() {
     return new Account(
+        TENANT,
         new AccountCode("1000"),
         "Cash",
         AccountType.ASSET,

@@ -7,6 +7,7 @@ import co.embracejoy.accounting.keystone.domain.account.AccountRepository;
 import co.embracejoy.accounting.keystone.domain.account.AccountStatus;
 import co.embracejoy.accounting.keystone.domain.account.AccountType;
 import co.embracejoy.accounting.keystone.domain.shared.Result;
+import co.embracejoy.accounting.keystone.domain.tenancy.TenantId;
 import java.util.Currency;
 import java.util.HashSet;
 import java.util.List;
@@ -25,16 +26,18 @@ public final class AccountService {
 
   /** Create a new account. Validates parent existence before persisting. */
   public Result<Account, AccountError> create(
+      TenantId tenantId,
       AccountCode code,
       String name,
       AccountType type,
       Currency currency,
       Optional<AccountCode> parentCode) {
+    Objects.requireNonNull(tenantId, "tenantId");
     if (parentCode.isPresent() && repository.findByCode(parentCode.get()).isEmpty()) {
       return Result.failure(new AccountError.ParentNotFound(parentCode.get()));
     }
     return repository.save(
-        new Account(code, name, type, currency, parentCode, AccountStatus.ACTIVE));
+        new Account(tenantId, code, name, type, currency, parentCode, AccountStatus.ACTIVE));
   }
 
   /** Rename an account to a new code. Delegates to the repository's atomic rename primitive. */
@@ -59,7 +62,8 @@ public final class AccountService {
     }
     Account a = opt.get();
     return repository.update(
-        new Account(a.code(), a.name(), a.type(), a.currency(), newParentCode, a.status()));
+        new Account(
+            a.tenantId(), a.code(), a.name(), a.type(), a.currency(), newParentCode, a.status()));
   }
 
   /** Deactivate an account. Idempotent: already-inactive accounts return Success. */
@@ -92,7 +96,8 @@ public final class AccountService {
       return Result.success(a); // idempotent
     }
     return repository.update(
-        new Account(a.code(), a.name(), a.type(), a.currency(), a.parentCode(), status));
+        new Account(
+            a.tenantId(), a.code(), a.name(), a.type(), a.currency(), a.parentCode(), status));
   }
 
   private boolean wouldCreateCycle(AccountCode child, AccountCode proposedParent) {

@@ -23,6 +23,7 @@ import co.embracejoy.accounting.keystone.domain.period.Period;
 import co.embracejoy.accounting.keystone.domain.period.PeriodRepository;
 import co.embracejoy.accounting.keystone.domain.period.PeriodStatus;
 import co.embracejoy.accounting.keystone.domain.shared.Result;
+import co.embracejoy.accounting.keystone.domain.tenancy.TenantId;
 import java.time.Instant;
 import java.time.LocalDate;
 import java.time.YearMonth;
@@ -46,6 +47,8 @@ class PostJournalEntryServiceTest {
   private static final AccountCode CASH = new AccountCode("1000");
   private static final AccountCode EQUITY = new AccountCode("3000");
   private static final LocalDate TODAY = LocalDate.parse("2026-05-10");
+  private static final TenantId TENANT =
+      new TenantId(UUID.fromString("01902f9f-0000-7000-8000-00000000d1f1"));
 
   private FakeJournalRepo journalRepo;
   private FakeAccountRepo accountRepo;
@@ -59,9 +62,11 @@ class PostJournalEntryServiceTest {
     periodRepo = new FakePeriodRepo();
     // Seed the accounts used in posting tests
     accountRepo.seed(
-        new Account(CASH, "Cash", AccountType.ASSET, USD, Optional.empty(), AccountStatus.ACTIVE));
+        new Account(
+            TENANT, CASH, "Cash", AccountType.ASSET, USD, Optional.empty(), AccountStatus.ACTIVE));
     accountRepo.seed(
         new Account(
+            TENANT,
             EQUITY,
             "Owner Equity",
             AccountType.EQUITY,
@@ -215,7 +220,8 @@ class PostJournalEntryServiceTest {
         return Result.failure(new AccountError.NotFound(existing));
       }
       Account renamed =
-          new Account(newCode, a.name(), a.type(), a.currency(), a.parentCode(), a.status());
+          new Account(
+              a.tenantId(), newCode, a.name(), a.type(), a.currency(), a.parentCode(), a.status());
       store.put(newCode, renamed);
       return Result.success(renamed);
     }

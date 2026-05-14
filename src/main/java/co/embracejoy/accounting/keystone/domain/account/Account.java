@@ -1,5 +1,6 @@
 package co.embracejoy.accounting.keystone.domain.account;
 
+import co.embracejoy.accounting.keystone.domain.tenancy.TenantId;
 import java.util.Currency;
 import java.util.Objects;
 import java.util.Optional;
@@ -12,6 +13,7 @@ import java.util.Optional;
  * JournalEntry.of(...)} time, not here.
  */
 public record Account(
+    TenantId tenantId,
     AccountCode code,
     String name,
     AccountType type,
@@ -20,6 +22,7 @@ public record Account(
     AccountStatus status) {
 
   public Account {
+    Objects.requireNonNull(tenantId, "tenantId");
     Objects.requireNonNull(code, "code");
     Objects.requireNonNull(name, "name");
     if (name.isBlank()) {

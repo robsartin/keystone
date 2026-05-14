@@ -11,6 +11,7 @@ import co.embracejoy.accounting.keystone.domain.account.AccountType;
 import co.embracejoy.accounting.keystone.domain.money.Money;
 import co.embracejoy.accounting.keystone.domain.period.PeriodStatus;
 import co.embracejoy.accounting.keystone.domain.shared.Result;
+import co.embracejoy.accounting.keystone.domain.tenancy.TenantId;
 import java.time.LocalDate;
 import java.time.YearMonth;
 import java.util.Currency;
@@ -18,6 +19,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
+import java.util.UUID;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 
@@ -28,6 +30,8 @@ class JournalEntryTest {
   private static final AccountCode CASH = new AccountCode("1000");
   private static final AccountCode EQUITY = new AccountCode("3000");
   private static final LocalDate TODAY = LocalDate.parse("2026-05-09");
+  private static final TenantId TENANT =
+      new TenantId(UUID.fromString("01902f9f-0000-7000-8000-00000000d1f1"));
 
   private static Posting debit(AccountCode a, long amt, Currency c) {
     Money m = new Money(amt, c);
@@ -37,6 +41,14 @@ class JournalEntryTest {
   private static Posting credit(AccountCode a, long amt, Currency c) {
     Money m = new Money(amt, c);
     return new Posting(a, Side.CREDIT, m, m);
+  }
+
+  private static Account account(AccountCode code, String name, AccountType type, Currency ccy) {
+    return new Account(TENANT, code, name, type, ccy, Optional.empty(), AccountStatus.ACTIVE);
+  }
+
+  private static Account account(AccountCode code, String name, AccountType type) {
+    return account(code, name, type, USD);
   }
 
   @Test
@@ -152,10 +164,9 @@ class JournalEntryTest {
   @DisplayName("of(ctx) returns Failure(AccountInactive) when account is deactivated")
   void shouldReturnAccountInactiveWhenAccountInactive() {
     Account cashInactive =
-        new Account(CASH, "Cash", AccountType.ASSET, USD, Optional.empty(), AccountStatus.INACTIVE);
-    Account equity =
         new Account(
-            EQUITY, "Equity", AccountType.EQUITY, USD, Optional.empty(), AccountStatus.ACTIVE);
+            TENANT, CASH, "Cash", AccountType.ASSET, USD, Optional.empty(), AccountStatus.INACTIVE);
+    Account equity = account(EQUITY, "Equity", AccountType.EQUITY);
     JournalValidationContext ctx =
         new JournalValidationContext(Map.of(CASH, cashInactive, EQUITY, equity), Set.of());
     Result<JournalEntry, JournalError> r =
@@ -168,11 +179,8 @@ class JournalEntryTest {
   @Test
   @DisplayName("of(ctx) returns Failure(AccountNotALeaf) when account has children")
   void shouldReturnAccountNotALeafWhenAccountHasChildren() {
-    Account cash =
-        new Account(CASH, "Cash", AccountType.ASSET, USD, Optional.empty(), AccountStatus.ACTIVE);
-    Account equity =
-        new Account(
-            EQUITY, "Equity", AccountType.EQUITY, USD, Optional.empty(), AccountStatus.ACTIVE);
+    Account cash = account(CASH, "Cash", AccountType.ASSET);
+    Account equity = account(EQUITY, "Equity", AccountType.EQUITY);
     JournalValidationContext ctx =
         new JournalValidationContext(Map.of(CASH, cash, EQUITY, equity), Set.of(CASH));
     Result<JournalEntry, JournalError> r =
@@ -186,12 +194,8 @@ class JournalEntryTest {
   @DisplayName("of(ctx) returns Failure(AccountCurrencyMismatch) when currency differs")
   void shouldReturnAccountCurrencyMismatchWhenCurrencyDiffers() {
     Currency eur = Currency.getInstance("EUR");
-    Account cashEur =
-        new Account(
-            CASH, "Cash EUR", AccountType.ASSET, eur, Optional.empty(), AccountStatus.ACTIVE);
-    Account equityEur =
-        new Account(
-            EQUITY, "Equity EUR", AccountType.EQUITY, eur, Optional.empty(), AccountStatus.ACTIVE);
+    Account cashEur = account(CASH, "Cash EUR", AccountType.ASSET, eur);
+    Account equityEur = account(EQUITY, "Equity EUR", AccountType.EQUITY, eur);
     JournalValidationContext ctx =
         new JournalValidationContext(Map.of(CASH, cashEur, EQUITY, equityEur), Set.of());
     Result<JournalEntry, JournalError> r =
@@ -206,11 +210,8 @@ class JournalEntryTest {
   @Test
   @DisplayName("of(ctx) returns Success when all account checks pass")
   void shouldReturnSuccessWhenAllAccountChecksPass() {
-    Account cash =
-        new Account(CASH, "Cash", AccountType.ASSET, USD, Optional.empty(), AccountStatus.ACTIVE);
-    Account equity =
-        new Account(
-            EQUITY, "Equity", AccountType.EQUITY, USD, Optional.empty(), AccountStatus.ACTIVE);
+    Account cash = account(CASH, "Cash", AccountType.ASSET);
+    Account equity = account(EQUITY, "Equity", AccountType.EQUITY);
     JournalValidationContext ctx =
         new JournalValidationContext(Map.of(CASH, cash, EQUITY, equity), Set.of());
     Result<JournalEntry, JournalError> r =
@@ -222,11 +223,8 @@ class JournalEntryTest {
   @Test
   @DisplayName("of(ctx) returns Failure(PostingInClosedPeriod) when periodStatus is CLOSED")
   void shouldReturnPostingInClosedPeriodWhenPeriodClosed() {
-    Account cash =
-        new Account(CASH, "Cash", AccountType.ASSET, USD, Optional.empty(), AccountStatus.ACTIVE);
-    Account equity =
-        new Account(
-            EQUITY, "Equity", AccountType.EQUITY, USD, Optional.empty(), AccountStatus.ACTIVE);
+    Account cash = account(CASH, "Cash", AccountType.ASSET);
+    Account equity = account(EQUITY, "Equity", AccountType.EQUITY);
     JournalValidationContext ctx =
         new JournalValidationContext(
             Map.of(CASH, cash, EQUITY, equity),
@@ -246,11 +244,8 @@ class JournalEntryTest {
       "of(ctx) returns Failure(BaseCurrencyMismatch) when posting baseAmount currency differs")
   void shouldReturnBaseCurrencyMismatchWhenBaseCurrencyDiffers() {
     Currency eur = Currency.getInstance("EUR");
-    Account cash =
-        new Account(CASH, "Cash", AccountType.ASSET, USD, Optional.empty(), AccountStatus.ACTIVE);
-    Account equity =
-        new Account(
-            EQUITY, "Equity", AccountType.EQUITY, USD, Optional.empty(), AccountStatus.ACTIVE);
+    Account cash = account(CASH, "Cash", AccountType.ASSET);
+    Account equity = account(EQUITY, "Equity", AccountType.EQUITY);
     JournalValidationContext ctx =
         new JournalValidationContext(
             Map.of(CASH, cash, EQUITY, equity),
@@ -277,17 +272,8 @@ class JournalEntryTest {
   void shouldReturnSuccessWhenMultiCurrencyBalancesInBase() {
     Currency eur = Currency.getInstance("EUR");
     AccountCode cashEurCode = new AccountCode("1000-EUR");
-    Account cashUsd =
-        new Account(
-            CASH, "Cash USD", AccountType.ASSET, USD, Optional.empty(), AccountStatus.ACTIVE);
-    Account cashEur =
-        new Account(
-            cashEurCode,
-            "Cash EUR",
-            AccountType.ASSET,
-            eur,
-            Optional.empty(),
-            AccountStatus.ACTIVE);
+    Account cashUsd = account(CASH, "Cash USD", AccountType.ASSET);
+    Account cashEur = account(cashEurCode, "Cash EUR", AccountType.ASSET, eur);
     JournalValidationContext ctx =
         new JournalValidationContext(
             Map.of(CASH, cashUsd, cashEurCode, cashEur),

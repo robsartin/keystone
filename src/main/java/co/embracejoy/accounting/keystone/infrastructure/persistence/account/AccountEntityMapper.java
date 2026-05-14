@@ -4,6 +4,7 @@ import co.embracejoy.accounting.keystone.domain.account.Account;
 import co.embracejoy.accounting.keystone.domain.account.AccountCode;
 import co.embracejoy.accounting.keystone.domain.account.AccountStatus;
 import co.embracejoy.accounting.keystone.domain.account.AccountType;
+import co.embracejoy.accounting.keystone.domain.tenancy.TenantId;
 import java.util.Currency;
 import java.util.Optional;
 
@@ -15,6 +16,7 @@ final class AccountEntityMapper {
 
   static AccountEntity toEntity(Account a) {
     return new AccountEntity(
+        a.tenantId().value(),
         a.code().value(),
         a.name(),
         a.type().name(),
@@ -25,6 +27,7 @@ final class AccountEntityMapper {
 
   static Account toDomain(AccountEntity e) {
     return new Account(
+        new TenantId(e.getTenantId()),
         new AccountCode(e.getCode()),
         e.getName(),
         AccountType.valueOf(e.getType()),

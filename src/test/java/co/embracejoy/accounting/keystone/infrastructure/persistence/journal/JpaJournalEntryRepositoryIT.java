@@ -14,13 +14,17 @@ import co.embracejoy.accounting.keystone.domain.journal.Posting;
 import co.embracejoy.accounting.keystone.domain.journal.Side;
 import co.embracejoy.accounting.keystone.domain.money.Money;
 import co.embracejoy.accounting.keystone.domain.shared.Result;
+import co.embracejoy.accounting.keystone.domain.tenancy.TenantId;
 import co.embracejoy.accounting.keystone.infrastructure.persistence.account.AccountRepositoryAdapter;
+import co.embracejoy.accounting.keystone.infrastructure.security.TenantContext;
+import co.embracejoy.accounting.keystone.infrastructure.security.Tenants;
 import java.time.LocalDate;
 import java.time.YearMonth;
 import java.util.Currency;
 import java.util.List;
 import java.util.Optional;
 import java.util.Set;
+import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -44,12 +48,19 @@ class JpaJournalEntryRepositoryIT {
 
   @Autowired JpaJournalEntryRepository repository;
   @Autowired AccountRepositoryAdapter accountRepository;
+  @Autowired TenantContext tenantContext;
 
   private static final Currency USD = Currency.getInstance("USD");
   private static final Currency EUR = Currency.getInstance("EUR");
   private static final AccountCode CASH = new AccountCode("1000");
   private static final AccountCode EQUITY = new AccountCode("3000");
   private static final AccountCode CASH_EUR = new AccountCode("1000-EUR");
+  private static final TenantId TENANT = Tenants.DEFAULT_TENANT_ID;
+
+  @BeforeEach
+  void setupTenant() {
+    tenantContext.set(Tenants.DEFAULT_TENANT_ID);
+  }
 
   private static JournalEntry validEntry() {
     Result<JournalEntry, JournalError> r =
@@ -132,7 +143,13 @@ class JpaJournalEntryRepositoryIT {
     // Create an EUR cash account.
     accountRepository.save(
         new Account(
-            CASH_EUR, "Cash EUR", AccountType.ASSET, EUR, Optional.empty(), AccountStatus.ACTIVE));
+            TENANT,
+            CASH_EUR,
+            "Cash EUR",
+            AccountType.ASSET,
+            EUR,
+            Optional.empty(),
+            AccountStatus.ACTIVE));
 
     // USD→EUR entry: debit 9200 EUR (≡ $100 USD), credit 10000 USD ($100 USD).
     Posting debit =

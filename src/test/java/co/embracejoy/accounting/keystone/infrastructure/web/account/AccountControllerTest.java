@@ -20,9 +20,11 @@ import co.embracejoy.accounting.keystone.domain.account.AccountStatus;
 import co.embracejoy.accounting.keystone.domain.account.AccountType;
 import co.embracejoy.accounting.keystone.domain.shared.Result;
 import co.embracejoy.accounting.keystone.infrastructure.security.TenantContext;
+import co.embracejoy.accounting.keystone.infrastructure.security.Tenants;
 import java.util.Currency;
 import java.util.List;
 import java.util.Optional;
+import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.mockito.Mockito;
@@ -43,9 +45,20 @@ class AccountControllerTest {
   private static final Currency USD = Currency.getInstance("USD");
   private static final AccountCode CODE_1000 = new AccountCode("1000");
 
+  @BeforeEach
+  void setupTenant() {
+    Mockito.when(tenantContext.require()).thenReturn(Tenants.DEFAULT_TENANT_ID);
+  }
+
   private static Account anAccount() {
     return new Account(
-        CODE_1000, "Cash", AccountType.ASSET, USD, Optional.empty(), AccountStatus.ACTIVE);
+        Tenants.DEFAULT_TENANT_ID,
+        CODE_1000,
+        "Cash",
+        AccountType.ASSET,
+        USD,
+        Optional.empty(),
+        AccountStatus.ACTIVE);
   }
 
   @Test
@@ -53,7 +66,12 @@ class AccountControllerTest {
   void shouldReturn201WhenCreateSucceeds() throws Exception {
     Mockito.when(
             service.create(
-                Mockito.any(), Mockito.anyString(), Mockito.any(), Mockito.any(), Mockito.any()))
+                Mockito.any(),
+                Mockito.any(),
+                Mockito.anyString(),
+                Mockito.any(),
+                Mockito.any(),
+                Mockito.any()))
         .thenReturn(Result.success(anAccount()));
 
     mvc.perform(
@@ -75,7 +93,12 @@ class AccountControllerTest {
   void shouldReturn400WhenCodeAlreadyExists() throws Exception {
     Mockito.when(
             service.create(
-                Mockito.any(), Mockito.anyString(), Mockito.any(), Mockito.any(), Mockito.any()))
+                Mockito.any(),
+                Mockito.any(),
+                Mockito.anyString(),
+                Mockito.any(),
+                Mockito.any(),
+                Mockito.any()))
         .thenReturn(Result.failure(new AccountError.CodeAlreadyExists(CODE_1000)));
 
     mvc.perform(
@@ -96,7 +119,12 @@ class AccountControllerTest {
   void shouldReturn400WhenParentNotFound() throws Exception {
     Mockito.when(
             service.create(
-                Mockito.any(), Mockito.anyString(), Mockito.any(), Mockito.any(), Mockito.any()))
+                Mockito.any(),
+                Mockito.any(),
+                Mockito.anyString(),
+                Mockito.any(),
+                Mockito.any(),
+                Mockito.any()))
         .thenReturn(Result.failure(new AccountError.ParentNotFound(new AccountCode("9000"))));
 
     mvc.perform(
@@ -151,6 +179,7 @@ class AccountControllerTest {
   void shouldReturn200WhenRenameSucceeds() throws Exception {
     Account renamed =
         new Account(
+            Tenants.DEFAULT_TENANT_ID,
             new AccountCode("1001"),
             "Cash",
             AccountType.ASSET,
@@ -196,7 +225,13 @@ class AccountControllerTest {
   void shouldReturn200WhenDeactivateSucceeds() throws Exception {
     Account inactive =
         new Account(
-            CODE_1000, "Cash", AccountType.ASSET, USD, Optional.empty(), AccountStatus.INACTIVE);
+            Tenants.DEFAULT_TENANT_ID,
+            CODE_1000,
+            "Cash",
+            AccountType.ASSET,
+            USD,
+            Optional.empty(),
+            AccountStatus.INACTIVE);
     Mockito.when(service.deactivate(CODE_1000)).thenReturn(Result.success(inactive));
 
     mvc.perform(post("/accounts/1000/deactivate"))

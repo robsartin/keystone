@@ -14,6 +14,8 @@ import co.embracejoy.accounting.keystone.domain.journal.Side;
 import co.embracejoy.accounting.keystone.domain.money.Money;
 import co.embracejoy.accounting.keystone.domain.reports.TrialBalanceRow;
 import co.embracejoy.accounting.keystone.infrastructure.persistence.account.AccountRepositoryAdapter;
+import co.embracejoy.accounting.keystone.infrastructure.security.TenantContext;
+import co.embracejoy.accounting.keystone.infrastructure.security.Tenants;
 import java.time.LocalDate;
 import java.util.Currency;
 import java.util.List;
@@ -45,6 +47,7 @@ class TrialBalanceJdbcReadModelIT {
   @Autowired AccountRepositoryAdapter accountRepo;
   @Autowired JournalEntryRepository journalRepo;
   @Autowired JdbcClient jdbc;
+  @Autowired TenantContext tenantContext;
 
   private static final Currency USD = Currency.getInstance("USD");
   private static final Currency EUR = Currency.getInstance("EUR");
@@ -63,6 +66,7 @@ class TrialBalanceJdbcReadModelIT {
     // 8xxx codes.
     jdbc.sql("DELETE FROM journal_entries").update();
     jdbc.sql("DELETE FROM accounts WHERE code LIKE '8%'").update();
+    tenantContext.set(Tenants.DEFAULT_TENANT_ID);
   }
 
   @Test
@@ -105,9 +109,7 @@ class TrialBalanceJdbcReadModelIT {
   @DisplayName("fetch() returns one row per (accountCode, currency) — multi-currency split")
   void shouldGroupByAccountCodeAndCurrency() {
     seedAccounts();
-    accountRepo.save(
-        new Account(
-            CASH_EUR, "Cash EUR", AccountType.ASSET, EUR, Optional.empty(), AccountStatus.ACTIVE));
+    seedAccount(CASH_EUR, "Cash EUR", AccountType.ASSET, EUR);
 
     // USD→EUR transfer: debit 9200 EUR / credit 10000 USD; baseAmount=USD on both.
     Posting debitEur =
@@ -163,13 +165,21 @@ class TrialBalanceJdbcReadModelIT {
 
   // ---- helpers ----
 
+  private void seedAccount(AccountCode code, String name, AccountType type, Currency ccy) {
+    accountRepo.save(
+        new Account(
+            Tenants.DEFAULT_TENANT_ID,
+            code,
+            name,
+            type,
+            ccy,
+            Optional.empty(),
+            AccountStatus.ACTIVE));
+  }
+
   private void seedAccounts() {
-    accountRepo.save(
-        new Account(
-            CASH_USD, "Cash USD", AccountType.ASSET, USD, Optional.empty(), AccountStatus.ACTIVE));
-    accountRepo.save(
-        new Account(
-            REVENUE, "Revenue", AccountType.REVENUE, USD, Optional.empty(), AccountStatus.ACTIVE));
+    seedAccount(CASH_USD, "Cash USD", AccountType.ASSET, USD);
+    seedAccount(REVENUE, "Revenue", AccountType.REVENUE, USD);
   }
 
   private void seedEntry(

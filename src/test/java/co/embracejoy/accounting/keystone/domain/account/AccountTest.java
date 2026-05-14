@@ -5,8 +5,10 @@ import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
+import co.embracejoy.accounting.keystone.domain.tenancy.TenantId;
 import java.util.Currency;
 import java.util.Optional;
+import java.util.UUID;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 
@@ -16,6 +18,24 @@ class AccountTest {
   private static final Currency USD = Currency.getInstance("USD");
   private static final AccountCode CASH = new AccountCode("1000");
   private static final AccountCode ASSETS = new AccountCode("1");
+  private static final TenantId TENANT =
+      new TenantId(UUID.fromString("01902f9f-0000-7000-8000-00000000d1f1"));
+
+  @Test
+  @DisplayName("rejects null tenantId")
+  void shouldThrowWhenTenantIdIsNull() {
+    assertThrows(
+        NullPointerException.class,
+        () ->
+            new Account(
+                null,
+                CASH,
+                "Cash",
+                AccountType.ASSET,
+                USD,
+                Optional.empty(),
+                AccountStatus.ACTIVE));
+  }
 
   @Test
   @DisplayName("rejects null code")
@@ -24,7 +44,13 @@ class AccountTest {
         NullPointerException.class,
         () ->
             new Account(
-                null, "Cash", AccountType.ASSET, USD, Optional.empty(), AccountStatus.ACTIVE));
+                TENANT,
+                null,
+                "Cash",
+                AccountType.ASSET,
+                USD,
+                Optional.empty(),
+                AccountStatus.ACTIVE));
   }
 
   @Test
@@ -34,7 +60,13 @@ class AccountTest {
         NullPointerException.class,
         () ->
             new Account(
-                CASH, null, AccountType.ASSET, USD, Optional.empty(), AccountStatus.ACTIVE));
+                TENANT,
+                CASH,
+                null,
+                AccountType.ASSET,
+                USD,
+                Optional.empty(),
+                AccountStatus.ACTIVE));
   }
 
   @Test
@@ -44,7 +76,13 @@ class AccountTest {
         IllegalArgumentException.class,
         () ->
             new Account(
-                CASH, "  ", AccountType.ASSET, USD, Optional.empty(), AccountStatus.ACTIVE));
+                TENANT,
+                CASH,
+                "  ",
+                AccountType.ASSET,
+                USD,
+                Optional.empty(),
+                AccountStatus.ACTIVE));
   }
 
   @Test
@@ -52,7 +90,7 @@ class AccountTest {
   void shouldThrowWhenTypeIsNull() {
     assertThrows(
         NullPointerException.class,
-        () -> new Account(CASH, "Cash", null, USD, Optional.empty(), AccountStatus.ACTIVE));
+        () -> new Account(TENANT, CASH, "Cash", null, USD, Optional.empty(), AccountStatus.ACTIVE));
   }
 
   @Test
@@ -62,7 +100,13 @@ class AccountTest {
         NullPointerException.class,
         () ->
             new Account(
-                CASH, "Cash", AccountType.ASSET, null, Optional.empty(), AccountStatus.ACTIVE));
+                TENANT,
+                CASH,
+                "Cash",
+                AccountType.ASSET,
+                null,
+                Optional.empty(),
+                AccountStatus.ACTIVE));
   }
 
   @Test
@@ -70,7 +114,8 @@ class AccountTest {
   void shouldThrowWhenParentOptionalIsNull() {
     assertThrows(
         NullPointerException.class,
-        () -> new Account(CASH, "Cash", AccountType.ASSET, USD, null, AccountStatus.ACTIVE));
+        () ->
+            new Account(TENANT, CASH, "Cash", AccountType.ASSET, USD, null, AccountStatus.ACTIVE));
   }
 
   @Test
@@ -78,7 +123,7 @@ class AccountTest {
   void shouldThrowWhenStatusIsNull() {
     assertThrows(
         NullPointerException.class,
-        () -> new Account(CASH, "Cash", AccountType.ASSET, USD, Optional.empty(), null));
+        () -> new Account(TENANT, CASH, "Cash", AccountType.ASSET, USD, Optional.empty(), null));
   }
 
   @Test
@@ -88,7 +133,13 @@ class AccountTest {
         IllegalArgumentException.class,
         () ->
             new Account(
-                CASH, "Cash", AccountType.ASSET, USD, Optional.of(CASH), AccountStatus.ACTIVE));
+                TENANT,
+                CASH,
+                "Cash",
+                AccountType.ASSET,
+                USD,
+                Optional.of(CASH),
+                AccountStatus.ACTIVE));
   }
 
   @Test
@@ -96,7 +147,13 @@ class AccountTest {
   void shouldConstructWhenParentAbsent() {
     Account a =
         new Account(
-            ASSETS, "Assets", AccountType.ASSET, USD, Optional.empty(), AccountStatus.ACTIVE);
+            TENANT,
+            ASSETS,
+            "Assets",
+            AccountType.ASSET,
+            USD,
+            Optional.empty(),
+            AccountStatus.ACTIVE);
     assertEquals(ASSETS, a.code());
     assertEquals(NormalSide.DEBIT, a.normalSide());
   }
@@ -106,7 +163,13 @@ class AccountTest {
   void shouldConstructWhenParentDiffersFromCode() {
     Account a =
         new Account(
-            CASH, "Cash", AccountType.ASSET, USD, Optional.of(ASSETS), AccountStatus.ACTIVE);
+            TENANT,
+            CASH,
+            "Cash",
+            AccountType.ASSET,
+            USD,
+            Optional.of(ASSETS),
+            AccountStatus.ACTIVE);
     assertEquals(Optional.of(ASSETS), a.parentCode());
   }
 
@@ -114,7 +177,8 @@ class AccountTest {
   @DisplayName("normalSide delegates to type")
   void shouldReturnTypeNormalSide() {
     Account a =
-        new Account(CASH, "Cash", AccountType.ASSET, USD, Optional.empty(), AccountStatus.ACTIVE);
+        new Account(
+            TENANT, CASH, "Cash", AccountType.ASSET, USD, Optional.empty(), AccountStatus.ACTIVE);
     assertEquals(NormalSide.DEBIT, a.normalSide());
   }
 
@@ -122,9 +186,11 @@ class AccountTest {
   @DisplayName("isActive() is true iff status is ACTIVE")
   void shouldReportActiveStatus() {
     Account active =
-        new Account(CASH, "Cash", AccountType.ASSET, USD, Optional.empty(), AccountStatus.ACTIVE);
+        new Account(
+            TENANT, CASH, "Cash", AccountType.ASSET, USD, Optional.empty(), AccountStatus.ACTIVE);
     Account inactive =
-        new Account(CASH, "Cash", AccountType.ASSET, USD, Optional.empty(), AccountStatus.INACTIVE);
+        new Account(
+            TENANT, CASH, "Cash", AccountType.ASSET, USD, Optional.empty(), AccountStatus.INACTIVE);
     assertTrue(active.isActive());
     assertFalse(inactive.isActive());
   }
