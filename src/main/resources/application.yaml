@@ -4,10 +4,14 @@ keystone:
 spring:
   application:
     name: keystone
+  # `datasource` is the app-runtime pool — connects as `keystone_app`, a
+  # NOSUPERUSER NOBYPASSRLS role provisioned by docker/postgres-init/01-app-role.sql
+  # so RLS actually applies to normal queries. Flyway migrations use their own
+  # credentials (below) to run as the schema owner.
   datasource:
     url: ${DATABASE_URL:jdbc:postgresql://localhost:5434/keystone}
-    username: ${DATABASE_USER:keystone}
-    password: ${DATABASE_PASSWORD:keystone}
+    username: ${DATABASE_USER:keystone_app}
+    password: ${DATABASE_PASSWORD:keystone_app}
   jpa:
     hibernate:
       ddl-auto: validate
@@ -17,10 +21,15 @@ spring:
           time_zone: UTC
         format_sql: false
     open-in-view: false
+  # Flyway runs as `keystone` (the built-in POSTGRES_USER, still SUPERUSER)
+  # so it can create tables, enable RLS, define policies, etc. The runtime
+  # app pool above uses a separate NOSUPERUSER role.
   flyway:
     enabled: true
     locations: classpath:db/migration
     baseline-on-migrate: false
+    user: ${FLYWAY_USER:keystone}
+    password: ${FLYWAY_PASSWORD:keystone}
 
 server:
   port: 8080
