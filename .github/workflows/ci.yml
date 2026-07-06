@@ -52,6 +52,17 @@ jobs:
         with:
           node-version: "20"
 
+      - name: Provision app role (RLS)
+        # The postgres service container only creates the `keystone` superuser.
+        # docker-compose mounts docker/postgres-init/ into the container so the
+        # NOSUPERUSER `keystone_app` role (the app-runtime pool) exists; service
+        # containers can't mount the checked-out repo, so run the same script by
+        # hand here. Must run BEFORE `verify` (Flyway) so ALTER DEFAULT
+        # PRIVILEGES grants CRUD on the tables Flyway later creates.
+        env:
+          PGPASSWORD: keystone
+        run: psql -h localhost -p 5434 -U keystone -d keystone -v ON_ERROR_STOP=1 -f docker/postgres-init/01-app-role.sql
+
       - name: Verify
         # The `breaking-change-approved` label on a PR opts out of Layer 4
         # (openapi-diff vs main). All other gates still run. Use sparingly —
