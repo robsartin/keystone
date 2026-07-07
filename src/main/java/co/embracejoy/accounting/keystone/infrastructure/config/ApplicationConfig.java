@@ -4,11 +4,19 @@ import co.embracejoy.accounting.keystone.application.account.AccountService;
 import co.embracejoy.accounting.keystone.application.journal.PostJournalEntryService;
 import co.embracejoy.accounting.keystone.application.period.PeriodService;
 import co.embracejoy.accounting.keystone.application.reports.TrialBalanceService;
+import co.embracejoy.accounting.keystone.application.security.UserRoleService;
+import co.embracejoy.accounting.keystone.application.tenancy.TenantService;
 import co.embracejoy.accounting.keystone.domain.account.AccountRepository;
 import co.embracejoy.accounting.keystone.domain.journal.JournalEntryRepository;
 import co.embracejoy.accounting.keystone.domain.period.PeriodRepository;
 import co.embracejoy.accounting.keystone.domain.reports.TrialBalanceReadModel;
+import co.embracejoy.accounting.keystone.domain.security.TenantUserRoleRepository;
+import co.embracejoy.accounting.keystone.domain.tenancy.TenantRepository;
+import co.embracejoy.accounting.keystone.infrastructure.shared.UuidV7Generator;
+import java.time.Clock;
 import java.util.Currency;
+import java.util.UUID;
+import java.util.function.Supplier;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 
@@ -45,5 +53,26 @@ public class ApplicationConfig {
   @Bean
   public TrialBalanceService trialBalanceService(TrialBalanceReadModel readModel) {
     return new TrialBalanceService(readModel);
+  }
+
+  @Bean
+  public Clock keystoneClock() {
+    return Clock.systemUTC();
+  }
+
+  @Bean
+  public Supplier<UUID> keystoneUuidSupplier() {
+    return UuidV7Generator::create;
+  }
+
+  @Bean
+  public TenantService tenantService(
+      TenantRepository tenantRepository, Clock clock, Supplier<UUID> uuidSupplier) {
+    return new TenantService(tenantRepository, clock, uuidSupplier);
+  }
+
+  @Bean
+  public UserRoleService userRoleService(TenantUserRoleRepository roleRepository, Clock clock) {
+    return new UserRoleService(roleRepository, clock);
   }
 }

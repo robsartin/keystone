@@ -3,6 +3,7 @@ package co.embracejoy.accounting.keystone.infrastructure.web;
 import co.embracejoy.accounting.keystone.domain.account.AccountError;
 import co.embracejoy.accounting.keystone.domain.journal.JournalError;
 import co.embracejoy.accounting.keystone.domain.period.PeriodError;
+import co.embracejoy.accounting.keystone.domain.tenancy.TenantError;
 import java.net.URI;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ProblemDetail;
@@ -71,6 +72,37 @@ public final class ResultMapper {
               "Period not found",
               "No period row for " + nf.yearMonth() + ".");
     };
+  }
+
+  public static ProblemDetail toProblemDetail(TenantError err) {
+    return switch (err) {
+      case TenantError.NotFound n ->
+          problem(
+              HttpStatus.NOT_FOUND,
+              "/admin/tenant-not-found",
+              "Tenant not found",
+              "No tenant with id '" + n.id().value() + "'.");
+      case TenantError.InvalidName in ->
+          problem(
+              HttpStatus.BAD_REQUEST,
+              "/admin/tenant-invalid-name",
+              "Tenant name is invalid",
+              in.reason());
+      case TenantError.Deactivated d ->
+          problem(
+              HttpStatus.BAD_REQUEST,
+              "/admin/tenant-deactivated",
+              "Tenant is deactivated",
+              "Tenant '" + d.id().value() + "' is deactivated.");
+    };
+  }
+
+  public static ProblemDetail tenantNotFoundByRawId(String rawId) {
+    return problem(
+        HttpStatus.NOT_FOUND,
+        "/admin/tenant-not-found",
+        "Tenant not found",
+        "No tenant with id '" + rawId + "'.");
   }
 
   public static ProblemDetail toProblemDetail(AccountError err) {
