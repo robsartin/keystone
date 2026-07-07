@@ -3,6 +3,7 @@ package co.embracejoy.accounting.keystone.infrastructure.web;
 import co.embracejoy.accounting.keystone.domain.account.AccountError;
 import co.embracejoy.accounting.keystone.domain.journal.JournalError;
 import co.embracejoy.accounting.keystone.domain.period.PeriodError;
+import co.embracejoy.accounting.keystone.domain.security.SecurityError;
 import co.embracejoy.accounting.keystone.domain.tenancy.TenantError;
 import java.net.URI;
 import org.springframework.http.HttpStatus;
@@ -95,6 +96,64 @@ public final class ResultMapper {
               "Tenant is deactivated",
               "Tenant '" + d.id().value() + "' is deactivated.");
     };
+  }
+
+  public static ProblemDetail toProblemDetail(SecurityError err) {
+    return switch (err) {
+      case SecurityError.RoleNotFound r -> securityRoleNotFound(r);
+      case SecurityError.CannotOrphanSelf c -> securityCannotOrphanSelf(c);
+      case SecurityError.MissingTenant m -> securityMissingTenant();
+      case SecurityError.UnknownTenant u -> securityUnknownTenant(u);
+      case SecurityError.InsufficientRole i -> securityInsufficientRole(i);
+    };
+  }
+
+  private static ProblemDetail securityRoleNotFound(SecurityError.RoleNotFound r) {
+    return problem(
+        HttpStatus.NOT_FOUND,
+        "/admin/user-role-not-found",
+        "User role not found",
+        "No role assignment for user '"
+            + r.userSub()
+            + "' in tenant '"
+            + r.tenantId().value()
+            + "'.");
+  }
+
+  private static ProblemDetail securityCannotOrphanSelf(SecurityError.CannotOrphanSelf c) {
+    return problem(
+        HttpStatus.BAD_REQUEST,
+        "/admin/cannot-orphan-self",
+        "Cannot orphan the lone tenant admin",
+        "User '"
+            + c.userSub()
+            + "' is the only Admin in tenant '"
+            + c.tenantId().value()
+            + "' and cannot demote or remove themselves.");
+  }
+
+  private static ProblemDetail securityMissingTenant() {
+    return problem(
+        HttpStatus.FORBIDDEN,
+        "/auth/missing-tenant",
+        "No tenant in context",
+        "Request has no resolvable tenant context.");
+  }
+
+  private static ProblemDetail securityUnknownTenant(SecurityError.UnknownTenant u) {
+    return problem(
+        HttpStatus.FORBIDDEN,
+        "/auth/unknown-tenant",
+        "Unknown tenant",
+        "Tenant '" + u.tenantId().value() + "' is not recognized.");
+  }
+
+  private static ProblemDetail securityInsufficientRole(SecurityError.InsufficientRole i) {
+    return problem(
+        HttpStatus.FORBIDDEN,
+        "/auth/insufficient-role",
+        "Insufficient role",
+        "This endpoint requires role: " + i.required() + ".");
   }
 
   public static ProblemDetail tenantNotFoundByRawId(String rawId) {
