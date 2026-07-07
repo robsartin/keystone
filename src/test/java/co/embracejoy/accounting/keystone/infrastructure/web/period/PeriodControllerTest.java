@@ -14,6 +14,8 @@ import co.embracejoy.accounting.keystone.domain.period.Period;
 import co.embracejoy.accounting.keystone.domain.period.PeriodError;
 import co.embracejoy.accounting.keystone.domain.period.PeriodStatus;
 import co.embracejoy.accounting.keystone.domain.security.PlatformAdminRepository;
+import co.embracejoy.accounting.keystone.domain.security.Role;
+import co.embracejoy.accounting.keystone.domain.security.TenantUserRole;
 import co.embracejoy.accounting.keystone.domain.security.TenantUserRoleRepository;
 import co.embracejoy.accounting.keystone.domain.shared.Result;
 import co.embracejoy.accounting.keystone.domain.tenancy.Tenant;
@@ -69,7 +71,11 @@ class PeriodControllerTest {
     Mockito.when(roles.findRole(Mockito.any(), Mockito.any())).thenReturn(Optional.empty());
   }
 
-  private RequestPostProcessor withTestAuth() {
+  private RequestPostProcessor withTestAuth(Role role) {
+    Mockito.when(roles.findRole(TENANT, "auth0|test-user"))
+        .thenReturn(
+            Optional.of(
+                new TenantUserRole(TENANT, "auth0|test-user", role, Instant.EPOCH, "system")));
     return req -> {
       req.addHeader("Authorization", "Bearer " + jwt.mint("auth0|test-user", TENANT));
       return req;
@@ -96,7 +102,7 @@ class PeriodControllerTest {
   void shouldReturnClosedPeriodsList() throws Exception {
     Mockito.when(service.findAllClosed(TENANT)).thenReturn(List.of(closedPeriod(JUN_2026)));
 
-    mvc.perform(get("/periods").param("status", "closed").with(withTestAuth()))
+    mvc.perform(get("/periods").param("status", "closed").with(withTestAuth(Role.ADMIN)))
         .andExpect(status().isOk())
         .andExpect(jsonPath("$", hasSize(1)))
         .andExpect(jsonPath("$[0].yearMonth").value("2026-06"))
@@ -108,7 +114,7 @@ class PeriodControllerTest {
   void shouldReturnClosedPeriodByYearMonth() throws Exception {
     Mockito.when(service.findByYearMonth(TENANT, JUN_2026)).thenReturn(closedPeriod(JUN_2026));
 
-    mvc.perform(get("/periods/2026-06").with(withTestAuth()))
+    mvc.perform(get("/periods/2026-06").with(withTestAuth(Role.ADMIN)))
         .andExpect(status().isOk())
         .andExpect(jsonPath("$.yearMonth").value("2026-06"))
         .andExpect(jsonPath("$.status").value("CLOSED"));
@@ -119,7 +125,7 @@ class PeriodControllerTest {
   void shouldReturnSynthesizedOpenPeriod() throws Exception {
     Mockito.when(service.findByYearMonth(TENANT, MAY_2026)).thenReturn(openPeriod(MAY_2026));
 
-    mvc.perform(get("/periods/2026-05").with(withTestAuth()))
+    mvc.perform(get("/periods/2026-05").with(withTestAuth(Role.ADMIN)))
         .andExpect(status().isOk())
         .andExpect(jsonPath("$.yearMonth").value("2026-05"))
         .andExpect(jsonPath("$.status").value("OPEN"));
@@ -131,7 +137,7 @@ class PeriodControllerTest {
     Mockito.when(service.close(TENANT, JUN_2026, "system"))
         .thenReturn(Result.success(closedPeriod(JUN_2026)));
 
-    mvc.perform(post("/periods/2026-06/close").with(withTestAuth()))
+    mvc.perform(post("/periods/2026-06/close").with(withTestAuth(Role.ADMIN)))
         .andExpect(status().isOk())
         .andExpect(jsonPath("$.status").value("CLOSED"));
   }
@@ -142,7 +148,7 @@ class PeriodControllerTest {
     Mockito.when(service.close(TENANT, MAY_2026, "system"))
         .thenReturn(Result.success(closedPeriod(MAY_2026)));
 
-    mvc.perform(post("/periods/2026-05/close").with(withTestAuth()))
+    mvc.perform(post("/periods/2026-05/close").with(withTestAuth(Role.ADMIN)))
         .andExpect(status().isOk())
         .andExpect(jsonPath("$.yearMonth").value("2026-05"))
         .andExpect(jsonPath("$.status").value("CLOSED"));
@@ -154,7 +160,7 @@ class PeriodControllerTest {
     Mockito.when(service.close(TENANT, JUN_2026, "system"))
         .thenReturn(Result.failure(new PeriodError.NotSequentiallyClosable(JUN_2026, MAY_2026)));
 
-    mvc.perform(post("/periods/2026-06/close").with(withTestAuth()))
+    mvc.perform(post("/periods/2026-06/close").with(withTestAuth(Role.ADMIN)))
         .andExpect(status().isBadRequest())
         .andExpect(content().contentType("application/problem+json"))
         .andExpect(jsonPath("$.type").value(endsWith("/period/not-sequentially-closable")))
@@ -175,7 +181,7 @@ class PeriodControllerTest {
             Optional.of("system"));
     Mockito.when(service.reopen(TENANT, JUN_2026, "system")).thenReturn(Result.success(reopened));
 
-    mvc.perform(post("/periods/2026-06/reopen").with(withTestAuth()))
+    mvc.perform(post("/periods/2026-06/reopen").with(withTestAuth(Role.ADMIN)))
         .andExpect(status().isOk())
         .andExpect(jsonPath("$.status").value("OPEN"))
         .andExpect(jsonPath("$.reopenedAt").value(containsString("2026-07-02")));
@@ -188,10 +194,29 @@ class PeriodControllerTest {
         .thenReturn(
             Result.failure(new PeriodError.NotMostRecentlyClosed(MAY_2026, Optional.of(JUN_2026))));
 
-    mvc.perform(post("/periods/2026-05/reopen").with(withTestAuth()))
+    mvc.perform(post("/periods/2026-05/reopen").with(withTestAuth(Role.ADMIN)))
         .andExpect(status().isBadRequest())
         .andExpect(content().contentType("application/problem+json"))
         .andExpect(jsonPath("$.type").value(endsWith("/period/not-most-recently-closed")))
         .andExpect(jsonPath("$.detail", containsString("2026-06")));
+  }
+
+  @Test
+  @DisplayName("POST /periods/{yyyy-mm}/close returns 403 when caller has only BOOKKEEPER")
+  void shouldReturn403WhenBookkeeperTriesClose() throws Exception {
+    mvc.perform(post("/periods/2026-06/close").with(withTestAuth(Role.BOOKKEEPER)))
+        .andExpect(status().isForbidden())
+        .andExpect(content().contentType("application/problem+json"))
+        .andExpect(jsonPath("$.type").value(endsWith("/problems/auth/insufficient-role")));
+  }
+
+  @Test
+  @DisplayName("GET /periods returns 200 when caller has only the READ_ONLY role")
+  void shouldAllowReadOnlyListRead() throws Exception {
+    Mockito.when(service.findAllClosed(TENANT)).thenReturn(List.of(closedPeriod(JUN_2026)));
+
+    mvc.perform(get("/periods").param("status", "closed").with(withTestAuth(Role.READ_ONLY)))
+        .andExpect(status().isOk())
+        .andExpect(jsonPath("$", hasSize(1)));
   }
 }

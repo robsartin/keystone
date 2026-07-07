@@ -5,6 +5,7 @@ import static org.assertj.core.api.Assertions.assertThat;
 import co.embracejoy.accounting.keystone.infrastructure.security.Tenants;
 import co.embracejoy.accounting.keystone.testsupport.JwtTestSupport;
 import co.embracejoy.accounting.keystone.testsupport.TestSecurityConfig;
+import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -16,6 +17,7 @@ import org.springframework.http.HttpStatus;
 import org.springframework.http.HttpStatusCode;
 import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
+import org.springframework.jdbc.core.simple.JdbcClient;
 import org.springframework.test.context.TestPropertySource;
 import org.springframework.web.client.RestClient;
 import org.testcontainers.containers.PostgreSQLContainer;
@@ -45,6 +47,28 @@ class ApplicationSmokeIT {
 
   @LocalServerPort int port;
   @Autowired JwtTestSupport jwt;
+  @Autowired JdbcClient jdbcClient;
+
+  /**
+   * Grants {@code smoke-user} the ADMIN role in the default tenant so every smoke call clears the
+   * {@code @PreAuthorize} checks wired per the Q7 permission matrix. Inserted directly via JDBC
+   * (bypassing {@code TenantUserRoleRepository}, which needs a request-scoped {@code TenantContext}
+   * unavailable on this test thread under {@code RANDOM_PORT}); the Testcontainers superuser
+   * connection bypasses {@code tenant_user_roles}' row-level security regardless.
+   */
+  @BeforeEach
+  void grantSmokeUserAdminRole() {
+    jdbcClient
+        .sql(
+            """
+            INSERT INTO tenant_user_roles (tenant_id, user_sub, role, granted_at, granted_by)
+            VALUES (:tenantId, :userSub, 'ADMIN', now(), 'system')
+            ON CONFLICT (tenant_id, user_sub) DO NOTHING
+            """)
+        .param("tenantId", Tenants.DEFAULT_TENANT_UUID)
+        .param("userSub", "smoke-user")
+        .update();
+  }
 
   /**
    * All smoke calls go through the fully-authenticated pipeline: a JWT with the default tenant

@@ -19,6 +19,8 @@ import co.embracejoy.accounting.keystone.domain.journal.Posting;
 import co.embracejoy.accounting.keystone.domain.journal.Side;
 import co.embracejoy.accounting.keystone.domain.money.Money;
 import co.embracejoy.accounting.keystone.domain.security.PlatformAdminRepository;
+import co.embracejoy.accounting.keystone.domain.security.Role;
+import co.embracejoy.accounting.keystone.domain.security.TenantUserRole;
 import co.embracejoy.accounting.keystone.domain.security.TenantUserRoleRepository;
 import co.embracejoy.accounting.keystone.domain.shared.Result;
 import co.embracejoy.accounting.keystone.domain.tenancy.Tenant;
@@ -100,7 +102,11 @@ class JournalEntryControllerTest {
     Mockito.when(roles.findRole(Mockito.any(), Mockito.any())).thenReturn(Optional.empty());
   }
 
-  private RequestPostProcessor withTestAuth() {
+  private RequestPostProcessor withTestAuth(Role role) {
+    Mockito.when(roles.findRole(TENANT, "auth0|test-user"))
+        .thenReturn(
+            Optional.of(
+                new TenantUserRole(TENANT, "auth0|test-user", role, Instant.EPOCH, "system")));
     return req -> {
       req.addHeader("Authorization", "Bearer " + jwt.mint("auth0|test-user", TENANT));
       return req;
@@ -161,7 +167,7 @@ class JournalEntryControllerTest {
             post("/journal-entries")
                 .contentType(MediaType.APPLICATION_JSON)
                 .content(validBody())
-                .with(withTestAuth()))
+                .with(withTestAuth(Role.ADMIN)))
         .andExpect(status().isCreated())
         .andExpect(
             header()
@@ -192,7 +198,7 @@ class JournalEntryControllerTest {
             post("/journal-entries")
                 .contentType(MediaType.APPLICATION_JSON)
                 .content(validBody())
-                .with(withTestAuth()))
+                .with(withTestAuth(Role.ADMIN)))
         .andExpect(status().isBadRequest())
         .andExpect(content().contentType("application/problem+json"))
         .andExpect(jsonPath("$.type").value(endsWith("/journal/unbalanced")))
@@ -217,7 +223,7 @@ class JournalEntryControllerTest {
             post("/journal-entries")
                 .contentType(MediaType.APPLICATION_JSON)
                 .content(validBody())
-                .with(withTestAuth()))
+                .with(withTestAuth(Role.ADMIN)))
         .andExpect(status().isBadRequest())
         .andExpect(content().contentType("application/problem+json"))
         .andExpect(jsonPath("$.type").value(endsWith("/journal/account-not-found")))
@@ -241,7 +247,7 @@ class JournalEntryControllerTest {
             post("/journal-entries")
                 .contentType(MediaType.APPLICATION_JSON)
                 .content(validBody())
-                .with(withTestAuth()))
+                .with(withTestAuth(Role.ADMIN)))
         .andExpect(status().isBadRequest())
         .andExpect(content().contentType("application/problem+json"))
         .andExpect(jsonPath("$.type").value(endsWith("/journal/account-inactive")))
@@ -265,7 +271,7 @@ class JournalEntryControllerTest {
             post("/journal-entries")
                 .contentType(MediaType.APPLICATION_JSON)
                 .content(validBody())
-                .with(withTestAuth()))
+                .with(withTestAuth(Role.ADMIN)))
         .andExpect(status().isBadRequest())
         .andExpect(content().contentType("application/problem+json"))
         .andExpect(jsonPath("$.type").value(endsWith("/journal/account-not-a-leaf")))
@@ -292,7 +298,7 @@ class JournalEntryControllerTest {
             post("/journal-entries")
                 .contentType(MediaType.APPLICATION_JSON)
                 .content(validBody())
-                .with(withTestAuth()))
+                .with(withTestAuth(Role.ADMIN)))
         .andExpect(status().isBadRequest())
         .andExpect(content().contentType("application/problem+json"))
         .andExpect(jsonPath("$.type").value(endsWith("/journal/account-currency-mismatch")))
@@ -319,7 +325,7 @@ class JournalEntryControllerTest {
             post("/journal-entries")
                 .contentType(MediaType.APPLICATION_JSON)
                 .content(validBody())
-                .with(withTestAuth()))
+                .with(withTestAuth(Role.ADMIN)))
         .andExpect(status().isBadRequest())
         .andExpect(content().contentType("application/problem+json"))
         .andExpect(jsonPath("$.type").value(endsWith("/journal/base-currency-mismatch")))
@@ -345,7 +351,7 @@ class JournalEntryControllerTest {
             post("/journal-entries")
                 .contentType(MediaType.APPLICATION_JSON)
                 .content(validBody())
-                .with(withTestAuth()))
+                .with(withTestAuth(Role.ADMIN)))
         .andExpect(status().isBadRequest())
         .andExpect(content().contentType("application/problem+json"))
         .andExpect(jsonPath("$.type").value(endsWith("/journal/posting-in-closed-period")))
@@ -368,7 +374,7 @@ class JournalEntryControllerTest {
             post("/journal-entries")
                 .contentType(MediaType.APPLICATION_JSON)
                 .content(invalidBody)
-                .with(withTestAuth()))
+                .with(withTestAuth(Role.ADMIN)))
         .andExpect(status().isBadRequest())
         .andExpect(content().contentType("application/problem+json"))
         .andExpect(jsonPath("$.title").value(notNullValue()));
@@ -380,5 +386,18 @@ class JournalEntryControllerTest {
     mvc.perform(
             post("/journal-entries").contentType(MediaType.APPLICATION_JSON).content(validBody()))
         .andExpect(status().isUnauthorized());
+  }
+
+  @Test
+  @DisplayName("returns 403 when caller has only the READ_ONLY role")
+  void shouldReturn403WhenReadOnlyTriesPost() throws Exception {
+    mvc.perform(
+            post("/journal-entries")
+                .contentType(MediaType.APPLICATION_JSON)
+                .content(validBody())
+                .with(withTestAuth(Role.READ_ONLY)))
+        .andExpect(status().isForbidden())
+        .andExpect(content().contentType("application/problem+json"))
+        .andExpect(jsonPath("$.type").value(endsWith("/problems/auth/insufficient-role")));
   }
 }
