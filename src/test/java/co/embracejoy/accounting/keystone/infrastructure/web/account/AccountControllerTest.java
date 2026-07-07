@@ -19,6 +19,8 @@ import co.embracejoy.accounting.keystone.domain.account.AccountError;
 import co.embracejoy.accounting.keystone.domain.account.AccountStatus;
 import co.embracejoy.accounting.keystone.domain.account.AccountType;
 import co.embracejoy.accounting.keystone.domain.security.PlatformAdminRepository;
+import co.embracejoy.accounting.keystone.domain.security.Role;
+import co.embracejoy.accounting.keystone.domain.security.TenantUserRole;
 import co.embracejoy.accounting.keystone.domain.security.TenantUserRoleRepository;
 import co.embracejoy.accounting.keystone.domain.shared.Result;
 import co.embracejoy.accounting.keystone.domain.tenancy.Tenant;
@@ -75,7 +77,12 @@ class AccountControllerTest {
     Mockito.when(roles.findRole(Mockito.any(), Mockito.any())).thenReturn(Optional.empty());
   }
 
-  private RequestPostProcessor withTestAuth() {
+  private RequestPostProcessor withTestAuth(Role role) {
+    Mockito.when(roles.findRole(Tenants.DEFAULT_TENANT_ID, "auth0|test-user"))
+        .thenReturn(
+            Optional.of(
+                new TenantUserRole(
+                    Tenants.DEFAULT_TENANT_ID, "auth0|test-user", role, Instant.EPOCH, "system")));
     return req -> {
       req.addHeader(
           "Authorization", "Bearer " + jwt.mint("auth0|test-user", Tenants.DEFAULT_TENANT_ID));
@@ -114,7 +121,7 @@ class AccountControllerTest {
                     """
                     {"code":"1000","name":"Cash","type":"ASSET","currency":"USD"}
                     """)
-                .with(withTestAuth()))
+                .with(withTestAuth(Role.ADMIN)))
         .andExpect(status().isCreated())
         .andExpect(header().string("Location", endsWith("/accounts/1000")))
         .andExpect(jsonPath("$.code").value("1000"))
@@ -142,7 +149,7 @@ class AccountControllerTest {
                     """
                     {"code":"1000","name":"Cash","type":"ASSET","currency":"USD"}
                     """)
-                .with(withTestAuth()))
+                .with(withTestAuth(Role.ADMIN)))
         .andExpect(status().isBadRequest())
         .andExpect(content().contentType("application/problem+json"))
         .andExpect(jsonPath("$.type").value(endsWith("/account/code-already-exists")))
@@ -169,7 +176,7 @@ class AccountControllerTest {
                     """
                     {"code":"1001","name":"Cash Sub","type":"ASSET","currency":"USD","parentCode":"9000"}
                     """)
-                .with(withTestAuth()))
+                .with(withTestAuth(Role.ADMIN)))
         .andExpect(status().isBadRequest())
         .andExpect(content().contentType("application/problem+json"))
         .andExpect(jsonPath("$.type").value(endsWith("/account/parent-not-found")))
@@ -181,7 +188,7 @@ class AccountControllerTest {
   void shouldReturn200WithAccountList() throws Exception {
     Mockito.when(service.findAll()).thenReturn(List.of(anAccount()));
 
-    mvc.perform(get("/accounts").with(withTestAuth()))
+    mvc.perform(get("/accounts").with(withTestAuth(Role.ADMIN)))
         .andExpect(status().isOk())
         .andExpect(jsonPath("$", hasSize(1)))
         .andExpect(jsonPath("$[0].code").value("1000"));
@@ -192,7 +199,7 @@ class AccountControllerTest {
   void shouldReturn200WhenAccountFound() throws Exception {
     Mockito.when(service.findByCode(CODE_1000)).thenReturn(Optional.of(anAccount()));
 
-    mvc.perform(get("/accounts/1000").with(withTestAuth()))
+    mvc.perform(get("/accounts/1000").with(withTestAuth(Role.ADMIN)))
         .andExpect(status().isOk())
         .andExpect(jsonPath("$.code").value("1000"))
         .andExpect(jsonPath("$.name").value("Cash"));
@@ -203,7 +210,7 @@ class AccountControllerTest {
   void shouldReturn404WhenAccountNotFound() throws Exception {
     Mockito.when(service.findByCode(Mockito.any())).thenReturn(Optional.empty());
 
-    mvc.perform(get("/accounts/9999").with(withTestAuth()))
+    mvc.perform(get("/accounts/9999").with(withTestAuth(Role.ADMIN)))
         .andExpect(status().isNotFound())
         .andExpect(content().contentType("application/problem+json"))
         .andExpect(jsonPath("$.type").value(endsWith("/account/not-found")))
@@ -232,7 +239,7 @@ class AccountControllerTest {
                     """
                     {"newCode":"1001"}
                     """)
-                .with(withTestAuth()))
+                .with(withTestAuth(Role.ADMIN)))
         .andExpect(status().isOk())
         .andExpect(jsonPath("$.code").value("1001"));
   }
@@ -252,7 +259,7 @@ class AccountControllerTest {
                     """
                     {"newParentCode":"1001"}
                     """)
-                .with(withTestAuth()))
+                .with(withTestAuth(Role.ADMIN)))
         .andExpect(status().isBadRequest())
         .andExpect(content().contentType("application/problem+json"))
         .andExpect(jsonPath("$.type").value(endsWith("/account/cycle-would-be-created")));
@@ -272,7 +279,7 @@ class AccountControllerTest {
             AccountStatus.INACTIVE);
     Mockito.when(service.deactivate(CODE_1000)).thenReturn(Result.success(inactive));
 
-    mvc.perform(post("/accounts/1000/deactivate").with(withTestAuth()))
+    mvc.perform(post("/accounts/1000/deactivate").with(withTestAuth(Role.ADMIN)))
         .andExpect(status().isOk())
         .andExpect(jsonPath("$.active").value(is(false)));
   }
@@ -282,7 +289,7 @@ class AccountControllerTest {
   void shouldReturn200WhenReactivateSucceeds() throws Exception {
     Mockito.when(service.reactivate(CODE_1000)).thenReturn(Result.success(anAccount()));
 
-    mvc.perform(post("/accounts/1000/reactivate").with(withTestAuth()))
+    mvc.perform(post("/accounts/1000/reactivate").with(withTestAuth(Role.ADMIN)))
         .andExpect(status().isOk())
         .andExpect(jsonPath("$.active").value(is(true)));
   }
@@ -293,7 +300,7 @@ class AccountControllerTest {
     Mockito.when(service.deactivate(Mockito.any()))
         .thenReturn(Result.failure(new AccountError.NotFound(new AccountCode("9999"))));
 
-    mvc.perform(post("/accounts/9999/deactivate").with(withTestAuth()))
+    mvc.perform(post("/accounts/9999/deactivate").with(withTestAuth(Role.ADMIN)))
         .andExpect(status().isNotFound())
         .andExpect(content().contentType("application/problem+json"))
         .andExpect(jsonPath("$.type").value(endsWith("/account/not-found")));
@@ -309,8 +316,57 @@ class AccountControllerTest {
                     """
                     {"code":"","name":"","type":"INVALID","currency":"us"}
                     """)
-                .with(withTestAuth()))
+                .with(withTestAuth(Role.ADMIN)))
         .andExpect(status().isBadRequest())
         .andExpect(content().contentType("application/problem+json"));
+  }
+
+  @Test
+  @DisplayName("POST /accounts returns 403 when caller has only the READ_ONLY role")
+  void shouldReturn403WhenReadOnlyTriesCreate() throws Exception {
+    mvc.perform(
+            post("/accounts")
+                .contentType(MediaType.APPLICATION_JSON)
+                .content(
+                    """
+                    {"code":"1000","name":"Cash","type":"ASSET","currency":"USD"}
+                    """)
+                .with(withTestAuth(Role.READ_ONLY)))
+        .andExpect(status().isForbidden())
+        .andExpect(content().contentType("application/problem+json"))
+        .andExpect(jsonPath("$.type").value(endsWith("/problems/auth/insufficient-role")));
+  }
+
+  @Test
+  @DisplayName("POST /accounts/{code}/deactivate returns 403 when caller has only BOOKKEEPER")
+  void shouldReturn403WhenBookkeeperTriesDeactivate() throws Exception {
+    mvc.perform(post("/accounts/1000/deactivate").with(withTestAuth(Role.BOOKKEEPER)))
+        .andExpect(status().isForbidden())
+        .andExpect(content().contentType("application/problem+json"))
+        .andExpect(jsonPath("$.type").value(endsWith("/problems/auth/insufficient-role")));
+  }
+
+  @Test
+  @DisplayName("POST /accounts returns 201 when caller has the BOOKKEEPER role")
+  void shouldAllowBookkeeperCreate() throws Exception {
+    Mockito.when(
+            service.create(
+                Mockito.any(),
+                Mockito.any(),
+                Mockito.anyString(),
+                Mockito.any(),
+                Mockito.any(),
+                Mockito.any()))
+        .thenReturn(Result.success(anAccount()));
+
+    mvc.perform(
+            post("/accounts")
+                .contentType(MediaType.APPLICATION_JSON)
+                .content(
+                    """
+                    {"code":"1000","name":"Cash","type":"ASSET","currency":"USD"}
+                    """)
+                .with(withTestAuth(Role.BOOKKEEPER)))
+        .andExpect(status().isCreated());
   }
 }

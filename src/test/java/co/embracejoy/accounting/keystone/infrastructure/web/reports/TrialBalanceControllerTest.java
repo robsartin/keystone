@@ -1,5 +1,6 @@
 package co.embracejoy.accounting.keystone.infrastructure.web.reports;
 
+import static org.hamcrest.Matchers.endsWith;
 import static org.hamcrest.Matchers.hasSize;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.content;
@@ -10,6 +11,8 @@ import co.embracejoy.accounting.keystone.application.reports.TrialBalanceService
 import co.embracejoy.accounting.keystone.domain.account.AccountCode;
 import co.embracejoy.accounting.keystone.domain.reports.TrialBalanceRow;
 import co.embracejoy.accounting.keystone.domain.security.PlatformAdminRepository;
+import co.embracejoy.accounting.keystone.domain.security.Role;
+import co.embracejoy.accounting.keystone.domain.security.TenantUserRole;
 import co.embracejoy.accounting.keystone.domain.security.TenantUserRoleRepository;
 import co.embracejoy.accounting.keystone.domain.tenancy.Tenant;
 import co.embracejoy.accounting.keystone.domain.tenancy.TenantId;
@@ -66,11 +69,22 @@ class TrialBalanceControllerTest {
     Mockito.when(roles.findRole(Mockito.any(), Mockito.any())).thenReturn(Optional.empty());
   }
 
+  /**
+   * Mints a JWT with a valid tenant claim but no in-tenant role stubbed (see {@code setupAuth}).
+   */
   private RequestPostProcessor withTestAuth() {
     return req -> {
       req.addHeader("Authorization", "Bearer " + jwt.mint("auth0|test-user", TEST_TENANT));
       return req;
     };
+  }
+
+  private RequestPostProcessor withTestAuth(Role role) {
+    Mockito.when(roles.findRole(TEST_TENANT, "auth0|test-user"))
+        .thenReturn(
+            Optional.of(
+                new TenantUserRole(TEST_TENANT, "auth0|test-user", role, Instant.EPOCH, "system")));
+    return withTestAuth();
   }
 
   @Test
@@ -84,7 +98,7 @@ class TrialBalanceControllerTest {
                 Mockito.eq(TEST_TENANT), Mockito.any(LocalDate.class), Mockito.anyBoolean()))
         .thenReturn(List.of(cash, rev));
 
-    mvc.perform(get("/reports/trial-balance?asOf=2026-05-13").with(withTestAuth()))
+    mvc.perform(get("/reports/trial-balance?asOf=2026-05-13").with(withTestAuth(Role.ADMIN)))
         .andExpect(status().isOk())
         .andExpect(content().contentType("application/json"))
         .andExpect(jsonPath("$", hasSize(2)))
@@ -108,7 +122,8 @@ class TrialBalanceControllerTest {
                 Mockito.eq(TEST_TENANT), Mockito.any(LocalDate.class), Mockito.anyBoolean()))
         .thenReturn(List.of());
 
-    mvc.perform(get("/reports/trial-balance").with(withTestAuth())).andExpect(status().isOk());
+    mvc.perform(get("/reports/trial-balance").with(withTestAuth(Role.ADMIN)))
+        .andExpect(status().isOk());
 
     // The controller calls LocalDate.now(ZoneOffset.UTC); the test does the same in the
     // same JVM. The values match exactly unless a UTC day boundary crosses between the two
@@ -127,7 +142,9 @@ class TrialBalanceControllerTest {
                 Mockito.eq(TEST_TENANT), Mockito.any(LocalDate.class), Mockito.anyBoolean()))
         .thenReturn(List.of());
 
-    mvc.perform(get("/reports/trial-balance?asOf=2026-05-13&includeZero=true").with(withTestAuth()))
+    mvc.perform(
+            get("/reports/trial-balance?asOf=2026-05-13&includeZero=true")
+                .with(withTestAuth(Role.ADMIN)))
         .andExpect(status().isOk());
 
     Mockito.verify(service).query(TEST_TENANT, LocalDate.parse("2026-05-13"), true);
@@ -141,7 +158,7 @@ class TrialBalanceControllerTest {
                 Mockito.eq(TEST_TENANT), Mockito.any(LocalDate.class), Mockito.anyBoolean()))
         .thenReturn(List.of());
 
-    mvc.perform(get("/reports/trial-balance?asOf=2026-05-13").with(withTestAuth()))
+    mvc.perform(get("/reports/trial-balance?asOf=2026-05-13").with(withTestAuth(Role.ADMIN)))
         .andExpect(status().isOk());
 
     // TENANT comes from the JWT tenant claim (see withTestAuth). JwtTenantConverter populates
@@ -152,7 +169,7 @@ class TrialBalanceControllerTest {
   @Test
   @DisplayName("returns 400 ProblemDetail when asOf is malformed")
   void shouldReturn400WhenAsOfMalformed() throws Exception {
-    mvc.perform(get("/reports/trial-balance?asOf=not-a-date").with(withTestAuth()))
+    mvc.perform(get("/reports/trial-balance?asOf=not-a-date").with(withTestAuth(Role.ADMIN)))
         .andExpect(status().isBadRequest())
         .andExpect(content().contentType("application/problem+json"));
   }
@@ -165,7 +182,7 @@ class TrialBalanceControllerTest {
                 Mockito.eq(TEST_TENANT), Mockito.any(LocalDate.class), Mockito.anyBoolean()))
         .thenReturn(List.of());
 
-    mvc.perform(get("/reports/trial-balance?asOf=2026-05-13").with(withTestAuth()))
+    mvc.perform(get("/reports/trial-balance?asOf=2026-05-13").with(withTestAuth(Role.ADMIN)))
         .andExpect(status().isOk())
         .andExpect(jsonPath("$", hasSize(0)));
   }
@@ -174,5 +191,14 @@ class TrialBalanceControllerTest {
   @DisplayName("returns 401 when no Authorization header is present")
   void shouldReturn401WhenNoAuthHeader() throws Exception {
     mvc.perform(get("/reports/trial-balance?asOf=2026-05-13")).andExpect(status().isUnauthorized());
+  }
+
+  @Test
+  @DisplayName("returns 403 when the JWT has a tenant claim but no role granted in that tenant")
+  void shouldReturn403WhenNoRoleGranted() throws Exception {
+    mvc.perform(get("/reports/trial-balance?asOf=2026-05-13").with(withTestAuth()))
+        .andExpect(status().isForbidden())
+        .andExpect(content().contentType("application/problem+json"))
+        .andExpect(jsonPath("$.type").value(endsWith("/problems/auth/insufficient-role")));
   }
 }
