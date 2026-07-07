@@ -9,6 +9,7 @@ import co.embracejoy.accounting.keystone.infrastructure.security.TenantContext;
 import co.embracejoy.accounting.keystone.infrastructure.web.ResultMapper;
 import co.embracejoy.accounting.keystone.infrastructure.web.admin.dto.GrantRoleRequest;
 import co.embracejoy.accounting.keystone.infrastructure.web.admin.dto.UserRoleResponse;
+import io.swagger.v3.oas.annotations.Operation;
 import jakarta.validation.Valid;
 import java.util.List;
 import java.util.Optional;
@@ -39,6 +40,11 @@ public class UserRoleController {
 
   @GetMapping
   @PreAuthorize("hasRole('ADMIN')")
+  @Operation(
+      summary = "List user role assignments in the current tenant",
+      description =
+          "Returns every user role assignment scoped to the caller's tenant, ordered by grantedAt"
+              + " ascending.")
   public List<UserRoleResponse> list() {
     return service.findByTenant(tenantContext.require()).stream()
         .map(UserRoleResponse::of)
@@ -47,6 +53,11 @@ public class UserRoleController {
 
   @GetMapping("/{userSub}")
   @PreAuthorize("hasRole('ADMIN')")
+  @Operation(
+      summary = "Fetch one user's role in the current tenant",
+      description =
+          "Returns the given user's role assignment in the caller's tenant, or 404 if the user has"
+              + " no role granted here.")
   public ResponseEntity<?> get(@PathVariable String userSub) {
     Optional<TenantUserRole> found = service.findRole(tenantContext.require(), userSub);
     return found
@@ -56,6 +67,12 @@ public class UserRoleController {
 
   @PutMapping("/{userSub}")
   @PreAuthorize("hasRole('ADMIN')")
+  @Operation(
+      summary = "Grant or change a user's role",
+      description =
+          "Assigns the given role (ADMIN, BOOKKEEPER, or READ_ONLY) to the user in the caller's"
+              + " tenant. Idempotent: re-granting the same role is a no-op. Demoting the lone"
+              + " tenant Admin (yourself) is rejected with 400.")
   public ResponseEntity<?> grant(
       @PathVariable String userSub, @Valid @RequestBody GrantRoleRequest req) {
     String currentUserSub = currentUserSub();
@@ -66,6 +83,11 @@ public class UserRoleController {
 
   @DeleteMapping("/{userSub}")
   @PreAuthorize("hasRole('ADMIN')")
+  @Operation(
+      summary = "Revoke a user's role",
+      description =
+          "Removes the user's role assignment in the caller's tenant. Returns 204 on success, 404"
+              + " if no role was granted, or 400 if the caller is the lone tenant Admin.")
   public ResponseEntity<?> revoke(@PathVariable String userSub) {
     String currentUserSub = currentUserSub();
     Result<Void, SecurityError> r =
