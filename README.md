@@ -51,6 +51,13 @@ docker compose down       # keep volumes
 docker compose down -v    # nuke volumes too
 ```
 
+## Documentation
+
+- [Quick-start guide](docs/quick-start.md) — cold checkout to a posted entry, with request/response anatomy and failure walkthroughs.
+- [Concepts](docs/concepts.md) — the model: journal entries, postings, money, accounts, periods.
+- [API error reference](docs/errors.md) — every RFC 9457 problem `type` the API returns, with causes and fixes.
+- [OpenAPI spec](docs/openapi/openapi.yaml) — the committed, CI-verified API contract (also live at `/v3/api-docs`).
+
 ## Build
 
 ```bash

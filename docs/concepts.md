@@ -4,6 +4,10 @@ This guide explains the core ideas behind keystone for people who are integratin
 simply curious about how it works. No accounting background is assumed — if you know what a bank
 account is, you have enough context to follow along.
 
+Want to make a call rather than read about it? Jump to the [quick-start guide](quick-start.md) to
+post your first entry in a couple of minutes. When a request is rejected, the
+[API error reference](errors.md) lists every problem `type` the API returns.
+
 ---
 
 ## Journal entries
