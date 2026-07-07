@@ -20,6 +20,7 @@ import java.util.Optional;
 import org.springframework.http.MediaType;
 import org.springframework.http.ProblemDetail;
 import org.springframework.http.ResponseEntity;
+import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PatchMapping;
 import org.springframework.web.bind.annotation.PathVariable;
@@ -41,6 +42,7 @@ public class AccountController {
   }
 
   @PostMapping
+  @PreAuthorize("hasAnyRole('ADMIN','BOOKKEEPER')")
   @Operation(
       summary = "Create an account",
       description =
@@ -65,6 +67,7 @@ public class AccountController {
   }
 
   @GetMapping
+  @PreAuthorize("hasAnyRole('ADMIN','BOOKKEEPER','READ_ONLY')")
   @Operation(
       summary = "List all accounts",
       description = "Returns every account in the chart, ordered by code.")
@@ -73,6 +76,7 @@ public class AccountController {
   }
 
   @GetMapping("/{code}")
+  @PreAuthorize("hasAnyRole('ADMIN','BOOKKEEPER','READ_ONLY')")
   @Operation(
       summary = "Fetch one account by code",
       description = "Returns the account with the given code, or 404 if no such account exists.")
@@ -84,6 +88,7 @@ public class AccountController {
   }
 
   @PatchMapping("/{code}")
+  @PreAuthorize("hasAnyRole('ADMIN','BOOKKEEPER')")
   @Operation(
       summary = "Rename or re-parent an account",
       description =
@@ -118,6 +123,7 @@ public class AccountController {
   }
 
   @PostMapping("/{code}/deactivate")
+  @PreAuthorize("hasRole('ADMIN')")
   @Operation(
       summary = "Deactivate an account",
       description =
@@ -130,6 +136,7 @@ public class AccountController {
   }
 
   @PostMapping("/{code}/reactivate")
+  @PreAuthorize("hasRole('ADMIN')")
   @Operation(
       summary = "Reactivate an account",
       description = "Re-enables an account previously deactivated. Idempotent.")
