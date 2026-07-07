@@ -1,5 +1,18 @@
 keystone:
   base-currency: USD
+  security:
+    # Wire your OIDC IdP here. Both `issuer-uri` and `audience` are validated at
+    # runtime by SecurityConfig; when empty (default in tests) the app runs
+    # without auth. Production deployments MUST set both env vars.
+    issuer-uri: ${KEYSTONE_ISSUER_URI:}
+    audience: ${KEYSTONE_AUDIENCE:}
+    # Custom-claim URI carrying the caller's tenant. Defaults to the ADR-0017
+    # namespaced form; override per-IdP if needed.
+    tenant-claim: ${KEYSTONE_TENANT_CLAIM:https://keystone.embracejoy.co/tenant_id}
+    # Seed for PlatformAdminBootstrap. Empty = no-op. Non-empty = idempotently
+    # grants the given `sub` platform-admin on startup so a fresh deployment
+    # has a first admin who can create tenants.
+    bootstrap-platform-admin-sub: ${KEYSTONE_PLATFORM_ADMIN_SUB:}
 
 spring:
   application:
