@@ -2,15 +2,21 @@ package co.embracejoy.accounting.keystone.smoke;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
+import co.embracejoy.accounting.keystone.infrastructure.security.Tenants;
+import co.embracejoy.accounting.keystone.testsupport.JwtTestSupport;
+import co.embracejoy.accounting.keystone.testsupport.TestSecurityConfig;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.boot.test.web.server.LocalServerPort;
 import org.springframework.boot.testcontainers.service.connection.ServiceConnection;
+import org.springframework.context.annotation.Import;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.HttpStatusCode;
 import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
+import org.springframework.test.context.TestPropertySource;
 import org.springframework.web.client.RestClient;
 import org.testcontainers.containers.PostgreSQLContainer;
 import org.testcontainers.junit.jupiter.Container;
@@ -18,6 +24,15 @@ import org.testcontainers.junit.jupiter.Testcontainers;
 
 @SpringBootTest(webEnvironment = SpringBootTest.WebEnvironment.RANDOM_PORT)
 @Testcontainers
+@Import(TestSecurityConfig.class)
+@TestPropertySource(
+    properties = {
+      // Match TestSecurityConfig.ISSUER / AUDIENCE so JwtTestSupport's minted tokens
+      // pass the JwtDecoder's iss + aud validators. Non-blank issuer flips
+      // SecurityConfig into JWT-enforced mode.
+      "keystone.security.issuer-uri=https://test.keystone.local/issuer",
+      "keystone.security.audience=keystone-test-api"
+    })
 @DisplayName("Application smoke")
 class ApplicationSmokeIT {
 
@@ -29,11 +44,24 @@ class ApplicationSmokeIT {
           .withPassword("test");
 
   @LocalServerPort int port;
+  @Autowired JwtTestSupport jwt;
+
+  /**
+   * All smoke calls go through the fully-authenticated pipeline: a JWT with the default tenant
+   * claim, matching the row inserted by V6.
+   */
+  private RestClient client() {
+    return RestClient.builder()
+        .baseUrl("http://localhost:" + port)
+        .defaultHeader(
+            "Authorization", "Bearer " + jwt.mint("smoke-user", Tenants.DEFAULT_TENANT_ID))
+        .build();
+  }
 
   @Test
   @DisplayName("POST /journal-entries → 201 + counter increment visible at /actuator/prometheus")
   void shouldPostEntryAndIncrementMetric() {
-    RestClient client = RestClient.builder().baseUrl("http://localhost:" + port).build();
+    RestClient client = client();
 
     String body =
         """
@@ -69,7 +97,7 @@ class ApplicationSmokeIT {
   @Test
   @DisplayName("POST /accounts creates EXPENSE account; GET it back shows 201")
   void shouldCreateExpenseAccount() {
-    RestClient client = RestClient.builder().baseUrl("http://localhost:" + port).build();
+    RestClient client = client();
 
     ResponseEntity<String> create = createAccount5000(client);
 
@@ -80,7 +108,7 @@ class ApplicationSmokeIT {
   @Test
   @DisplayName("POST /journal-entries debiting new EXPENSE account returns 201")
   void shouldPostEntryAgainstNewAccount() {
-    RestClient client = RestClient.builder().baseUrl("http://localhost:" + port).build();
+    RestClient client = client();
     ensureAccount5000Exists(client);
 
     ResponseEntity<String> entry =
@@ -98,7 +126,7 @@ class ApplicationSmokeIT {
   @Test
   @DisplayName("POST /journal-entries against unknown account returns 400 + account-not-found")
   void shouldReturn400WhenPostingAgainstUnknownAccount() {
-    RestClient client = RestClient.builder().baseUrl("http://localhost:" + port).build();
+    RestClient client = client();
 
     String body =
         """
@@ -171,7 +199,7 @@ class ApplicationSmokeIT {
   @Test
   @DisplayName("Period lifecycle: close → reject posting → reopen → accept posting")
   void shouldEnforceClosedPeriodAndReopenSuccessfully() {
-    RestClient client = RestClient.builder().baseUrl("http://localhost:" + port).build();
+    RestClient client = client();
 
     // Step 1: post a balanced entry in June 2026 → should succeed
     ResponseEntity<String> firstPost = postJuneEntry(client);
@@ -281,7 +309,7 @@ class ApplicationSmokeIT {
   @Test
   @DisplayName("Multi-currency: create EUR account, post USD→EUR transfer → 201 with base info")
   void shouldPostMultiCurrencyEntry() {
-    RestClient client = RestClient.builder().baseUrl("http://localhost:" + port).build();
+    RestClient client = client();
     ensureCashEurExists(client);
 
     ResponseEntity<String> entry =
@@ -346,7 +374,7 @@ class ApplicationSmokeIT {
   @DisplayName(
       "GET /reports/trial-balance returns rows for a posted entry; sums net to zero in base")
   void shouldReturnTrialBalanceForPostedEntries() {
-    RestClient client = RestClient.builder().baseUrl("http://localhost:" + port).build();
+    RestClient client = client();
 
     // Post a balanced USD entry (using the seeded 1000 and 3000 accounts).
     ResponseEntity<String> post =

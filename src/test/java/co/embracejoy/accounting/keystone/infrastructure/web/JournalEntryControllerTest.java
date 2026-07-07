@@ -18,16 +18,24 @@ import co.embracejoy.accounting.keystone.domain.journal.PersistedJournalEntry;
 import co.embracejoy.accounting.keystone.domain.journal.Posting;
 import co.embracejoy.accounting.keystone.domain.journal.Side;
 import co.embracejoy.accounting.keystone.domain.money.Money;
+import co.embracejoy.accounting.keystone.domain.security.PlatformAdminRepository;
+import co.embracejoy.accounting.keystone.domain.security.TenantUserRoleRepository;
 import co.embracejoy.accounting.keystone.domain.shared.Result;
+import co.embracejoy.accounting.keystone.domain.tenancy.Tenant;
 import co.embracejoy.accounting.keystone.domain.tenancy.TenantId;
+import co.embracejoy.accounting.keystone.domain.tenancy.TenantRepository;
 import co.embracejoy.accounting.keystone.infrastructure.observability.MetricsConfig;
-import co.embracejoy.accounting.keystone.infrastructure.security.TenantContext;
+import co.embracejoy.accounting.keystone.infrastructure.security.SecurityConfig;
+import co.embracejoy.accounting.keystone.testsupport.JwtTestSupport;
+import co.embracejoy.accounting.keystone.testsupport.TestSecurityConfig;
 import io.micrometer.core.instrument.Counter;
 import io.micrometer.core.instrument.Timer;
+import java.time.Instant;
 import java.time.LocalDate;
 import java.time.YearMonth;
 import java.util.Currency;
 import java.util.List;
+import java.util.Optional;
 import java.util.UUID;
 import java.util.function.Supplier;
 import org.junit.jupiter.api.BeforeEach;
@@ -40,17 +48,32 @@ import org.springframework.boot.webmvc.test.autoconfigure.WebMvcTest;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Import;
 import org.springframework.http.MediaType;
+import org.springframework.test.context.TestPropertySource;
 import org.springframework.test.context.bean.override.mockito.MockitoBean;
 import org.springframework.test.web.servlet.MockMvc;
+import org.springframework.test.web.servlet.request.RequestPostProcessor;
 
 @WebMvcTest(JournalEntryController.class)
-@Import({MetricsConfig.class, JournalEntryControllerTest.BaseCurrencyTestConfig.class})
+@Import({
+  MetricsConfig.class,
+  JournalEntryControllerTest.BaseCurrencyTestConfig.class,
+  TestSecurityConfig.class,
+  SecurityConfig.class
+})
+@TestPropertySource(
+    properties = {
+      "keystone.security.issuer-uri=https://test.keystone.local/issuer",
+      "keystone.security.audience=keystone-test-api"
+    })
 @DisplayName("JournalEntryController")
 class JournalEntryControllerTest {
 
   @Autowired MockMvc mvc;
+  @Autowired JwtTestSupport jwt;
   @MockitoBean PostJournalEntryService service;
-  @MockitoBean TenantContext tenantContext;
+  @MockitoBean TenantRepository tenants;
+  @MockitoBean TenantUserRoleRepository roles;
+  @MockitoBean PlatformAdminRepository platformAdmins;
   @MockitoBean Counter journalEntriesPostedOk;
   @MockitoBean Counter journalEntriesPostedInvalid;
   @MockitoBean Timer journalEntriesPostDuration;
@@ -69,8 +92,19 @@ class JournalEntryControllerTest {
   }
 
   @BeforeEach
-  void stubTenant() {
-    Mockito.when(tenantContext.require()).thenReturn(TENANT);
+  void setupAuth() {
+    Mockito.when(tenants.findById(TENANT))
+        .thenReturn(
+            Optional.of(new Tenant(TENANT, "Test Tenant", Instant.now(), Optional.empty())));
+    Mockito.when(platformAdmins.exists(Mockito.anyString())).thenReturn(false);
+    Mockito.when(roles.findRole(Mockito.any(), Mockito.any())).thenReturn(Optional.empty());
+  }
+
+  private RequestPostProcessor withTestAuth() {
+    return req -> {
+      req.addHeader("Authorization", "Bearer " + jwt.mint("auth0|test-user", TENANT));
+      return req;
+    };
   }
 
   private static String validBody() {
@@ -124,7 +158,10 @@ class JournalEntryControllerTest {
         .thenReturn(Result.success(validPersisted()));
 
     mvc.perform(
-            post("/journal-entries").contentType(MediaType.APPLICATION_JSON).content(validBody()))
+            post("/journal-entries")
+                .contentType(MediaType.APPLICATION_JSON)
+                .content(validBody())
+                .with(withTestAuth()))
         .andExpect(status().isCreated())
         .andExpect(
             header()
@@ -152,7 +189,10 @@ class JournalEntryControllerTest {
                 new JournalError.Unbalanced(new Money(10000L, USD), new Money(9000L, USD))));
 
     mvc.perform(
-            post("/journal-entries").contentType(MediaType.APPLICATION_JSON).content(validBody()))
+            post("/journal-entries")
+                .contentType(MediaType.APPLICATION_JSON)
+                .content(validBody())
+                .with(withTestAuth()))
         .andExpect(status().isBadRequest())
         .andExpect(content().contentType("application/problem+json"))
         .andExpect(jsonPath("$.type").value(endsWith("/journal/unbalanced")))
@@ -174,7 +214,10 @@ class JournalEntryControllerTest {
         .thenReturn(Result.failure(new JournalError.AccountNotFound(new AccountCode("9999"))));
 
     mvc.perform(
-            post("/journal-entries").contentType(MediaType.APPLICATION_JSON).content(validBody()))
+            post("/journal-entries")
+                .contentType(MediaType.APPLICATION_JSON)
+                .content(validBody())
+                .with(withTestAuth()))
         .andExpect(status().isBadRequest())
         .andExpect(content().contentType("application/problem+json"))
         .andExpect(jsonPath("$.type").value(endsWith("/journal/account-not-found")))
@@ -195,7 +238,10 @@ class JournalEntryControllerTest {
         .thenReturn(Result.failure(new JournalError.AccountInactive(new AccountCode("1000"))));
 
     mvc.perform(
-            post("/journal-entries").contentType(MediaType.APPLICATION_JSON).content(validBody()))
+            post("/journal-entries")
+                .contentType(MediaType.APPLICATION_JSON)
+                .content(validBody())
+                .with(withTestAuth()))
         .andExpect(status().isBadRequest())
         .andExpect(content().contentType("application/problem+json"))
         .andExpect(jsonPath("$.type").value(endsWith("/journal/account-inactive")))
@@ -216,7 +262,10 @@ class JournalEntryControllerTest {
         .thenReturn(Result.failure(new JournalError.AccountNotALeaf(new AccountCode("1000"))));
 
     mvc.perform(
-            post("/journal-entries").contentType(MediaType.APPLICATION_JSON).content(validBody()))
+            post("/journal-entries")
+                .contentType(MediaType.APPLICATION_JSON)
+                .content(validBody())
+                .with(withTestAuth()))
         .andExpect(status().isBadRequest())
         .andExpect(content().contentType("application/problem+json"))
         .andExpect(jsonPath("$.type").value(endsWith("/journal/account-not-a-leaf")))
@@ -240,7 +289,10 @@ class JournalEntryControllerTest {
                 new JournalError.AccountCurrencyMismatch(new AccountCode("4000"), USD, eur)));
 
     mvc.perform(
-            post("/journal-entries").contentType(MediaType.APPLICATION_JSON).content(validBody()))
+            post("/journal-entries")
+                .contentType(MediaType.APPLICATION_JSON)
+                .content(validBody())
+                .with(withTestAuth()))
         .andExpect(status().isBadRequest())
         .andExpect(content().contentType("application/problem+json"))
         .andExpect(jsonPath("$.type").value(endsWith("/journal/account-currency-mismatch")))
@@ -264,7 +316,10 @@ class JournalEntryControllerTest {
                 new JournalError.BaseCurrencyMismatch(new AccountCode("1000-EUR"), USD, eur)));
 
     mvc.perform(
-            post("/journal-entries").contentType(MediaType.APPLICATION_JSON).content(validBody()))
+            post("/journal-entries")
+                .contentType(MediaType.APPLICATION_JSON)
+                .content(validBody())
+                .with(withTestAuth()))
         .andExpect(status().isBadRequest())
         .andExpect(content().contentType("application/problem+json"))
         .andExpect(jsonPath("$.type").value(endsWith("/journal/base-currency-mismatch")))
@@ -287,7 +342,10 @@ class JournalEntryControllerTest {
         .thenReturn(Result.failure(new JournalError.PostingInClosedPeriod(YearMonth.of(2026, 5))));
 
     mvc.perform(
-            post("/journal-entries").contentType(MediaType.APPLICATION_JSON).content(validBody()))
+            post("/journal-entries")
+                .contentType(MediaType.APPLICATION_JSON)
+                .content(validBody())
+                .with(withTestAuth()))
         .andExpect(status().isBadRequest())
         .andExpect(content().contentType("application/problem+json"))
         .andExpect(jsonPath("$.type").value(endsWith("/journal/posting-in-closed-period")))
@@ -307,9 +365,20 @@ class JournalEntryControllerTest {
         """;
 
     mvc.perform(
-            post("/journal-entries").contentType(MediaType.APPLICATION_JSON).content(invalidBody))
+            post("/journal-entries")
+                .contentType(MediaType.APPLICATION_JSON)
+                .content(invalidBody)
+                .with(withTestAuth()))
         .andExpect(status().isBadRequest())
         .andExpect(content().contentType("application/problem+json"))
         .andExpect(jsonPath("$.title").value(notNullValue()));
+  }
+
+  @Test
+  @DisplayName("returns 401 when no Authorization header is present")
+  void shouldReturn401WhenNoAuthorizationHeader() throws Exception {
+    mvc.perform(
+            post("/journal-entries").contentType(MediaType.APPLICATION_JSON).content(validBody()))
+        .andExpect(status().isUnauthorized());
   }
 }
