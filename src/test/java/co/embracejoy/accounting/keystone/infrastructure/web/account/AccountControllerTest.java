@@ -18,9 +18,16 @@ import co.embracejoy.accounting.keystone.domain.account.AccountCode;
 import co.embracejoy.accounting.keystone.domain.account.AccountError;
 import co.embracejoy.accounting.keystone.domain.account.AccountStatus;
 import co.embracejoy.accounting.keystone.domain.account.AccountType;
+import co.embracejoy.accounting.keystone.domain.security.PlatformAdminRepository;
+import co.embracejoy.accounting.keystone.domain.security.TenantUserRoleRepository;
 import co.embracejoy.accounting.keystone.domain.shared.Result;
-import co.embracejoy.accounting.keystone.infrastructure.security.TenantContext;
+import co.embracejoy.accounting.keystone.domain.tenancy.Tenant;
+import co.embracejoy.accounting.keystone.domain.tenancy.TenantRepository;
+import co.embracejoy.accounting.keystone.infrastructure.security.SecurityConfig;
 import co.embracejoy.accounting.keystone.infrastructure.security.Tenants;
+import co.embracejoy.accounting.keystone.testsupport.JwtTestSupport;
+import co.embracejoy.accounting.keystone.testsupport.TestSecurityConfig;
+import java.time.Instant;
 import java.util.Currency;
 import java.util.List;
 import java.util.Optional;
@@ -30,24 +37,50 @@ import org.junit.jupiter.api.Test;
 import org.mockito.Mockito;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.webmvc.test.autoconfigure.WebMvcTest;
+import org.springframework.context.annotation.Import;
 import org.springframework.http.MediaType;
+import org.springframework.test.context.TestPropertySource;
 import org.springframework.test.context.bean.override.mockito.MockitoBean;
 import org.springframework.test.web.servlet.MockMvc;
+import org.springframework.test.web.servlet.request.RequestPostProcessor;
 
 @WebMvcTest(AccountController.class)
+@Import({TestSecurityConfig.class, SecurityConfig.class})
+@TestPropertySource(
+    properties = {
+      "keystone.security.issuer-uri=https://test.keystone.local/issuer",
+      "keystone.security.audience=keystone-test-api"
+    })
 @DisplayName("AccountController")
 class AccountControllerTest {
 
   @Autowired MockMvc mvc;
+  @Autowired JwtTestSupport jwt;
   @MockitoBean AccountService service;
-  @MockitoBean TenantContext tenantContext;
+  @MockitoBean TenantRepository tenants;
+  @MockitoBean TenantUserRoleRepository roles;
+  @MockitoBean PlatformAdminRepository platformAdmins;
 
   private static final Currency USD = Currency.getInstance("USD");
   private static final AccountCode CODE_1000 = new AccountCode("1000");
 
   @BeforeEach
-  void setupTenant() {
-    Mockito.when(tenantContext.require()).thenReturn(Tenants.DEFAULT_TENANT_ID);
+  void setupAuth() {
+    Mockito.when(tenants.findById(Tenants.DEFAULT_TENANT_ID))
+        .thenReturn(
+            Optional.of(
+                new Tenant(
+                    Tenants.DEFAULT_TENANT_ID, "Test Tenant", Instant.now(), Optional.empty())));
+    Mockito.when(platformAdmins.exists(Mockito.anyString())).thenReturn(false);
+    Mockito.when(roles.findRole(Mockito.any(), Mockito.any())).thenReturn(Optional.empty());
+  }
+
+  private RequestPostProcessor withTestAuth() {
+    return req -> {
+      req.addHeader(
+          "Authorization", "Bearer " + jwt.mint("auth0|test-user", Tenants.DEFAULT_TENANT_ID));
+      return req;
+    };
   }
 
   private static Account anAccount() {
@@ -80,7 +113,8 @@ class AccountControllerTest {
                 .content(
                     """
                     {"code":"1000","name":"Cash","type":"ASSET","currency":"USD"}
-                    """))
+                    """)
+                .with(withTestAuth()))
         .andExpect(status().isCreated())
         .andExpect(header().string("Location", endsWith("/accounts/1000")))
         .andExpect(jsonPath("$.code").value("1000"))
@@ -107,7 +141,8 @@ class AccountControllerTest {
                 .content(
                     """
                     {"code":"1000","name":"Cash","type":"ASSET","currency":"USD"}
-                    """))
+                    """)
+                .with(withTestAuth()))
         .andExpect(status().isBadRequest())
         .andExpect(content().contentType("application/problem+json"))
         .andExpect(jsonPath("$.type").value(endsWith("/account/code-already-exists")))
@@ -133,7 +168,8 @@ class AccountControllerTest {
                 .content(
                     """
                     {"code":"1001","name":"Cash Sub","type":"ASSET","currency":"USD","parentCode":"9000"}
-                    """))
+                    """)
+                .with(withTestAuth()))
         .andExpect(status().isBadRequest())
         .andExpect(content().contentType("application/problem+json"))
         .andExpect(jsonPath("$.type").value(endsWith("/account/parent-not-found")))
@@ -145,7 +181,7 @@ class AccountControllerTest {
   void shouldReturn200WithAccountList() throws Exception {
     Mockito.when(service.findAll()).thenReturn(List.of(anAccount()));
 
-    mvc.perform(get("/accounts"))
+    mvc.perform(get("/accounts").with(withTestAuth()))
         .andExpect(status().isOk())
         .andExpect(jsonPath("$", hasSize(1)))
         .andExpect(jsonPath("$[0].code").value("1000"));
@@ -156,7 +192,7 @@ class AccountControllerTest {
   void shouldReturn200WhenAccountFound() throws Exception {
     Mockito.when(service.findByCode(CODE_1000)).thenReturn(Optional.of(anAccount()));
 
-    mvc.perform(get("/accounts/1000"))
+    mvc.perform(get("/accounts/1000").with(withTestAuth()))
         .andExpect(status().isOk())
         .andExpect(jsonPath("$.code").value("1000"))
         .andExpect(jsonPath("$.name").value("Cash"));
@@ -167,7 +203,7 @@ class AccountControllerTest {
   void shouldReturn404WhenAccountNotFound() throws Exception {
     Mockito.when(service.findByCode(Mockito.any())).thenReturn(Optional.empty());
 
-    mvc.perform(get("/accounts/9999"))
+    mvc.perform(get("/accounts/9999").with(withTestAuth()))
         .andExpect(status().isNotFound())
         .andExpect(content().contentType("application/problem+json"))
         .andExpect(jsonPath("$.type").value(endsWith("/account/not-found")))
@@ -195,7 +231,8 @@ class AccountControllerTest {
                 .content(
                     """
                     {"newCode":"1001"}
-                    """))
+                    """)
+                .with(withTestAuth()))
         .andExpect(status().isOk())
         .andExpect(jsonPath("$.code").value("1001"));
   }
@@ -214,7 +251,8 @@ class AccountControllerTest {
                 .content(
                     """
                     {"newParentCode":"1001"}
-                    """))
+                    """)
+                .with(withTestAuth()))
         .andExpect(status().isBadRequest())
         .andExpect(content().contentType("application/problem+json"))
         .andExpect(jsonPath("$.type").value(endsWith("/account/cycle-would-be-created")));
@@ -234,7 +272,7 @@ class AccountControllerTest {
             AccountStatus.INACTIVE);
     Mockito.when(service.deactivate(CODE_1000)).thenReturn(Result.success(inactive));
 
-    mvc.perform(post("/accounts/1000/deactivate"))
+    mvc.perform(post("/accounts/1000/deactivate").with(withTestAuth()))
         .andExpect(status().isOk())
         .andExpect(jsonPath("$.active").value(is(false)));
   }
@@ -244,7 +282,7 @@ class AccountControllerTest {
   void shouldReturn200WhenReactivateSucceeds() throws Exception {
     Mockito.when(service.reactivate(CODE_1000)).thenReturn(Result.success(anAccount()));
 
-    mvc.perform(post("/accounts/1000/reactivate"))
+    mvc.perform(post("/accounts/1000/reactivate").with(withTestAuth()))
         .andExpect(status().isOk())
         .andExpect(jsonPath("$.active").value(is(true)));
   }
@@ -255,7 +293,7 @@ class AccountControllerTest {
     Mockito.when(service.deactivate(Mockito.any()))
         .thenReturn(Result.failure(new AccountError.NotFound(new AccountCode("9999"))));
 
-    mvc.perform(post("/accounts/9999/deactivate"))
+    mvc.perform(post("/accounts/9999/deactivate").with(withTestAuth()))
         .andExpect(status().isNotFound())
         .andExpect(content().contentType("application/problem+json"))
         .andExpect(jsonPath("$.type").value(endsWith("/account/not-found")));
@@ -270,7 +308,8 @@ class AccountControllerTest {
                 .content(
                     """
                     {"code":"","name":"","type":"INVALID","currency":"us"}
-                    """))
+                    """)
+                .with(withTestAuth()))
         .andExpect(status().isBadRequest())
         .andExpect(content().contentType("application/problem+json"));
   }

@@ -6,6 +6,7 @@ import co.embracejoy.accounting.keystone.domain.tenancy.TenantRepository;
 import co.embracejoy.accounting.keystone.infrastructure.config.KeystoneSecurityProperties;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.springframework.boot.autoconfigure.condition.ConditionalOnMissingBean;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.security.config.annotation.web.builders.HttpSecurity;
@@ -91,8 +92,14 @@ public class SecurityConfig {
    * Only wired when auth is enabled: {@link JwtDecoders#fromIssuerLocation} requires a non-blank
    * issuer, and nothing looks this bean up unless {@link #filterChain} wired the resource-server
    * DSL in the first place.
+   *
+   * <p>{@code @ConditionalOnMissingBean} lets test slices supply their own {@code JwtDecoder} (a
+   * locally-keyed one, validating against a fake issuer with no IdP round-trip) without this bean
+   * also being eagerly created — which would otherwise attempt a real network call to the fake test
+   * issuer and fail context startup.
    */
   @Bean
+  @ConditionalOnMissingBean(JwtDecoder.class)
   JwtDecoder jwtDecoder() {
     if (!authEnabled()) {
       return null;
