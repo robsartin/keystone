@@ -9,13 +9,21 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 import co.embracejoy.accounting.keystone.application.reports.TrialBalanceService;
 import co.embracejoy.accounting.keystone.domain.account.AccountCode;
 import co.embracejoy.accounting.keystone.domain.reports.TrialBalanceRow;
+import co.embracejoy.accounting.keystone.domain.security.PlatformAdminRepository;
+import co.embracejoy.accounting.keystone.domain.security.TenantUserRoleRepository;
+import co.embracejoy.accounting.keystone.domain.tenancy.Tenant;
 import co.embracejoy.accounting.keystone.domain.tenancy.TenantId;
-import co.embracejoy.accounting.keystone.infrastructure.security.TenantContext;
+import co.embracejoy.accounting.keystone.domain.tenancy.TenantRepository;
+import co.embracejoy.accounting.keystone.infrastructure.security.SecurityConfig;
+import co.embracejoy.accounting.keystone.infrastructure.security.Tenants;
+import co.embracejoy.accounting.keystone.testsupport.JwtTestSupport;
+import co.embracejoy.accounting.keystone.testsupport.TestSecurityConfig;
+import java.time.Instant;
 import java.time.LocalDate;
 import java.time.ZoneOffset;
 import java.util.Currency;
 import java.util.List;
-import java.util.UUID;
+import java.util.Optional;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
@@ -23,24 +31,46 @@ import org.mockito.ArgumentCaptor;
 import org.mockito.Mockito;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.webmvc.test.autoconfigure.WebMvcTest;
+import org.springframework.context.annotation.Import;
+import org.springframework.test.context.TestPropertySource;
 import org.springframework.test.context.bean.override.mockito.MockitoBean;
 import org.springframework.test.web.servlet.MockMvc;
+import org.springframework.test.web.servlet.request.RequestPostProcessor;
 
 @WebMvcTest(TrialBalanceController.class)
+@Import({TestSecurityConfig.class, SecurityConfig.class})
+@TestPropertySource(
+    properties = {
+      "keystone.security.issuer-uri=https://test.keystone.local/issuer",
+      "keystone.security.audience=keystone-test-api"
+    })
 @DisplayName("TrialBalanceController")
 class TrialBalanceControllerTest {
 
   @Autowired MockMvc mvc;
+  @Autowired JwtTestSupport jwt;
   @MockitoBean TrialBalanceService service;
-  @MockitoBean TenantContext tenantContext;
+  @MockitoBean TenantRepository tenants;
+  @MockitoBean TenantUserRoleRepository roles;
+  @MockitoBean PlatformAdminRepository platformAdmins;
 
   private static final Currency USD = Currency.getInstance("USD");
-  private static final TenantId TEST_TENANT =
-      new TenantId(UUID.fromString("01902f9f-0000-7000-8000-00000000d1f1"));
+  private static final TenantId TEST_TENANT = Tenants.DEFAULT_TENANT_ID;
 
   @BeforeEach
-  void setupTenantContext() {
-    Mockito.when(tenantContext.require()).thenReturn(TEST_TENANT);
+  void setupAuth() {
+    Mockito.when(tenants.findById(TEST_TENANT))
+        .thenReturn(
+            Optional.of(new Tenant(TEST_TENANT, "Test Tenant", Instant.now(), Optional.empty())));
+    Mockito.when(platformAdmins.exists(Mockito.anyString())).thenReturn(false);
+    Mockito.when(roles.findRole(Mockito.any(), Mockito.any())).thenReturn(Optional.empty());
+  }
+
+  private RequestPostProcessor withTestAuth() {
+    return req -> {
+      req.addHeader("Authorization", "Bearer " + jwt.mint("auth0|test-user", TEST_TENANT));
+      return req;
+    };
   }
 
   @Test
@@ -54,7 +84,7 @@ class TrialBalanceControllerTest {
                 Mockito.eq(TEST_TENANT), Mockito.any(LocalDate.class), Mockito.anyBoolean()))
         .thenReturn(List.of(cash, rev));
 
-    mvc.perform(get("/reports/trial-balance?asOf=2026-05-13"))
+    mvc.perform(get("/reports/trial-balance?asOf=2026-05-13").with(withTestAuth()))
         .andExpect(status().isOk())
         .andExpect(content().contentType("application/json"))
         .andExpect(jsonPath("$", hasSize(2)))
@@ -78,7 +108,7 @@ class TrialBalanceControllerTest {
                 Mockito.eq(TEST_TENANT), Mockito.any(LocalDate.class), Mockito.anyBoolean()))
         .thenReturn(List.of());
 
-    mvc.perform(get("/reports/trial-balance")).andExpect(status().isOk());
+    mvc.perform(get("/reports/trial-balance").with(withTestAuth())).andExpect(status().isOk());
 
     // The controller calls LocalDate.now(ZoneOffset.UTC); the test does the same in the
     // same JVM. The values match exactly unless a UTC day boundary crosses between the two
@@ -97,30 +127,32 @@ class TrialBalanceControllerTest {
                 Mockito.eq(TEST_TENANT), Mockito.any(LocalDate.class), Mockito.anyBoolean()))
         .thenReturn(List.of());
 
-    mvc.perform(get("/reports/trial-balance?asOf=2026-05-13&includeZero=true"))
+    mvc.perform(get("/reports/trial-balance?asOf=2026-05-13&includeZero=true").with(withTestAuth()))
         .andExpect(status().isOk());
 
     Mockito.verify(service).query(TEST_TENANT, LocalDate.parse("2026-05-13"), true);
   }
 
   @Test
-  @DisplayName("resolves TenantId from TenantContext and passes it to the service")
-  void shouldResolveTenantFromContextAndPassToService() throws Exception {
+  @DisplayName("resolves TenantId from the JWT tenant claim and passes it to the service")
+  void shouldResolveTenantFromJwtAndPassToService() throws Exception {
     Mockito.when(
             service.query(
                 Mockito.eq(TEST_TENANT), Mockito.any(LocalDate.class), Mockito.anyBoolean()))
         .thenReturn(List.of());
 
-    mvc.perform(get("/reports/trial-balance?asOf=2026-05-13")).andExpect(status().isOk());
+    mvc.perform(get("/reports/trial-balance?asOf=2026-05-13").with(withTestAuth()))
+        .andExpect(status().isOk());
 
-    Mockito.verify(tenantContext).require();
+    // TENANT comes from the JWT tenant claim (see withTestAuth). JwtTenantConverter populates
+    // TenantContext; TrialBalanceController pulls it and passes to the service.
     Mockito.verify(service).query(Mockito.eq(TEST_TENANT), Mockito.any(), Mockito.anyBoolean());
   }
 
   @Test
   @DisplayName("returns 400 ProblemDetail when asOf is malformed")
   void shouldReturn400WhenAsOfMalformed() throws Exception {
-    mvc.perform(get("/reports/trial-balance?asOf=not-a-date"))
+    mvc.perform(get("/reports/trial-balance?asOf=not-a-date").with(withTestAuth()))
         .andExpect(status().isBadRequest())
         .andExpect(content().contentType("application/problem+json"));
   }
@@ -133,8 +165,14 @@ class TrialBalanceControllerTest {
                 Mockito.eq(TEST_TENANT), Mockito.any(LocalDate.class), Mockito.anyBoolean()))
         .thenReturn(List.of());
 
-    mvc.perform(get("/reports/trial-balance?asOf=2026-05-13"))
+    mvc.perform(get("/reports/trial-balance?asOf=2026-05-13").with(withTestAuth()))
         .andExpect(status().isOk())
         .andExpect(jsonPath("$", hasSize(0)));
+  }
+
+  @Test
+  @DisplayName("returns 401 when no Authorization header is present")
+  void shouldReturn401WhenNoAuthHeader() throws Exception {
+    mvc.perform(get("/reports/trial-balance?asOf=2026-05-13")).andExpect(status().isUnauthorized());
   }
 }
