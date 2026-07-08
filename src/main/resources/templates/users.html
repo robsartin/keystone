@@ -8,6 +8,29 @@
   <body>
     <section>
       <h1>Users in this tenant</h1>
+      <form
+          th:action="@{/admin/ui/users}"
+          th:hx-post="@{/admin/ui/users}"
+          hx-target="tbody:last-of-type"
+          hx-swap="afterbegin"
+          method="post"
+          class="row g-3 mb-4">
+        <div class="col-auto">
+          <label for="userSub" class="form-label">User sub</label>
+          <input type="text" class="form-control" id="userSub" name="userSub" required />
+        </div>
+        <div class="col-auto">
+          <label for="addRole" class="form-label">Role</label>
+          <select class="form-select" id="addRole" name="role" required>
+            <option value="ADMIN">ADMIN</option>
+            <option value="BOOKKEEPER">BOOKKEEPER</option>
+            <option value="READ_ONLY">READ_ONLY</option>
+          </select>
+        </div>
+        <div class="col-auto d-flex align-items-end">
+          <button type="submit" class="btn btn-primary">Add user</button>
+        </div>
+      </form>
       <table class="table">
         <thead>
           <tr>

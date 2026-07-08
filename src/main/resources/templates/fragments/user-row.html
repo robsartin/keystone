@@ -3,9 +3,33 @@
   <body>
     <tr th:fragment="row(user, roles)" th:id="'user-' + ${user.userSub()}">
       <td th:text="${user.userSub()}">sub</td>
-      <td th:text="${user.role()}">ROLE</td>
+      <td>
+        <select
+            class="form-select form-select-sm"
+            th:hx-put="@{/admin/ui/users/{sub}(sub=${user.userSub()})}"
+            hx-target="closest tr"
+            hx-swap="outerHTML"
+            name="role"
+            data-focus-target>
+          <option
+              th:each="r : ${roles}"
+              th:value="${r}"
+              th:text="${r}"
+              th:selected="${r == user.role()}"></option>
+        </select>
+      </td>
       <td th:text="${#temporals.format(user.grantedAt(), 'yyyy-MM-dd')}">date</td>
-      <td></td>
+      <td>
+        <button
+            type="button"
+            class="btn btn-outline-danger btn-sm"
+            th:hx-delete="@{/admin/ui/users/{sub}(sub=${user.userSub()})}"
+            hx-target="closest tr"
+            hx-swap="outerHTML swap:200ms"
+            th:hx-confirm="'Remove ' + ${user.userSub()} + '?'">
+          Remove
+        </button>
+      </td>
     </tr>
   </body>
 </html>

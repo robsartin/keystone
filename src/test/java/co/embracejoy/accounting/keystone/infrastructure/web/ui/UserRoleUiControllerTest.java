@@ -1,13 +1,18 @@
 package co.embracejoy.accounting.keystone.infrastructure.web.ui;
 
 import static org.hamcrest.Matchers.containsString;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.delete;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.put;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.content;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
 import co.embracejoy.accounting.keystone.application.security.UserRoleService;
 import co.embracejoy.accounting.keystone.domain.security.Role;
+import co.embracejoy.accounting.keystone.domain.security.SecurityError;
 import co.embracejoy.accounting.keystone.domain.security.TenantUserRole;
+import co.embracejoy.accounting.keystone.domain.shared.Result;
 import co.embracejoy.accounting.keystone.infrastructure.security.TenantContext;
 import co.embracejoy.accounting.keystone.infrastructure.security.Tenants;
 import java.time.Instant;
@@ -118,5 +123,136 @@ class UserRoleUiControllerTest {
   @DisplayName("GET /admin/ui/users returns 403 when caller has no ADMIN role")
   void shouldReturn403WhenUnauthenticated() throws Exception {
     mvc.perform(get("/admin/ui/users")).andExpect(status().isForbidden());
+  }
+
+  @Test
+  @DisplayName("POST /admin/ui/users grants role and returns user-row fragment")
+  void shouldAddUser() throws Exception {
+    Mockito.when(
+            service.grant(
+                Tenants.DEFAULT_TENANT_ID, "auth0|bob", Role.BOOKKEEPER, "auth0|test-admin"))
+        .thenReturn(
+            Result.success(
+                new TenantUserRole(
+                    Tenants.DEFAULT_TENANT_ID,
+                    "auth0|bob",
+                    Role.BOOKKEEPER,
+                    Instant.EPOCH,
+                    "auth0|test-admin")));
+
+    mvc.perform(
+            post("/admin/ui/users")
+                .param("userSub", "auth0|bob")
+                .param("role", "BOOKKEEPER")
+                .with(SecurityMockMvcRequestPostProcessors.csrf())
+                .with(
+                    SecurityMockMvcRequestPostProcessors.oidcLogin()
+                        .authorities(new SimpleGrantedAuthority("ROLE_ADMIN"))
+                        .idToken(t -> t.claim("sub", "auth0|test-admin"))))
+        .andExpect(status().isOk())
+        .andExpect(content().string(containsString("auth0|bob")))
+        .andExpect(content().string(containsString("BOOKKEEPER")));
+  }
+
+  @Test
+  @DisplayName("PUT /admin/ui/users/{sub} changes role and returns user-row fragment")
+  void shouldChangeRole() throws Exception {
+    Mockito.when(
+            service.grant(Tenants.DEFAULT_TENANT_ID, "auth0|bob", Role.ADMIN, "auth0|test-admin"))
+        .thenReturn(
+            Result.success(
+                new TenantUserRole(
+                    Tenants.DEFAULT_TENANT_ID,
+                    "auth0|bob",
+                    Role.ADMIN,
+                    Instant.EPOCH,
+                    "auth0|test-admin")));
+
+    mvc.perform(
+            put("/admin/ui/users/auth0|bob")
+                .param("role", "ADMIN")
+                .with(SecurityMockMvcRequestPostProcessors.csrf())
+                .with(
+                    SecurityMockMvcRequestPostProcessors.oidcLogin()
+                        .authorities(new SimpleGrantedAuthority("ROLE_ADMIN"))
+                        .idToken(t -> t.claim("sub", "auth0|test-admin"))))
+        .andExpect(status().isOk())
+        .andExpect(content().string(containsString("auth0|bob")))
+        .andExpect(content().string(containsString("ADMIN")));
+  }
+
+  @Test
+  @DisplayName("DELETE /admin/ui/users/{sub} returns 200 empty body on success")
+  void shouldRevokeUser() throws Exception {
+    Mockito.when(service.revoke(Tenants.DEFAULT_TENANT_ID, "auth0|bob", "auth0|test-admin"))
+        .thenReturn(Result.success(null));
+
+    mvc.perform(
+            delete("/admin/ui/users/auth0|bob")
+                .with(SecurityMockMvcRequestPostProcessors.csrf())
+                .with(
+                    SecurityMockMvcRequestPostProcessors.oidcLogin()
+                        .authorities(new SimpleGrantedAuthority("ROLE_ADMIN"))
+                        .idToken(t -> t.claim("sub", "auth0|test-admin"))))
+        .andExpect(status().isOk())
+        .andExpect(content().string(""));
+  }
+
+  @Test
+  @DisplayName("DELETE /admin/ui/users/{sub} returns 404 alert fragment when role is missing")
+  void shouldReturn404WhenRevokeMissing() throws Exception {
+    Mockito.when(service.revoke(Tenants.DEFAULT_TENANT_ID, "auth0|ghost", "auth0|test-admin"))
+        .thenReturn(
+            Result.failure(
+                new SecurityError.RoleNotFound(Tenants.DEFAULT_TENANT_ID, "auth0|ghost")));
+
+    mvc.perform(
+            delete("/admin/ui/users/auth0|ghost")
+                .with(SecurityMockMvcRequestPostProcessors.csrf())
+                .with(
+                    SecurityMockMvcRequestPostProcessors.oidcLogin()
+                        .authorities(new SimpleGrantedAuthority("ROLE_ADMIN"))
+                        .idToken(t -> t.claim("sub", "auth0|test-admin"))))
+        .andExpect(status().isNotFound())
+        .andExpect(content().string(containsString("User role not found")));
+  }
+
+  @Test
+  @DisplayName("PUT /admin/ui/users/{sub} returns 400 alert fragment when orphaning the lone admin")
+  void shouldReturn400WhenPutOrphansSelf() throws Exception {
+    Mockito.when(
+            service.grant(
+                Tenants.DEFAULT_TENANT_ID, "auth0|test-admin", Role.BOOKKEEPER, "auth0|test-admin"))
+        .thenReturn(
+            Result.failure(
+                new SecurityError.CannotOrphanSelf(Tenants.DEFAULT_TENANT_ID, "auth0|test-admin")));
+
+    mvc.perform(
+            put("/admin/ui/users/auth0|test-admin")
+                .param("role", "BOOKKEEPER")
+                .with(SecurityMockMvcRequestPostProcessors.csrf())
+                .with(
+                    SecurityMockMvcRequestPostProcessors.oidcLogin()
+                        .authorities(new SimpleGrantedAuthority("ROLE_ADMIN"))
+                        .idToken(t -> t.claim("sub", "auth0|test-admin"))))
+        .andExpect(status().isBadRequest())
+        .andExpect(content().string(containsString("Cannot orphan the lone tenant admin")));
+  }
+
+  @Test
+  @DisplayName("POST /admin/ui/users returns 403 when caller only has BOOKKEEPER role")
+  void shouldReturn403WhenBookkeeperPosts() throws Exception {
+    mvc.perform(
+            post("/admin/ui/users")
+                .param("userSub", "auth0|bob")
+                .param("role", "BOOKKEEPER")
+                .with(SecurityMockMvcRequestPostProcessors.csrf())
+                .with(
+                    SecurityMockMvcRequestPostProcessors.oidcLogin()
+                        .authorities(new SimpleGrantedAuthority("ROLE_BOOKKEEPER"))
+                        .idToken(t -> t.claim("sub", "auth0|test-bookkeeper"))))
+        .andExpect(status().isForbidden());
+
+    Mockito.verifyNoInteractions(service);
   }
 }
