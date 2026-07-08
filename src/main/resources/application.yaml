@@ -78,17 +78,25 @@ logging:
 #
 # Deployment wiring:
 # - `Dockerfile` sets `SPRING_PROFILES_ACTIVE=prod` — operators MUST override
-#   `KEYSTONE_ISSUER_URI` (empty default fails fast).
+#   `KEYSTONE_AUTHZ_URI`, `KEYSTONE_TOKEN_URI`, `KEYSTONE_JWKS_URI`, and
+#   `KEYSTONE_USERINFO_URI` to point at a real IdP (the localhost:8080
+#   defaults below only make sense for the embedded SAS).
 # - `docker-compose.yml` sets `SPRING_PROFILES_ACTIVE=dev` for local, which
 #   points at the embedded Spring Authorization Server (registered in T2).
 # - `test` profile is set by @ActiveProfiles("test") on integration tests
 #   from T2 onward.
 #
-# The self-referential `test`/`dev` case (SAS boots in the same JVM as its
-# own OAuth2 client) may need a lazy `ClientRegistrationRepository` or
-# explicit endpoint URIs in place of `issuer-uri` to avoid discovery
-# happening before SAS is listening. Addressed in T3 when UiSecurityConfig
-# actually exercises this path.
+# T3 resolved the self-referential `test`/`dev` case (SAS boots in the same
+# JVM as its own OAuth2 client) with explicit provider endpoint URIs instead
+# of `issuer-uri`. No `issuer-uri` key is bound here at all — not even a
+# blank one. Spring Boot 4's `OAuth2ClientPropertiesMapper` decides whether
+# to attempt OIDC discovery by checking `Provider.getIssuerUri() != null`,
+# not blank-ness: `${KEYSTONE_ISSUER_URI:}` resolves to `""`, which is
+# non-null, so it would still call `ClientRegistrations.fromIssuerLocation("")`
+# and blow up context refresh with `IllegalArgumentException: issuer cannot
+# be empty` — verified empirically against DevUserSeederIT/
+# EmbeddedAuthorizationServerConfigIT. Only a fully absent key binds to
+# `null` and skips discovery in favor of the explicit endpoints below.
 spring:
   config:
     activate:
@@ -106,8 +114,11 @@ spring:
             scope: openid, profile
         provider:
           keystone:
-            # Empty default — a prod boot without KEYSTONE_ISSUER_URI set fails
-            # fast at Spring startup rather than silently pointing at itself.
-            # `dev`/`test` set this via profile-specific yaml or env vars pointing
-            # at the embedded SAS's own base URL.
-            issuer-uri: ${KEYSTONE_ISSUER_URI:}
+            # Deliberately no `issuer-uri` key at all (see the file-level
+            # comment above) — explicit endpoints avoid OIDC discovery at
+            # context refresh (SAS in the same JVM isn't listening yet).
+            authorization-uri: ${KEYSTONE_AUTHZ_URI:http://localhost:8080/oauth2/authorize}
+            token-uri: ${KEYSTONE_TOKEN_URI:http://localhost:8080/oauth2/token}
+            jwk-set-uri: ${KEYSTONE_JWKS_URI:http://localhost:8080/oauth2/jwks}
+            user-info-uri: ${KEYSTONE_USERINFO_URI:http://localhost:8080/userinfo}
+            user-name-attribute: sub

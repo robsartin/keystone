@@ -9,7 +9,6 @@ import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.boot.testcontainers.service.connection.ServiceConnection;
 import org.springframework.jdbc.core.simple.JdbcClient;
 import org.springframework.test.context.ActiveProfiles;
-import org.springframework.test.context.TestPropertySource;
 import org.testcontainers.containers.PostgreSQLContainer;
 import org.testcontainers.junit.jupiter.Container;
 import org.testcontainers.junit.jupiter.Testcontainers;
@@ -17,16 +16,19 @@ import org.testcontainers.junit.jupiter.Testcontainers;
 /**
  * Proves {@link DevUserSeeder} idempotently seeds the 3 demo users on startup.
  *
- * <p>{@code spring.autoconfigure.exclude} + the {@code @Container @ServiceConnection} Postgres
- * mirror {@link EmbeddedAuthorizationServerConfigIT} — see its javadoc for why both are needed.
+ * <p>The {@code @Container @ServiceConnection} Postgres mirrors {@link
+ * EmbeddedAuthorizationServerConfigIT} — see its javadoc for why it's needed.
+ *
+ * <p>No longer excludes {@code OAuth2ClientAutoConfiguration} (T2's original workaround for eager
+ * OIDC discovery): T3's {@code application.yaml} now configures explicit OAuth2 provider endpoint
+ * URIs instead of an {@code issuer-uri}, so building the {@code ClientRegistrationRepository} never
+ * triggers a discovery round-trip. Excluding the autoconfiguration here would instead break context
+ * refresh, since {@code UiSecurityConfig} (active on the {@code test} profile) requires a {@code
+ * ClientRegistrationRepository} bean.
  */
 @SpringBootTest
 @ActiveProfiles("test")
 @Testcontainers
-@TestPropertySource(
-    properties =
-        "spring.autoconfigure.exclude="
-            + "org.springframework.boot.security.oauth2.client.autoconfigure.OAuth2ClientAutoConfiguration")
 @DisplayName("DevUserSeeder")
 class DevUserSeederIT {
 

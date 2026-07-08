@@ -9,6 +9,7 @@ import org.slf4j.LoggerFactory;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnMissingBean;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
+import org.springframework.core.annotation.Order;
 import org.springframework.security.config.annotation.method.configuration.EnableMethodSecurity;
 import org.springframework.security.config.annotation.web.builders.HttpSecurity;
 import org.springframework.security.config.annotation.web.configuration.EnableWebSecurity;
@@ -27,6 +28,10 @@ import org.springframework.security.web.SecurityFilterChain;
 
 /**
  * Wires the OAuth2 resource-server filter chain per ADR-0017.
+ *
+ * <p>{@code @Order(2)} — evaluated after {@code UiSecurityConfig}'s browser-facing chain
+ * ({@code @Order(1)}), which claims {@code /admin/ui/**} and the OAuth2 handshake paths. This
+ * chain's {@code anyRequest()} match picks up everything else, i.e. the bearer-JWT API surface.
  *
  * <p>When {@code keystone.security.issuer-uri} is unset (the default in tests and unconfigured
  * local dev), the chain permits every request instead of validating a JWT — the app still boots and
@@ -56,6 +61,7 @@ public class SecurityConfig {
   }
 
   @Bean
+  @Order(2)
   SecurityFilterChain filterChain(HttpSecurity http, JwtTenantConverter converter)
       throws Exception {
     boolean authEnabled = authEnabled();

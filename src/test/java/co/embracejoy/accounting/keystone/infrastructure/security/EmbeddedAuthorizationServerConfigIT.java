@@ -9,7 +9,6 @@ import org.springframework.boot.test.web.server.LocalServerPort;
 import org.springframework.boot.testcontainers.service.connection.ServiceConnection;
 import org.springframework.http.ResponseEntity;
 import org.springframework.test.context.ActiveProfiles;
-import org.springframework.test.context.TestPropertySource;
 import org.springframework.web.client.RestClient;
 import org.testcontainers.containers.PostgreSQLContainer;
 import org.testcontainers.junit.jupiter.Container;
@@ -19,11 +18,14 @@ import org.testcontainers.junit.jupiter.Testcontainers;
  * Proves the embedded Spring Authorization Server (dev/test profiles only) exposes its OAuth2
  * metadata endpoint.
  *
- * <p>{@code spring.autoconfigure.exclude} disables {@code OAuth2ClientAutoConfiguration}: the
- * admin-UI OAuth2 client registered in T1 shares this JVM with the SAS it authenticates against, so
- * letting the client autoconfig build a {@code ClientRegistrationRepository} here would trigger
- * eager OIDC discovery against the (not-yet-listening) SAS during context refresh. This IT proves
- * the SAS in isolation; T4 exercises the full client+server handshake once both are wired together.
+ * <p>No longer excludes {@code OAuth2ClientAutoConfiguration} (T2's original workaround for the
+ * self-referential eager-discovery problem: the admin-UI OAuth2 client registered in T1 shares this
+ * JVM with the SAS it authenticates against). T3's {@code application.yaml} now configures explicit
+ * OAuth2 provider endpoint URIs (authorization/token/jwk-set/user-info) instead of an {@code
+ * issuer-uri}, so building the {@code ClientRegistrationRepository} is pure property binding — no
+ * discovery round-trip against the not-yet-listening SAS happens during context refresh. This IT
+ * still proves the SAS in isolation (it never drives the client side of the handshake); T4
+ * exercises the full client+server handshake now that both are wired together.
  *
  * <p>Uses {@link RestClient} (not {@code TestRestTemplate}, which Boot 4 moved to the {@code
  * spring-boot-resttestclient} module — not a project dependency) to match the convention already
@@ -38,10 +40,6 @@ import org.testcontainers.junit.jupiter.Testcontainers;
 @SpringBootTest(webEnvironment = SpringBootTest.WebEnvironment.RANDOM_PORT)
 @ActiveProfiles("test")
 @Testcontainers
-@TestPropertySource(
-    properties =
-        "spring.autoconfigure.exclude="
-            + "org.springframework.boot.security.oauth2.client.autoconfigure.OAuth2ClientAutoConfiguration")
 @DisplayName("EmbeddedAuthorizationServerConfig")
 class EmbeddedAuthorizationServerConfigIT {
 
