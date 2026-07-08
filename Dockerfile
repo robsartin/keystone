@@ -11,7 +11,7 @@ RUN java -Djarmode=tools -jar target/keystone-0.1.0-SNAPSHOT.jar extract --layer
 
 FROM eclipse-temurin:25-jre
 WORKDIR /app
-ENV SPRING_PROFILES_ACTIVE=default \
+ENV SPRING_PROFILES_ACTIVE=prod \
     JAVA_TOOL_OPTIONS="-XX:+ExitOnOutOfMemoryError -XX:MaxRAMPercentage=75"
 RUN apt-get update -qq && apt-get install -y --no-install-recommends wget \
     && rm -rf /var/lib/apt/lists/* \

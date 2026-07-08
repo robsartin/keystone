@@ -1,5 +1,7 @@
 keystone:
   base-currency: USD
+  dev:
+    seed-users: ${KEYSTONE_DEV_SEED_USERS:true}
   security:
     # Wire your OIDC IdP here. Both `issuer-uri` and `audience` are validated at
     # runtime by SecurityConfig; when empty (default in tests) the app runs
@@ -43,7 +45,6 @@ spring:
     baseline-on-migrate: false
     user: ${FLYWAY_USER:keystone}
     password: ${FLYWAY_PASSWORD:keystone}
-
 server:
   port: 8080
   shutdown: graceful
@@ -66,3 +67,47 @@ logging:
     root: INFO
     co.embracejoy.accounting.keystone: INFO
     org.hibernate.SQL: WARN
+
+---
+# OAuth2 client registration for the admin UI browser flow.
+#
+# Profile-scoped: only loads when `dev`, `test`, or `prod` is active. `@WebMvcTest`
+# slices run without a profile — attaching this block to the default document
+# would trigger OAuth2-client autoconfig + eager OIDC discovery during test
+# context refresh, cascading into context-load failures.
+#
+# Deployment wiring:
+# - `Dockerfile` sets `SPRING_PROFILES_ACTIVE=prod` — operators MUST override
+#   `KEYSTONE_ISSUER_URI` (empty default fails fast).
+# - `docker-compose.yml` sets `SPRING_PROFILES_ACTIVE=dev` for local, which
+#   points at the embedded Spring Authorization Server (registered in T2).
+# - `test` profile is set by @ActiveProfiles("test") on integration tests
+#   from T2 onward.
+#
+# The self-referential `test`/`dev` case (SAS boots in the same JVM as its
+# own OAuth2 client) may need a lazy `ClientRegistrationRepository` or
+# explicit endpoint URIs in place of `issuer-uri` to avoid discovery
+# happening before SAS is listening. Addressed in T3 when UiSecurityConfig
+# actually exercises this path.
+spring:
+  config:
+    activate:
+      on-profile: dev | test | prod
+  security:
+    oauth2:
+      client:
+        registration:
+          keystone:
+            provider: keystone
+            client-id: keystone-admin-ui
+            client-authentication-method: none
+            authorization-grant-type: authorization_code
+            redirect-uri: "{baseUrl}/login/oauth2/code/{registrationId}"
+            scope: openid, profile
+        provider:
+          keystone:
+            # Empty default — a prod boot without KEYSTONE_ISSUER_URI set fails
+            # fast at Spring startup rather than silently pointing at itself.
+            # `dev`/`test` set this via profile-specific yaml or env vars pointing
+            # at the embedded SAS's own base URL.
+            issuer-uri: ${KEYSTONE_ISSUER_URI:}
