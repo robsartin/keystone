@@ -1,0 +1,11 @@
+<!DOCTYPE html>
+<html xmlns:th="http://www.thymeleaf.org">
+  <body>
+    <tr th:fragment="row(user, roles)" th:id="'user-' + ${user.userSub()}">
+      <td th:text="${user.userSub()}">sub</td>
+      <td th:text="${user.role()}">ROLE</td>
+      <td th:text="${#temporals.format(user.grantedAt(), 'yyyy-MM-dd')}">date</td>
+      <td></td>
+    </tr>
+  </body>
+</html>

@@ -1,0 +1,33 @@
+<!DOCTYPE html>
+<html
+    xmlns:th="http://www.thymeleaf.org"
+    th:replace="~{layout :: layout(pageTitle='Users', content=~{::section})}">
+  <head>
+    <title>Users</title>
+  </head>
+  <body>
+    <section>
+      <h1>Users in this tenant</h1>
+      <table class="table">
+        <thead>
+          <tr>
+            <th scope="col">User</th>
+            <th scope="col">Role</th>
+            <th scope="col">Granted</th>
+            <th scope="col"></th>
+          </tr>
+        </thead>
+        <tbody th:if="${users.isEmpty()}">
+          <tr>
+            <td colspan="4" class="text-muted">No users yet.</td>
+          </tr>
+        </tbody>
+        <tbody>
+          <th:block th:each="u : ${users}">
+            <tr th:replace="~{fragments/user-row :: row(user=${u}, roles=${roles})}"></tr>
+          </th:block>
+        </tbody>
+      </table>
+    </section>
+  </body>
+</html>
