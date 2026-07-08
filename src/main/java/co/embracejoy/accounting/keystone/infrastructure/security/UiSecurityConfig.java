@@ -18,11 +18,12 @@ import org.springframework.security.web.csrf.CsrfTokenRequestAttributeHandler;
  * Wires the browser-facing OAuth2 login filter chain for the admin UI, per Slice 5 Phase
  * D-admin-ui.
  *
- * <p>{@code @Order(1)} — evaluated before {@link SecurityConfig}'s stateless bearer-JWT chain
- * ({@code @Order(2)}). {@link #uiFilterChain} only matches {@code /admin/ui/**}, the OAuth2
- * authorization-request redirect path, the OAuth2 login callback path, and {@code /logout}; every
- * other request (including the API's bearer-JWT surface) falls through to {@code SecurityConfig}'s
- * chain instead.
+ * <p>{@code @Order(2)} — evaluated after the embedded SAS's chains
+ * ({@code @Order(0)}/{@code @Order(1)}, {@code dev}/{@code test} only) and before {@link
+ * SecurityConfig}'s stateless bearer-JWT chain ({@code @Order(3)}). {@link #uiFilterChain} only
+ * matches {@code /admin/ui/**}, the OAuth2 authorization-request redirect path, the OAuth2 login
+ * callback path, and {@code /logout}; every other request (including the API's bearer-JWT surface)
+ * falls through to {@code SecurityConfig}'s chain instead.
  *
  * <p>The OIDC user service delegates to Spring's default {@link OidcUserService} to fetch/validate
  * the ID token and userinfo, then hands the resulting {@code OidcUser} to {@link
@@ -47,7 +48,7 @@ import org.springframework.security.web.csrf.CsrfTokenRequestAttributeHandler;
 public class UiSecurityConfig {
 
   @Bean
-  @Order(1)
+  @Order(2)
   public SecurityFilterChain uiFilterChain(
       HttpSecurity http, AuthenticationTenantResolver tenantResolver) throws Exception {
     OidcUserService delegate = new OidcUserService();

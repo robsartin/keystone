@@ -65,4 +65,19 @@ class EmbeddedAuthorizationServerConfigIT {
     assertThat(resp.getBody()).contains("\"token_endpoint\"");
     assertThat(resp.getBody()).contains("\"jwks_uri\"");
   }
+
+  @Test
+  @DisplayName("GET /login returns 200 with a form containing username, password, and CSRF fields")
+  void shouldServeSasLoginPage() {
+    RestClient rest = RestClient.builder().baseUrl("http://localhost:" + port).build();
+
+    ResponseEntity<String> resp =
+        rest.get().uri("/login").header("Accept", "text/html").retrieve().toEntity(String.class);
+
+    assertThat(resp.getStatusCode().is2xxSuccessful()).isTrue();
+    assertThat(resp.getBody())
+        .contains("name=\"username\"")
+        .contains("name=\"password\"")
+        .contains("name=\"_csrf\"");
+  }
 }

@@ -150,8 +150,35 @@ public class EmbeddedAuthorizationServerConfig {
     };
   }
 
+  /**
+   * Serves the SAS's own {@code /login} form page.
+   *
+   * <p>{@link #authorizationServerFilterChain}'s {@code .formLogin(Customizer.withDefaults())} only
+   * applies within that chain's {@code securityMatcher(configurer.getEndpointsMatcher())} — the
+   * OAuth2 protocol endpoints ({@code /oauth2/authorize}, {@code /oauth2/token}, etc.). {@code
+   * /login} itself is not one of those endpoints, so without this separate chain the
+   * unauthenticated redirect an {@code /oauth2/authorize} request triggers has nowhere to land: the
+   * SAS chain would 401/404 on {@code /login} instead of rendering the credential form.
+   * {@code @Order(0)} — evaluated before every other chain in this JVM, though in practice its
+   * matcher is disjoint from all of them.
+   */
   @Bean
   @Order(0)
+  public SecurityFilterChain sasFormLoginFilterChain(HttpSecurity http) throws Exception {
+    http.securityMatcher("/login")
+        .authorizeHttpRequests(a -> a.anyRequest().permitAll())
+        .formLogin(Customizer.withDefaults())
+        .csrf(Customizer.withDefaults());
+    return http.build();
+  }
+
+  /**
+   * {@code @Order(1)} — evaluated after {@link #sasFormLoginFilterChain} ({@code @Order(0)}),
+   * before {@code UiSecurityConfig}'s browser-facing chain ({@code @Order(2)}) and {@code
+   * SecurityConfig}'s bearer-JWT chain ({@code @Order(3)}).
+   */
+  @Bean
+  @Order(1)
   public SecurityFilterChain authorizationServerFilterChain(HttpSecurity http) throws Exception {
     OAuth2AuthorizationServerConfigurer configurer = new OAuth2AuthorizationServerConfigurer();
     http.securityMatcher(configurer.getEndpointsMatcher())
