@@ -10,6 +10,7 @@
             hx-target="closest tr"
             hx-swap="outerHTML"
             name="role"
+            th:aria-label="'Role for ' + ${user.userSub()}"
             data-focus-target>
           <option
               th:each="r : ${roles}"

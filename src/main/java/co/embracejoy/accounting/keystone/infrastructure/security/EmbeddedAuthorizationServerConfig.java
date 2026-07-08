@@ -61,6 +61,15 @@ public class EmbeddedAuthorizationServerConfig {
    */
   public static final int TEST_PORT = 18080;
 
+  /**
+   * Port used by {@code AdminUiE2EIT} (T11), the Playwright browser E2E suite. Distinct from {@link
+   * #TEST_PORT} so the two full-context test classes never contend for the same port even if
+   * Surefire/Failsafe happen to run their JVM forks concurrently — {@link #TEST_PORT} boots under
+   * Failsafe's {@code integration-test} phase, {@code AdminUiE2EIT} under Surefire's {@code test}
+   * phase, and both could in principle overlap depending on fork count.
+   */
+  public static final int TEST_PORT_E2E = 18081;
+
   private static final Map<String, String> USER_TENANTS =
       Map.of(
           "sas|platform", Tenants.DEFAULT_TENANT_UUID.toString(),
@@ -77,7 +86,8 @@ public class EmbeddedAuthorizationServerConfig {
     // SAS enforces exact-match on redirect_uri (no wildcards on host per OAuth2
     // spec). Register all ports the client can reach us from: default 8080
     // (dev docker-compose + maven-plugin openapi-snapshot boot), 18080 (test
-    // ITs like OAuth2LoginFlowIT — Maven's integration-test phase pins 8080).
+    // ITs like OAuth2LoginFlowIT — Maven's integration-test phase pins 8080),
+    // and 18081 (AdminUiE2EIT — kept distinct from 18080 for clean isolation).
     RegisteredClient adminUi =
         RegisteredClient.withId(UUID.randomUUID().toString())
             .clientId("keystone-admin-ui")
@@ -85,6 +95,7 @@ public class EmbeddedAuthorizationServerConfig {
             .authorizationGrantType(AuthorizationGrantType.AUTHORIZATION_CODE)
             .redirectUri("http://localhost:8080/login/oauth2/code/keystone")
             .redirectUri("http://localhost:" + TEST_PORT + "/login/oauth2/code/keystone")
+            .redirectUri("http://localhost:" + TEST_PORT_E2E + "/login/oauth2/code/keystone")
             .scope(OidcScopes.OPENID)
             .scope(OidcScopes.PROFILE)
             .clientSettings(ClientSettings.builder().requireProofKey(true).build())

@@ -245,6 +245,7 @@ class UserRoleUiControllerTest {
   void shouldReturn403WhenBookkeeperPosts() throws Exception {
     mvc.perform(
             post("/admin/ui/users")
+                .header("HX-Request", "true")
                 .param("userSub", "auth0|bob")
                 .param("role", "BOOKKEEPER")
                 .with(SecurityMockMvcRequestPostProcessors.csrf())
@@ -263,13 +264,17 @@ class UserRoleUiControllerTest {
    * {@code @RestController}s, so UI callers denied by {@code @PreAuthorize} got a JSON {@code
    * application/problem+json} body instead of this HTML alert fragment. Asserting the response
    * content type and body (not just status, as {@link #shouldReturn403WhenBookkeeperPosts} does) is
-   * what proves {@code UiExceptionHandler.onAccessDenied} is the handler that actually fired.
+   * what proves {@code UiExceptionHandler.onAccessDenied} is the handler that actually fired. Sets
+   * {@code HX-Request: true} to match this endpoint's real caller — the tenant-user-add form's
+   * {@code hx-post} — which is what makes the handler pick the bare fragment view rather than the
+   * full {@code error} page (T11's {@code AdminUiE2EIT} exercises that non-HTMX branch instead).
    */
   @Test
   @DisplayName("POST /admin/ui/users with BOOKKEEPER returns HTML alert fragment, not JSON")
   void shouldReturnHtmlAlertFragmentWhenAccessDenied() throws Exception {
     mvc.perform(
             post("/admin/ui/users")
+                .header("HX-Request", "true")
                 .param("userSub", "auth0|bob")
                 .param("role", "BOOKKEEPER")
                 .with(SecurityMockMvcRequestPostProcessors.csrf())

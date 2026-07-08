@@ -7,6 +7,7 @@ import java.lang.reflect.Method;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.springframework.core.MethodParameter;
+import org.springframework.mock.web.MockHttpServletRequest;
 import org.springframework.mock.web.MockHttpServletResponse;
 import org.springframework.security.access.AccessDeniedException;
 import org.springframework.ui.ExtendedModelMap;
@@ -49,20 +50,37 @@ class UiExceptionHandlerTest {
   }
 
   @Test
-  @DisplayName("AccessDeniedException renders the alert fragment with 403")
-  void shouldRenderAlertOnAccessDenied() {
+  @DisplayName("AccessDeniedException on a plain navigation renders the full error page with 403")
+  void shouldRenderErrorPageOnAccessDeniedForPlainNavigation() {
     AccessDeniedException ex = new AccessDeniedException("denied");
 
     Model model = new ExtendedModelMap();
+    MockHttpServletRequest request = new MockHttpServletRequest();
     MockHttpServletResponse response = new MockHttpServletResponse();
 
-    String view = handler.onAccessDenied(ex, model, response);
+    String view = handler.onAccessDenied(ex, model, request, response);
 
-    assertThat(view).isEqualTo("fragments/alert :: alert");
+    assertThat(view).isEqualTo("error");
     assertThat(response.getStatus()).isEqualTo(403);
     AlertView alert = (AlertView) model.getAttribute("alert");
     assertThat(alert.severity()).isEqualTo("danger");
     assertThat(alert.title()).isEqualTo("Not allowed");
+  }
+
+  @Test
+  @DisplayName("AccessDeniedException on an HTMX request renders the bare alert fragment with 403")
+  void shouldRenderBareFragmentOnAccessDeniedForHtmxRequest() {
+    AccessDeniedException ex = new AccessDeniedException("denied");
+
+    Model model = new ExtendedModelMap();
+    MockHttpServletRequest request = new MockHttpServletRequest();
+    request.addHeader("HX-Request", "true");
+    MockHttpServletResponse response = new MockHttpServletResponse();
+
+    String view = handler.onAccessDenied(ex, model, request, response);
+
+    assertThat(view).isEqualTo("fragments/alert :: alert");
+    assertThat(response.getStatus()).isEqualTo(403);
   }
 
   /** Reflection target only — supplies a real {@link Method} for {@link MethodParameter}. */

@@ -1,6 +1,7 @@
 package co.embracejoy.accounting.keystone.infrastructure.web.ui;
 
 import co.embracejoy.accounting.keystone.infrastructure.web.ui.dto.AlertView;
+import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
 import org.springframework.security.access.AccessDeniedException;
 import org.springframework.ui.Model;
@@ -43,10 +44,27 @@ public class UiExceptionHandler {
 
   @ExceptionHandler(AccessDeniedException.class)
   public String onAccessDenied(
-      AccessDeniedException ex, Model model, HttpServletResponse response) {
+      AccessDeniedException ex,
+      Model model,
+      HttpServletRequest request,
+      HttpServletResponse response) {
     model.addAttribute(
         "alert", new AlertView("danger", "Not allowed", "This action requires a higher role."));
     response.setStatus(HttpServletResponse.SC_FORBIDDEN);
-    return "fragments/alert :: alert";
+    return isHtmxRequest(request) ? "fragments/alert :: alert" : "error";
+  }
+
+  /**
+   * Every HTMX-driven mutation in this app ({@code hx-post}/{@code hx-put}/{@code hx-delete} forms)
+   * sends {@code HX-Request: true} and expects the bare alert fragment its own swap target can
+   * receive. A denial reached via a plain browser navigation — e.g. a nav link into a page the
+   * caller's role doesn't cover — has no such target and needs a complete, accessible document
+   * instead ({@code error.html}, which wraps the same alert fragment in {@code layout.html}):
+   * {@code AdminUiE2EIT#bookkeeperSeesForbidden} caught the bare fragment failing axe-core's {@code
+   * document-title}/{@code html-has-lang} WCAG 2A checks when served as a full navigation response
+   * with no surrounding {@code <html lang>}/{@code <title>}.
+   */
+  private static boolean isHtmxRequest(HttpServletRequest request) {
+    return "true".equalsIgnoreCase(request.getHeader("HX-Request"));
   }
 }
