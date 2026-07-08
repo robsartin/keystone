@@ -54,6 +54,13 @@ public class EmbeddedAuthorizationServerConfig {
 
   static final String TENANT_CLAIM = "https://keystone.embracejoy.co/tenant_id";
 
+  /**
+   * Port used by full-context ITs (e.g., OAuth2LoginFlowIT). Referenced by both the SAS
+   * RegisteredClient's redirect_uri list below and by ITs that boot at DEFINED_PORT. Change here to
+   * change the test-scope port everywhere.
+   */
+  public static final int TEST_PORT = 18080;
+
   private static final Map<String, String> USER_TENANTS =
       Map.of(
           "sas|platform", Tenants.DEFAULT_TENANT_UUID.toString(),
@@ -77,7 +84,7 @@ public class EmbeddedAuthorizationServerConfig {
             .clientAuthenticationMethod(ClientAuthenticationMethod.NONE)
             .authorizationGrantType(AuthorizationGrantType.AUTHORIZATION_CODE)
             .redirectUri("http://localhost:8080/login/oauth2/code/keystone")
-            .redirectUri("http://localhost:18080/login/oauth2/code/keystone")
+            .redirectUri("http://localhost:" + TEST_PORT + "/login/oauth2/code/keystone")
             .scope(OidcScopes.OPENID)
             .scope(OidcScopes.PROFILE)
             .clientSettings(ClientSettings.builder().requireProofKey(true).build())
