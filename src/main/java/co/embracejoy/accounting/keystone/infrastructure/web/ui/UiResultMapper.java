@@ -19,12 +19,19 @@ public final class UiResultMapper {
   }
 
   public static AlertView toAlertView(SecurityError err) {
-    ProblemDetail pd = ResultMapper.toProblemDetail(err);
-    return new AlertView(severityFor(pd.getStatus()), pd.getTitle(), pd.getDetail());
+    return toAlertView(ResultMapper.toProblemDetail(err));
   }
 
   public static AlertView toAlertView(TenantError err) {
-    ProblemDetail pd = ResultMapper.toProblemDetail(err);
+    return toAlertView(ResultMapper.toProblemDetail(err));
+  }
+
+  /**
+   * Renders a {@link ProblemDetail} produced outside the {@code TenantError}/{@code SecurityError}
+   * sealed hierarchies — e.g. {@code ResultMapper.tenantNotFoundByRawId}, used when a path variable
+   * isn't even a well-formed UUID and so can't be wrapped in a typed id.
+   */
+  public static AlertView toAlertView(ProblemDetail pd) {
     return new AlertView(severityFor(pd.getStatus()), pd.getTitle(), pd.getDetail());
   }
 
