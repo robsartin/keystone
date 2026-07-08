@@ -29,6 +29,10 @@ See [ADR-0001](0001-record-decisions-in-adrs.md) for the meta-decision.
 | [0016](0016-multi-tenant-row-level-isolation.md) | Multi-tenant row-level isolation with Postgres RLS | Accepted |
 | [0017](0017-oauth2-resource-server-with-jwt-tenant-claim.md) | OAuth2 resource server with JWT-carried tenant claim | Accepted |
 | [0018](0018-archunit-enforce-adrs-where-possible.md) | ArchUnit-enforce ADRs where the technology admits it | Accepted |
+| [0019](0019-oauth2-client-and-session-for-ui.md) | OAuth2 client + session cookie for the admin UI browser flow | Accepted |
+| [0020](0020-embedded-authorization-server-for-dev-and-test.md) | Embedded Spring Authorization Server for dev and test | Accepted |
+| [0021](0021-server-rendered-ui-thymeleaf-htmx-no-build.md) | Server-rendered admin UI — Thymeleaf + HTMX, no JS build step | Accepted |
+| [0022](0022-playwright-and-axe-core-ci-gate.md) | Playwright + axe-core browser tests as a CI gate | Accepted |
 
 ## Numbering
 
