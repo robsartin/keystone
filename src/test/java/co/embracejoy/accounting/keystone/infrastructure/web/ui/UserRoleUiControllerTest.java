@@ -26,6 +26,7 @@ import org.springframework.boot.test.context.TestConfiguration;
 import org.springframework.boot.webmvc.test.autoconfigure.WebMvcTest;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Import;
+import org.springframework.http.MediaType;
 import org.springframework.security.config.annotation.method.configuration.EnableMethodSecurity;
 import org.springframework.security.config.annotation.web.builders.HttpSecurity;
 import org.springframework.security.config.annotation.web.configuration.EnableWebSecurity;
@@ -254,5 +255,30 @@ class UserRoleUiControllerTest {
         .andExpect(status().isForbidden());
 
     Mockito.verifyNoInteractions(service);
+  }
+
+  /**
+   * Regression test for the T9 review finding: unrestricted {@code @RestControllerAdvice} on {@code
+   * SecurityExceptionHandler} shadowed {@code UiExceptionHandler} for every controller, not just
+   * {@code @RestController}s, so UI callers denied by {@code @PreAuthorize} got a JSON {@code
+   * application/problem+json} body instead of this HTML alert fragment. Asserting the response
+   * content type and body (not just status, as {@link #shouldReturn403WhenBookkeeperPosts} does) is
+   * what proves {@code UiExceptionHandler.onAccessDenied} is the handler that actually fired.
+   */
+  @Test
+  @DisplayName("POST /admin/ui/users with BOOKKEEPER returns HTML alert fragment, not JSON")
+  void shouldReturnHtmlAlertFragmentWhenAccessDenied() throws Exception {
+    mvc.perform(
+            post("/admin/ui/users")
+                .param("userSub", "auth0|bob")
+                .param("role", "BOOKKEEPER")
+                .with(SecurityMockMvcRequestPostProcessors.csrf())
+                .with(
+                    SecurityMockMvcRequestPostProcessors.oidcLogin()
+                        .authorities(new SimpleGrantedAuthority("ROLE_BOOKKEEPER"))
+                        .idToken(t -> t.claim("sub", "auth0|test-bookkeeper"))))
+        .andExpect(status().isForbidden())
+        .andExpect(content().contentTypeCompatibleWith(MediaType.TEXT_HTML))
+        .andExpect(content().string(containsString("Not allowed")));
   }
 }

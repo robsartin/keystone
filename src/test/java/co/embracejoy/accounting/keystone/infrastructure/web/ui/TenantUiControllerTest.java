@@ -23,6 +23,7 @@ import org.springframework.boot.test.context.TestConfiguration;
 import org.springframework.boot.webmvc.test.autoconfigure.WebMvcTest;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Import;
+import org.springframework.http.MediaType;
 import org.springframework.security.config.annotation.method.configuration.EnableMethodSecurity;
 import org.springframework.security.config.annotation.web.builders.HttpSecurity;
 import org.springframework.security.config.annotation.web.configuration.EnableWebSecurity;
@@ -218,5 +219,29 @@ class TenantUiControllerTest {
         .andExpect(status().isForbidden());
 
     Mockito.verifyNoInteractions(service);
+  }
+
+  /**
+   * Regression test for the T9 review finding: unrestricted {@code @RestControllerAdvice} on {@code
+   * ValidationExceptionHandler} shadowed {@code UiExceptionHandler} for every controller, not just
+   * {@code @RestController}s, so a Bean Validation failure on this {@code @Valid @ModelAttribute}
+   * form-backing bean (no explicit {@code BindingResult} parameter, so Spring throws {@code
+   * MethodArgumentNotValidException} rather than swallowing it into a {@code BindingResult})
+   * rendered as JSON {@code application/problem+json} instead of this HTML alert fragment.
+   */
+  @Test
+  @DisplayName("POST /admin/ui/tenants with blank name returns HTML alert fragment, not JSON")
+  void shouldReturnHtmlAlertFragmentOnBeanValidationFailure() throws Exception {
+    mvc.perform(
+            post("/admin/ui/tenants")
+                .param("name", "")
+                .with(SecurityMockMvcRequestPostProcessors.csrf())
+                .with(
+                    SecurityMockMvcRequestPostProcessors.oidcLogin()
+                        .authorities(new SimpleGrantedAuthority("ROLE_PLATFORM_ADMIN"))
+                        .idToken(t -> t.claim("sub", "auth0|platform-admin"))))
+        .andExpect(status().isBadRequest())
+        .andExpect(content().contentTypeCompatibleWith(MediaType.TEXT_HTML))
+        .andExpect(content().string(containsString("Invalid input")));
   }
 }
