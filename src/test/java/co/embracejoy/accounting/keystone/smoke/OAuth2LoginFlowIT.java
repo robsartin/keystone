@@ -107,6 +107,20 @@ class OAuth2LoginFlowIT {
     step7ExchangesCodeAndEstablishesSession(callbackUri, cookies);
   }
 
+  @Test
+  @DisplayName("GET /admin/ui/login returns 200 anonymously")
+  void shouldAllowAnonymousLoginPageAccess() {
+    ResponseEntity<String> response =
+        client
+            .get()
+            .uri("/admin/ui/login")
+            .header(HttpHeaders.ACCEPT, MediaType.TEXT_HTML_VALUE)
+            .exchange((req, resp) -> toEntity(resp, String.class));
+
+    assertThat(response.getStatusCode().is2xxSuccessful()).isTrue();
+    assertThat(response.getBody()).contains("Sign in");
+  }
+
   private void step1RequestsProtectedResource(CookieJar cookies) {
     ResponseEntity<Void> response = get("/admin/ui/users", cookies, null);
     assertThat(response.getStatusCode()).isEqualTo(HttpStatus.FOUND);
