@@ -1,0 +1,13 @@
+<!DOCTYPE html>
+<html xmlns:th="http://www.thymeleaf.org">
+  <body>
+    <div
+        th:fragment="alert(alert)"
+        th:class="'alert alert-' + ${alert.severity()}"
+        role="alert"
+        aria-live="assertive">
+      <strong th:text="${alert.title()}">Title</strong>
+      <span th:text="${alert.detail()}">Detail</span>
+    </div>
+  </body>
+</html>

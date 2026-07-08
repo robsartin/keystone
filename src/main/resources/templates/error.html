@@ -1,0 +1,13 @@
+<!DOCTYPE html>
+<html
+    xmlns:th="http://www.thymeleaf.org"
+    th:replace="~{layout :: layout(pageTitle='Keystone Admin', content=~{::section})}">
+  <head>
+    <title>Keystone Admin</title>
+  </head>
+  <body>
+    <section>
+      <div th:replace="~{fragments/alert :: alert(alert=${alert})}"></div>
+    </section>
+  </body>
+</html>

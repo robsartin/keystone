@@ -1,0 +1,49 @@
+<!DOCTYPE html>
+<html
+    xmlns:th="http://www.thymeleaf.org"
+    th:replace="~{layout :: layout(pageTitle='Tenants', content=~{::section})}">
+  <head>
+    <title>Tenants</title>
+  </head>
+  <body>
+    <section>
+      <h1>Tenants</h1>
+      <form
+          th:action="@{/admin/ui/tenants}"
+          th:hx-post="@{/admin/ui/tenants}"
+          hx-target="tbody:last-of-type"
+          hx-swap="afterbegin"
+          method="post"
+          class="row g-3 mb-4">
+        <div class="col-auto">
+          <label for="tenantName" class="form-label">Tenant name</label>
+          <input type="text" class="form-control" id="tenantName" name="name" required />
+        </div>
+        <div class="col-auto d-flex align-items-end">
+          <button type="submit" class="btn btn-primary">Create tenant</button>
+        </div>
+      </form>
+      <table class="table">
+        <thead>
+          <tr>
+            <th scope="col">Name</th>
+            <th scope="col">Id</th>
+            <th scope="col">Created</th>
+            <th scope="col">Status</th>
+            <th scope="col"></th>
+          </tr>
+        </thead>
+        <tbody th:if="${tenants.isEmpty()}">
+          <tr>
+            <td colspan="5" class="text-muted">No tenants yet.</td>
+          </tr>
+        </tbody>
+        <tbody>
+          <th:block th:each="t : ${tenants}">
+            <tr th:replace="~{fragments/tenant-row :: row(tenant=${t})}"></tr>
+          </th:block>
+        </tbody>
+      </table>
+    </section>
+  </body>
+</html>

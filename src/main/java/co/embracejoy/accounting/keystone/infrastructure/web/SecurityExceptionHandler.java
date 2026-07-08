@@ -8,6 +8,7 @@ import org.springframework.http.ProblemDetail;
 import org.springframework.security.access.AccessDeniedException;
 import org.springframework.security.core.AuthenticationException;
 import org.springframework.web.bind.annotation.ExceptionHandler;
+import org.springframework.web.bind.annotation.RestController;
 import org.springframework.web.bind.annotation.RestControllerAdvice;
 
 /**
@@ -23,7 +24,7 @@ import org.springframework.web.bind.annotation.RestControllerAdvice;
  * otherwise valid, but the caller has no access to any tenant) rather than 401; we detect that case
  * by its message since a dedicated exception type would be the cleaner long-term fix.
  */
-@RestControllerAdvice
+@RestControllerAdvice(annotations = RestController.class)
 @Order(Ordered.HIGHEST_PRECEDENCE)
 public class SecurityExceptionHandler {
 

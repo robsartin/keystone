@@ -32,7 +32,7 @@ services:
       postgres:
         condition: service_healthy
     environment:
-      SPRING_PROFILES_ACTIVE: default
+      SPRING_PROFILES_ACTIVE: dev
       DATABASE_URL: jdbc:postgresql://postgres:5432/keystone
       # App-runtime pool: NOSUPERUSER role so RLS applies.
       DATABASE_USER: keystone_app

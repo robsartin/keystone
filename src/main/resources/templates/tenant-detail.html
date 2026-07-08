@@ -1,0 +1,41 @@
+<!DOCTYPE html>
+<html
+    xmlns:th="http://www.thymeleaf.org"
+    th:replace="~{layout :: layout(pageTitle='Tenant detail', content=~{::section})}">
+  <head>
+    <title>Tenant detail</title>
+  </head>
+  <body>
+    <section>
+      <h1 th:text="${tenant.name()}">Tenant name</h1>
+      <dl class="row">
+        <dt class="col-sm-2">Id</dt>
+        <dd class="col-sm-10" th:text="${tenant.id().value()}">id</dd>
+        <dt class="col-sm-2">Created</dt>
+        <dd class="col-sm-10" th:text="${#temporals.format(tenant.createdAt(), 'yyyy-MM-dd HH:mm')}">
+          date
+        </dd>
+        <dt class="col-sm-2">Deactivated</dt>
+        <dd class="col-sm-10">
+          <span th:if="${tenant.isActive()}">&mdash;</span>
+          <span
+              th:unless="${tenant.isActive()}"
+              th:text="${#temporals.format(tenant.deactivatedAt().get(), 'yyyy-MM-dd HH:mm')}">
+            date
+          </span>
+        </dd>
+      </dl>
+      <!--
+        Reuses fragments/tenant-row :: row (rather than a bespoke detail-page action button) so the
+        Deactivate control's hx-target="closest tr" — the same targeting the list page uses — stays
+        valid: the controller's deactivate handler always returns a single <tr> fragment regardless
+        of which page triggered it, and a <tr> only composes correctly inside a <table>.
+      -->
+      <table class="table">
+        <tbody>
+          <tr th:replace="~{fragments/tenant-row :: row(tenant=${tenant})}"></tr>
+        </tbody>
+      </table>
+    </section>
+  </body>
+</html>

@@ -1,0 +1,32 @@
+<!DOCTYPE html>
+<html xmlns:th="http://www.thymeleaf.org">
+  <body>
+    <tr th:fragment="row(tenant)" th:id="'tenant-' + ${tenant.id().value()}">
+      <td>
+        <a
+            th:href="@{/admin/ui/tenants/{id}(id=${tenant.id().value()})}"
+            th:text="${tenant.name()}">
+          name
+        </a>
+      </td>
+      <td th:text="${tenant.id().value()}">id</td>
+      <td th:text="${#temporals.format(tenant.createdAt(), 'yyyy-MM-dd')}">date</td>
+      <td>
+        <span th:if="${tenant.isActive()}" class="badge text-bg-success">Active</span>
+        <span th:unless="${tenant.isActive()}" class="badge text-bg-secondary">Deactivated</span>
+      </td>
+      <td>
+        <button
+            type="button"
+            class="btn btn-outline-danger btn-sm"
+            th:if="${tenant.isActive()}"
+            th:hx-post="@{/admin/ui/tenants/{id}/deactivate(id=${tenant.id().value()})}"
+            hx-target="closest tr"
+            hx-swap="outerHTML"
+            th:hx-confirm="'Deactivate ' + ${tenant.name()} + '?'">
+          Deactivate
+        </button>
+      </td>
+    </tr>
+  </body>
+</html>

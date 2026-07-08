@@ -1,0 +1,65 @@
+<!DOCTYPE html>
+<html
+    lang="en"
+    xmlns:th="http://www.thymeleaf.org"
+    xmlns:sec="http://www.thymeleaf.org/thymeleaf-extras-springsecurity6"
+    th:fragment="layout(pageTitle, content)">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <meta name="csrf-token" th:if="${_csrf != null}" th:content="${_csrf.token}" />
+    <meta name="csrf-header" th:if="${_csrf != null}" th:content="${_csrf.headerName}" />
+    <title th:text="${pageTitle} ?: 'Keystone Admin'">Keystone Admin</title>
+    <link rel="stylesheet" href="/bootstrap.min.css" />
+    <link rel="stylesheet" href="/bootstrap-icons.css" />
+    <link rel="stylesheet" href="/keystone-admin.css" />
+  </head>
+  <body>
+    <nav class="navbar navbar-expand-lg bg-body-tertiary border-bottom">
+      <div class="container-fluid">
+        <a class="navbar-brand" href="/admin/ui">Keystone</a>
+        <div class="collapse navbar-collapse">
+          <ul class="navbar-nav me-auto">
+            <li class="nav-item"><a class="nav-link" href="/admin/ui/users">Users</a></li>
+            <li class="nav-item" sec:authorize="hasRole('PLATFORM_ADMIN')">
+              <a class="nav-link" href="/admin/ui/tenants">Tenants</a>
+            </li>
+            <li class="nav-item"><a class="nav-link" href="/admin/ui/profile">Profile</a></li>
+          </ul>
+          <form th:action="@{/logout}" method="post" class="d-flex">
+            <button class="btn btn-outline-dark" type="submit">Log out</button>
+          </form>
+        </div>
+      </div>
+    </nav>
+    <main class="container my-4">
+      <div id="alert-region" role="status" aria-live="polite"></div>
+      <div th:replace="${content}"></div>
+    </main>
+    <script src="/htmx.min.js"></script>
+    <script th:inline="none">
+      // HTMX 2.x defaults to dropping 4xx/5xx bodies. Server error paths return
+      // alert fragments with meaningful status codes — surface them by retargeting
+      // to #alert-region on any 4xx.
+      document.body.addEventListener('htmx:beforeSwap', function (e) {
+        var xhr = e.detail.xhr;
+        if (xhr && xhr.status >= 400 && xhr.status < 500) {
+          e.detail.shouldSwap = true;
+          e.detail.target = document.querySelector('#alert-region') || e.detail.target;
+          e.detail.swapOverride = 'innerHTML';
+        }
+      });
+      document.body.addEventListener('htmx:configRequest', function (e) {
+        var tokenMeta = document.querySelector('meta[name=csrf-token]');
+        var headerMeta = document.querySelector('meta[name=csrf-header]');
+        if (tokenMeta && headerMeta) {
+          e.detail.headers[headerMeta.content] = tokenMeta.content;
+        }
+      });
+      document.body.addEventListener('htmx:afterSwap', function (e) {
+        var focusTarget = e.detail.target.querySelector('[data-focus-target]');
+        if (focusTarget) focusTarget.focus();
+      });
+    </script>
+  </body>
+</html>

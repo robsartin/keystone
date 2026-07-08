@@ -7,11 +7,12 @@ import org.springframework.http.HttpStatus;
 import org.springframework.http.ProblemDetail;
 import org.springframework.web.bind.MethodArgumentNotValidException;
 import org.springframework.web.bind.annotation.ExceptionHandler;
+import org.springframework.web.bind.annotation.RestController;
 import org.springframework.web.bind.annotation.RestControllerAdvice;
 import org.springframework.web.method.annotation.MethodArgumentTypeMismatchException;
 
 /** Translates Bean Validation failures into RFC 9457 {@link ProblemDetail} responses. */
-@RestControllerAdvice
+@RestControllerAdvice(annotations = RestController.class)
 public class ValidationExceptionHandler {
 
   private static final String PROBLEM_BASE = "https://embracejoy.co/problems";

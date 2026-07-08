@@ -1,5 +1,7 @@
 keystone:
   base-currency: USD
+  dev:
+    seed-users: ${KEYSTONE_DEV_SEED_USERS:true}
   security:
     # Wire your OIDC IdP here. Both `issuer-uri` and `audience` are validated at
     # runtime by SecurityConfig; when empty (default in tests) the app runs
@@ -43,7 +45,6 @@ spring:
     baseline-on-migrate: false
     user: ${FLYWAY_USER:keystone}
     password: ${FLYWAY_PASSWORD:keystone}
-
 server:
   port: 8080
   shutdown: graceful
@@ -66,3 +67,58 @@ logging:
     root: INFO
     co.embracejoy.accounting.keystone: INFO
     org.hibernate.SQL: WARN
+
+---
+# OAuth2 client registration for the admin UI browser flow.
+#
+# Profile-scoped: only loads when `dev`, `test`, or `prod` is active. `@WebMvcTest`
+# slices run without a profile — attaching this block to the default document
+# would trigger OAuth2-client autoconfig + eager OIDC discovery during test
+# context refresh, cascading into context-load failures.
+#
+# Deployment wiring:
+# - `Dockerfile` sets `SPRING_PROFILES_ACTIVE=prod` — operators MUST override
+#   `KEYSTONE_AUTHZ_URI`, `KEYSTONE_TOKEN_URI`, `KEYSTONE_JWKS_URI`, and
+#   `KEYSTONE_USERINFO_URI` to point at a real IdP (the localhost:8080
+#   defaults below only make sense for the embedded SAS).
+# - `docker-compose.yml` sets `SPRING_PROFILES_ACTIVE=dev` for local, which
+#   points at the embedded Spring Authorization Server (registered in T2).
+# - `test` profile is set by @ActiveProfiles("test") on integration tests
+#   from T2 onward.
+#
+# T3 resolved the self-referential `test`/`dev` case (SAS boots in the same
+# JVM as its own OAuth2 client) with explicit provider endpoint URIs instead
+# of `issuer-uri`. No `issuer-uri` key is bound here at all — not even a
+# blank one. Spring Boot 4's `OAuth2ClientPropertiesMapper` decides whether
+# to attempt OIDC discovery by checking `Provider.getIssuerUri() != null`,
+# not blank-ness: `${KEYSTONE_ISSUER_URI:}` resolves to `""`, which is
+# non-null, so it would still call `ClientRegistrations.fromIssuerLocation("")`
+# and blow up context refresh with `IllegalArgumentException: issuer cannot
+# be empty` — verified empirically against DevUserSeederIT/
+# EmbeddedAuthorizationServerConfigIT. Only a fully absent key binds to
+# `null` and skips discovery in favor of the explicit endpoints below.
+spring:
+  config:
+    activate:
+      on-profile: dev | test | prod
+  security:
+    oauth2:
+      client:
+        registration:
+          keystone:
+            provider: keystone
+            client-id: keystone-admin-ui
+            client-authentication-method: none
+            authorization-grant-type: authorization_code
+            redirect-uri: "{baseUrl}/login/oauth2/code/{registrationId}"
+            scope: openid, profile
+        provider:
+          keystone:
+            # Deliberately no `issuer-uri` key at all (see the file-level
+            # comment above) — explicit endpoints avoid OIDC discovery at
+            # context refresh (SAS in the same JVM isn't listening yet).
+            authorization-uri: ${KEYSTONE_AUTHZ_URI:http://localhost:8080/oauth2/authorize}
+            token-uri: ${KEYSTONE_TOKEN_URI:http://localhost:8080/oauth2/token}
+            jwk-set-uri: ${KEYSTONE_JWKS_URI:http://localhost:8080/oauth2/jwks}
+            user-info-uri: ${KEYSTONE_USERINFO_URI:http://localhost:8080/userinfo}
+            user-name-attribute: sub

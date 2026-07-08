@@ -1,0 +1,25 @@
+<!DOCTYPE html>
+<html
+    xmlns:th="http://www.thymeleaf.org"
+    th:replace="~{layout :: layout(pageTitle='Profile', content=~{::section})}">
+  <head>
+    <title>Profile</title>
+  </head>
+  <body>
+    <section>
+      <h1>Profile</h1>
+      <div class="card">
+        <div class="card-body">
+          <dl class="row mb-0">
+            <dt class="col-sm-3">Subject</dt>
+            <dd class="col-sm-9" th:text="${sub}">sub</dd>
+            <dt class="col-sm-3">Tenant id</dt>
+            <dd class="col-sm-9" th:text="${tenantId}">tenant id</dd>
+            <dt class="col-sm-3">Role</dt>
+            <dd class="col-sm-9" th:text="${role}">role</dd>
+          </dl>
+        </div>
+      </div>
+    </section>
+  </body>
+</html>
