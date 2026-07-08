@@ -67,12 +67,17 @@ public class EmbeddedAuthorizationServerConfig {
 
   @Bean
   public RegisteredClientRepository registeredClientRepository() {
+    // SAS enforces exact-match on redirect_uri (no wildcards on host per OAuth2
+    // spec). Register all ports the client can reach us from: default 8080
+    // (dev docker-compose + maven-plugin openapi-snapshot boot), 18080 (test
+    // ITs like OAuth2LoginFlowIT — Maven's integration-test phase pins 8080).
     RegisteredClient adminUi =
         RegisteredClient.withId(UUID.randomUUID().toString())
             .clientId("keystone-admin-ui")
             .clientAuthenticationMethod(ClientAuthenticationMethod.NONE)
             .authorizationGrantType(AuthorizationGrantType.AUTHORIZATION_CODE)
             .redirectUri("http://localhost:8080/login/oauth2/code/keystone")
+            .redirectUri("http://localhost:18080/login/oauth2/code/keystone")
             .scope(OidcScopes.OPENID)
             .scope(OidcScopes.PROFILE)
             .clientSettings(ClientSettings.builder().requireProofKey(true).build())
