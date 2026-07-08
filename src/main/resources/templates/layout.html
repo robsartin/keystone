@@ -38,6 +38,17 @@
     </main>
     <script src="/htmx.min.js"></script>
     <script th:inline="none">
+      // HTMX 2.x defaults to dropping 4xx/5xx bodies. Server error paths return
+      // alert fragments with meaningful status codes — surface them by retargeting
+      // to #alert-region on any 4xx.
+      document.body.addEventListener('htmx:beforeSwap', function (e) {
+        var xhr = e.detail.xhr;
+        if (xhr && xhr.status >= 400 && xhr.status < 500) {
+          e.detail.shouldSwap = true;
+          e.detail.target = document.querySelector('#alert-region') || e.detail.target;
+          e.detail.swapOverride = 'innerHTML';
+        }
+      });
       document.body.addEventListener('htmx:configRequest', function (e) {
         var tokenMeta = document.querySelector('meta[name=csrf-token]');
         var headerMeta = document.querySelector('meta[name=csrf-header]');

@@ -28,7 +28,7 @@ reviewer noticing and only after the change is already written.
 
 ## Decision
 
-A `@SpringBootTest` (landing in T11 as `AdminUiE2ETest`) boots the full
+A `@SpringBootTest` (landing in T11 as `AdminUiE2EIT`) boots the full
 application on a random port and drives a real, headless Chromium
 instance via Playwright Java 1.49.0 against it — clicking through login,
 navigating each admin page, and exercising the HTMX row-mutation flows
@@ -75,7 +75,7 @@ faster, more reliable browser automation in CI.
 
 Not code-structural in the ArchUnit sense — this is a runtime/behavioral
 gate, not a bytecode-inspectable rule. Enforcement is the test itself:
-`AdminUiE2ETest` (landing in T11) runs as part of `./mvnw verify`, and
+`AdminUiE2EIT` (landing in T11) runs as part of `./mvnw verify`, and
 its axe-core assertions *are* the enforcement mechanism — a WCAG AA
 violation on any exercised page state fails that test, which fails the
 build.

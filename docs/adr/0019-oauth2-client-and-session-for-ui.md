@@ -63,7 +63,7 @@ via `addFilterAfter(..., SecurityContextHolderFilter.class)`, does that
 by re-invoking `AuthenticationTenantResolver` from the already-cached
 `OidcUser`.
 
-An unauthenticated HTMX request receives a `204`-with-`HX-Redirect`
+An unauthenticated HTMX request receives a `200`-with-`HX-Redirect`
 response instead of a full-page redirect (`HtmxAuthenticationEntryPoint`)
 so htmx's fetch-based swap can navigate the whole page to `/admin/ui/login`.
 
@@ -97,12 +97,17 @@ so htmx's fetch-based swap can navigate the whole page to `/admin/ui/login`.
   configure the `keystone` client registration — a Spring context that
   boots without one of those profiles (e.g. an unconfigured `local`
   profile) must not wire this chain.
+- The cached `Authentication`'s granted authorities are set once at login
+  and reused across the session; an admin whose role is revoked mid-session
+  retains their `ROLE_*` authorities until logout. `TenantContext` is
+  re-derived per request but authority set is not. Acceptable for typical
+  admin workflows; force logout is the operator's escape hatch.
 
 ## Enforcement
 
 `UiSecurityArchTest.OAUTH2LOGIN_ONLY_IN_UI_SECURITY_CONFIG` asserts that
-no method whose name contains `oauth2Login` is declared in any class
-other than `UiSecurityConfig`. This keeps the browser-login wiring from
-sprawling into a second config class as the UI grows, which would
-reintroduce the two-chains-doing-the-same-thing risk this ADR
-deliberately avoids.
+no class outside `UiSecurityConfig` calls a method named `oauth2Login`
+(call-based, via ArchUnit's `callMethodWhere(target(name(...)))`). This
+keeps the browser-login wiring from sprawling into a second config class
+as the UI grows, which would reintroduce the two-chains-doing-the-same-thing
+risk this ADR deliberately avoids.

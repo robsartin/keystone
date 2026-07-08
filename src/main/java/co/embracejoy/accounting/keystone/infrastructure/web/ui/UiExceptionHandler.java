@@ -30,7 +30,10 @@ public class UiExceptionHandler {
 
   @ExceptionHandler(MethodArgumentNotValidException.class)
   public String onValidationError(
-      MethodArgumentNotValidException ex, Model model, HttpServletResponse response) {
+      MethodArgumentNotValidException ex,
+      Model model,
+      HttpServletRequest request,
+      HttpServletResponse response) {
     String detail =
         ex.getBindingResult().getAllErrors().stream()
             .map(err -> err.getDefaultMessage())
@@ -39,7 +42,10 @@ public class UiExceptionHandler {
             .orElse("Request is invalid.");
     model.addAttribute("alert", new AlertView("warning", "Invalid input", detail));
     response.setStatus(HttpServletResponse.SC_BAD_REQUEST);
-    return "fragments/alert :: alert";
+    // Mirror onAccessDenied: HTMX gets the bare fragment for #alert-region swap;
+    // a plain browser POST (progressive-enhancement fallback) gets a full error page
+    // so axe's document-title/html-has-lang checks still pass at the top-level nav.
+    return isHtmxRequest(request) ? "fragments/alert :: alert" : "error";
   }
 
   @ExceptionHandler(AccessDeniedException.class)

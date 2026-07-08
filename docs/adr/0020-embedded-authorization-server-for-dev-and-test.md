@@ -109,8 +109,12 @@ must set `KEYSTONE_ISSUER_URI` to point at a real, operator-managed IdP.
 
 ## Enforcement
 
-`UiSecurityArchTest.SAS_CONFIG_IS_PROFILE_GUARDED` asserts that
-`EmbeddedAuthorizationServerConfig` carries a `@Profile` annotation. This
-is the one thing that must never regress: an ungated embedded
-authorization server booting in `prod` would stand up a rogue,
-attacker-discoverable IdP alongside the real one.
+`UiSecurityArchTest.SAS_CONFIG_IS_GUARDED_ON_DEV_TEST` asserts (via a
+custom `DescribedPredicate<JavaAnnotation<?>>`) that
+`EmbeddedAuthorizationServerConfig` carries a `@Profile` annotation whose
+`value` array contains BOTH `"dev"` AND `"test"`. Not merely "any
+`@Profile`" — a mis-gated `@Profile("prod")` or `@Profile("dev")` alone
+would silently pass the presence check while defeating the intent, which
+is exactly the regression this rule must catch: an ungated (or wrongly
+gated) embedded authorization server booting in `prod` would stand up a
+rogue, attacker-discoverable IdP alongside the real one.

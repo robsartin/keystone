@@ -28,18 +28,16 @@ class UiExceptionHandlerTest {
   private final UiExceptionHandler handler = new UiExceptionHandler();
 
   @Test
-  @DisplayName("MethodArgumentNotValidException renders the alert fragment with 400")
-  void shouldRenderAlertOnValidationError() throws NoSuchMethodException {
-    Method target = getClass().getDeclaredMethod("target", TestForm.class);
-    BindingResult binding = new BeanPropertyBindingResult(new TestForm(), "form");
-    binding.rejectValue("name", "NotBlank", "must not be blank");
-    MethodArgumentNotValidException ex =
-        new MethodArgumentNotValidException(new MethodParameter(target, 0), binding);
+  @DisplayName("MethodArgumentNotValidException on an HTMX request renders the bare alert with 400")
+  void shouldRenderAlertOnValidationErrorForHtmxRequest() throws NoSuchMethodException {
+    MethodArgumentNotValidException ex = validationException();
 
     Model model = new ExtendedModelMap();
+    MockHttpServletRequest request = new MockHttpServletRequest();
+    request.addHeader("HX-Request", "true");
     MockHttpServletResponse response = new MockHttpServletResponse();
 
-    String view = handler.onValidationError(ex, model, response);
+    String view = handler.onValidationError(ex, model, request, response);
 
     assertThat(view).isEqualTo("fragments/alert :: alert");
     assertThat(response.getStatus()).isEqualTo(400);
@@ -47,6 +45,28 @@ class UiExceptionHandlerTest {
     assertThat(alert.severity()).isEqualTo("warning");
     assertThat(alert.title()).isEqualTo("Invalid input");
     assertThat(alert.detail()).contains("must not be blank");
+  }
+
+  @Test
+  @DisplayName("MethodArgumentNotValidException on plain navigation renders the full error page")
+  void shouldRenderErrorPageOnValidationErrorForPlainNavigation() throws NoSuchMethodException {
+    MethodArgumentNotValidException ex = validationException();
+
+    Model model = new ExtendedModelMap();
+    MockHttpServletRequest request = new MockHttpServletRequest();
+    MockHttpServletResponse response = new MockHttpServletResponse();
+
+    String view = handler.onValidationError(ex, model, request, response);
+
+    assertThat(view).isEqualTo("error");
+    assertThat(response.getStatus()).isEqualTo(400);
+  }
+
+  private MethodArgumentNotValidException validationException() throws NoSuchMethodException {
+    Method target = getClass().getDeclaredMethod("target", TestForm.class);
+    BindingResult binding = new BeanPropertyBindingResult(new TestForm(), "form");
+    binding.rejectValue("name", "NotBlank", "must not be blank");
+    return new MethodArgumentNotValidException(new MethodParameter(target, 0), binding);
   }
 
   @Test
