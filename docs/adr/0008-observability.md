@@ -44,3 +44,13 @@ Keystone needs to be observable in three dimensions:
 - We accept the small per-request overhead of generating a correlation
   ID when none is supplied.
 - No tracing backend wiring in this slice; that's a Plan 3+ concern.
+
+## Enforcement
+
+`NoStandardOutInProductionArchTest` asserts (3 ArchUnit rules) that no
+production class accesses `System.out`, `System.err`, or calls
+`Throwable.printStackTrace()`. Any of those bypasses Logback, drops MDC
+context (correlation IDs, tenant), and produces unstructured log lines
+that break the observability contract. Use SLF4J — every affected class
+already has a `LOGGER` field. Test code is exempt via
+`ImportOption.DoNotIncludeTests`.

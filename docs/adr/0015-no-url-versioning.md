@@ -27,3 +27,14 @@ If a versioned compatibility window ever becomes necessary later, it will be hea
 - **Positive**: The `breaking-change-approved` PR label is the explicit, reviewed gate for any wire-contract change.
 - **Negative**: Operators must coordinate client upgrades with server upgrades. There's no "leave the old version running for a quarter" escape hatch.
 - **Mitigation**: Deprecation warnings via response headers (`Deprecation`, `Sunset` per RFC 8594) for known-breaking transitions, with at least one minor release of warning time before the breaking version ships.
+
+## Enforcement
+
+`NoUrlVersioningArchTest.NO_URL_VERSIONING_IN_MAPPINGS` inspects every
+`@RequestMapping`, `@GetMapping`, `@PostMapping`, `@PutMapping`,
+`@DeleteMapping`, and `@PatchMapping` in the codebase (both class-level
+and method-level) and asserts no `value` matches `/v[0-9]+/`. Adding
+`@GetMapping("/v1/health")` would fail the build with a message pointing
+at the class and the offending annotation. If we ever add
+header-versioning (per this ADR's forward-look), it doesn't need a rule
+change — the header lives in request-level plumbing, not URL mappings.

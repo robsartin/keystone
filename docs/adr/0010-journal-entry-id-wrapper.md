@@ -58,3 +58,13 @@ generation; tests can mint deterministic IDs.
   not identity. Two entries with the same fields but different stored
   IDs would compare equal as `JournalEntry` instances. This is correct
   — identity lives in the `PersistedJournalEntry` wrapper.
+
+## Enforcement
+
+`DomainUsesTypedIdsArchTest.DOMAIN_HAS_NO_RAW_UUID_FIELDS` asserts that
+no field in `..domain..` is a raw `java.util.UUID`, exempting the typed
+ID records themselves (any domain class whose simple name ends with
+`Id`). Adding a new aggregate that references entities by raw `UUID`
+would fail the build; the fix is to define a typed ID record and use it.
+Same story extends to `TenantId`, `AccountId` (natural key), and any
+future identity we add.
