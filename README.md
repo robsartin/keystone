@@ -13,6 +13,7 @@ for the rationale and the full picture.
 - [x] Slice 2 — chart of accounts (#13)
 - [x] Slice 3 — period model (#14)
 - [x] Slice 4 — trial balance (#15)
+- [x] Slice 5 — multi-tenant isolation, OAuth2 auth, RBAC, admin API + UI (#16)
 - [x] Slice 6 — multi-currency journal entries (#17)
 
 ## Quick start
@@ -71,9 +72,11 @@ CI runs all profiles together: `./mvnw -B verify -Pmutation,openapi-gate`.
 
 ## Architecture decisions
 
-See [`docs/adr/`](docs/adr/) — eight ADRs covering hexagonal architecture,
+See [`docs/adr/`](docs/adr/) — 22 ADRs covering hexagonal architecture,
 integer money, Result pattern, JUnit 6, Postgres + Flyway, OpenAPI gates,
-observability, and the JournalEntryId / PersistedJournalEntry wrapper.
+observability, typed IDs, multi-tenant row-level isolation, OAuth2 auth
+(resource server + client), the embedded authorization server for dev/test,
+the server-rendered admin UI, and Playwright + axe-core as a CI gate.
 
 For a developer's tour of the layers with code walk-throughs, see
 [`docs/development/architecture.md`](docs/development/architecture.md).

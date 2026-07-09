@@ -439,4 +439,44 @@ class ApplicationSmokeIT {
         }
         """;
   }
+
+  @Test
+  @DisplayName("Admin API: platform admin creates + lists tenants end-to-end")
+  void shouldCreateAndListTenantsAsPlatformAdmin() {
+    seedPlatformAdmin("smoke-platform-admin");
+    RestClient client = platformAdminClient("smoke-platform-admin");
+
+    ResponseEntity<String> create =
+        client
+            .post()
+            .uri("/admin/tenants")
+            .contentType(MediaType.APPLICATION_JSON)
+            .body("{ \"name\": \"Smoke Tenant\" }")
+            .retrieve()
+            .toEntity(String.class);
+    assertThat(create.getStatusCode()).isEqualTo(HttpStatus.CREATED);
+    assertThat(create.getHeaders().getLocation()).isNotNull();
+    assertThat(create.getBody()).contains("\"name\":\"Smoke Tenant\"");
+
+    ResponseEntity<String> list =
+        client.get().uri("/admin/tenants").retrieve().toEntity(String.class);
+    assertThat(list.getStatusCode()).isEqualTo(HttpStatus.OK);
+    assertThat(list.getBody()).contains("\"name\":\"Smoke Tenant\"");
+  }
+
+  private void seedPlatformAdmin(String userSub) {
+    jdbcClient
+        .sql(
+            "INSERT INTO platform_admins (user_sub, granted_at) VALUES (:userSub, now())"
+                + " ON CONFLICT (user_sub) DO NOTHING")
+        .param("userSub", userSub)
+        .update();
+  }
+
+  private RestClient platformAdminClient(String userSub) {
+    return RestClient.builder()
+        .baseUrl("http://localhost:" + port)
+        .defaultHeader("Authorization", "Bearer " + jwt.mintWithoutTenant(userSub))
+        .build();
+  }
 }
