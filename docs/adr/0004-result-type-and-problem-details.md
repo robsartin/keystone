@@ -40,3 +40,19 @@ hides failure modes from the type system.
   single ProblemDetails schema.
 - We accept the boilerplate of pattern-matching on Result at use
   sites. Java 25 sealed switch makes this readable.
+
+## Enforcement
+
+Two rules enforce this ADR at different depths:
+
+- `HexagonalArchitectureTest.NO_PUBLIC_METHOD_RETURNS_THROWABLE` — the
+  return-type proxy: no public method may return `Throwable`. Merged
+  as part of the hexagonal baseline.
+- `ApplicationDoesNotThrowArchTest.APPLICATION_PUBLIC_METHODS_DO_NOT_DECLARE_THROWS` —
+  the strict form: no public method in `..application..` declares a
+  `throws` clause. Thrown exceptions are reserved for true bugs (NPE,
+  illegal state) and must never appear in a public signature.
+
+At the HTTP boundary, `ResultMapper` translates domain errors into
+RFC 9457 `ProblemDetail` — that translation is unit-tested per error
+type; no arch rule needed.

@@ -44,3 +44,11 @@ We explicitly reject `double` and reject `BigDecimal` for now.
 - Multiplication and division are not added in this ADR. When we need
   them (e.g. proration, FX), we will add them with explicit rounding
   rules in a follow-up ADR.
+
+## Enforcement
+
+`MoneyIsIntegerArchTest` asserts (via 5 ArchUnit rules) that no field in
+`..domain..` has a raw type of `double`, `float`, `Double`, `Float`, or
+`BigDecimal`. Domain classes may only hold integer money via `long`; the
+infrastructure boundary is free to convert on I/O (e.g. Postgres numeric
+columns via JPA), but the domain itself never sees floating-point money.

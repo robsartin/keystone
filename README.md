@@ -78,6 +78,14 @@ observability, typed IDs, multi-tenant row-level isolation, OAuth2 auth
 (resource server + client), the embedded authorization server for dev/test,
 the server-rendered admin UI, and Playwright + axe-core as a CI gate.
 
+Per [ADR-0018](docs/adr/0018-archunit-enforce-adrs-where-possible.md),
+every ADR whose rule admits automated enforcement ships with an
+ArchUnit test. Currently enforced 🛡️: ADR-0002 (hexagonal layering),
+0003 (money as integer), 0004 (Result over exceptions), 0008 (structured
+logging), 0010 (typed IDs), 0015 (no URL versioning), 0019 (oauth2Login
+only in UiSecurityConfig), 0020 (SAS on dev+test profile), 0021 (no
+`package.json`).
+
 For a developer's tour of the layers with code walk-throughs, see
 [`docs/development/architecture.md`](docs/development/architecture.md).
 
