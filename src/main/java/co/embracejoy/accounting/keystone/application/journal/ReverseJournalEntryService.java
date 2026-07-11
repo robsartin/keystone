@@ -21,6 +21,12 @@ import java.util.Optional;
  * balance/period/account validation to {@link PostJournalEntryService#postReversal}. The reversal's
  * {@code occurredOn} is today's date (per {@link Clock}), never the original's — so a reversal of a
  * historical entry lands in the current period and cannot rewrite closed-period history.
+ *
+ * <p><b>Precondition:</b> {@code reason} must be non-null and non-blank. Enforced by
+ * {@code @NotBlank} on the HTTP DTO and by {@link JournalEntry#reverse}, which throws {@link
+ * IllegalArgumentException} on blank. This service assumes caller-side validation; a blank reason
+ * surfaces as an unchecked exception rather than a {@link Result} failure. Additional callers must
+ * validate reason before calling.
  */
 public final class ReverseJournalEntryService {
 

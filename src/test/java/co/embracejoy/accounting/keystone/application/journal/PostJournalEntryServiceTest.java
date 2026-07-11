@@ -171,12 +171,10 @@ class PostJournalEntryServiceTest {
     JournalEntry original =
         new JournalEntry(
             TENANT, TODAY, "opening", List.of(debit(CASH, 1000L), credit(EQUITY, 1000L)));
-    PersistedJournalEntry persistedOriginal =
-        new PersistedJournalEntry(new JournalEntryId(UUID.randomUUID()), original);
-    journalRepo.seed(persistedOriginal);
+    JournalEntryId originalId = new JournalEntryId(UUID.randomUUID());
     JournalEntry reversal =
-        JournalEntry.reverse(persistedOriginal.id(), "typo", LocalDate.of(2026, 7, 11), original);
-    ReversalMetadata metadata = new ReversalMetadata(persistedOriginal.id(), "typo");
+        JournalEntry.reverse(originalId, "typo", LocalDate.of(2026, 7, 11), original);
+    ReversalMetadata metadata = new ReversalMetadata(originalId, "typo");
 
     Result<PersistedJournalEntry, JournalError> r =
         service.postReversal(TENANT, reversal, metadata, "reverser-actor");
@@ -192,14 +190,11 @@ class PostJournalEntryServiceTest {
     JournalEntry original =
         new JournalEntry(
             TENANT, TODAY, "opening", List.of(debit(CASH, 1000L), credit(EQUITY, 1000L)));
-    PersistedJournalEntry persistedOriginal =
-        new PersistedJournalEntry(new JournalEntryId(UUID.randomUUID()), original);
-    journalRepo.seed(persistedOriginal);
+    JournalEntryId originalId = new JournalEntryId(UUID.randomUUID());
     LocalDate reversalDate = LocalDate.of(2026, 7, 11);
     periodRepo.seedClosed(YearMonth.from(reversalDate));
-    JournalEntry reversal =
-        JournalEntry.reverse(persistedOriginal.id(), "typo", reversalDate, original);
-    ReversalMetadata metadata = new ReversalMetadata(persistedOriginal.id(), "typo");
+    JournalEntry reversal = JournalEntry.reverse(originalId, "typo", reversalDate, original);
+    ReversalMetadata metadata = new ReversalMetadata(originalId, "typo");
 
     Result<PersistedJournalEntry, JournalError> r =
         service.postReversal(TENANT, reversal, metadata, "reverser-actor");
@@ -214,7 +209,6 @@ class PostJournalEntryServiceTest {
 
   private static final class FakeJournalRepo implements JournalEntryRepository {
     final List<PersistedJournalEntry> saved = new ArrayList<>();
-    private final Map<JournalEntryId, PersistedJournalEntry> byId = new HashMap<>();
     String lastActor;
     ReversalMetadata lastReversalMetadata;
 
@@ -229,7 +223,7 @@ class PostJournalEntryServiceTest {
 
     @Override
     public Optional<PersistedJournalEntry> findById(TenantId tenantId, JournalEntryId id) {
-      return Optional.ofNullable(byId.get(id));
+      throw new UnsupportedOperationException("not needed in PostJournalEntryServiceTest");
     }
 
     @Override
@@ -255,10 +249,6 @@ class PostJournalEntryServiceTest {
     @Override
     public boolean existsReversalOf(TenantId tenantId, JournalEntryId originalId) {
       throw new UnsupportedOperationException("not needed in PostJournalEntryServiceTest");
-    }
-
-    void seed(PersistedJournalEntry p) {
-      byId.put(p.id(), p);
     }
   }
 

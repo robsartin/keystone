@@ -654,6 +654,20 @@ class JournalEntryControllerTest {
   }
 
   @Test
+  @DisplayName("POST /journal-entries/{id}/reverse returns 400 when reason exceeds 500 characters")
+  void shouldReturn400WhenReasonExceedsMaxLength() throws Exception {
+    JournalEntryId originalId = new JournalEntryId(UUID.randomUUID());
+    String tooLong = "x".repeat(501);
+
+    mvc.perform(
+            post("/journal-entries/" + originalId.value() + "/reverse")
+                .contentType(MediaType.APPLICATION_JSON)
+                .content("{ \"reason\": \"" + tooLong + "\" }")
+                .with(withTestAuth(Role.BOOKKEEPER)))
+        .andExpect(status().isBadRequest());
+  }
+
+  @Test
   @DisplayName("POST /journal-entries/{id}/reverse returns 400 when today's period is closed")
   void shouldReturn400WhenReversingInClosedPeriod() throws Exception {
     JournalEntryId originalId = new JournalEntryId(UUID.randomUUID());
