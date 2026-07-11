@@ -173,6 +173,11 @@ public final class ResultMapper {
         "No journal entry with id '" + rawId + "'.");
   }
 
+  public static ProblemDetail invalidJournalQuery(String reason) {
+    return problem(
+        HttpStatus.BAD_REQUEST, "/journal/invalid-query", "Invalid journal-entry query", reason);
+  }
+
   public static ProblemDetail toProblemDetail(AccountError err) {
     return switch (err) {
       case AccountError.CodeAlreadyExists c -> accountCodeAlreadyExists(c);
