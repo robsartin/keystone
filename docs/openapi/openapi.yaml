@@ -214,6 +214,35 @@ paths:
             '*/*':
               schema:
                 type: object
+  /journal-entries/{id}/reverse:
+    post:
+      tags:
+      - journal-entry-controller
+      summary: Reverse a journal entry
+      description: Posts a mirror entry (debits/credits swapped) referencing the original
+        via reverses_id. Reversal date is today; the original is never modified. Blocks
+        reversing an already-reversed entry (400 /journal/already-reversed) and unknown
+        ids (404 /journal/not-found).
+      operationId: reverseJournalEntry
+      parameters:
+      - name: id
+        in: path
+        required: true
+        schema:
+          type: string
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/ReverseJournalEntryRequest"
+        required: true
+      responses:
+        "200":
+          description: OK
+          content:
+            '*/*':
+              schema:
+                type: object
   /admin/tenants:
     get:
       tags:
@@ -590,6 +619,15 @@ components:
       - account
       - currency
       - side
+    ReverseJournalEntryRequest:
+      type: object
+      properties:
+        reason:
+          type: string
+          maxLength: 500
+          minLength: 0
+      required:
+      - reason
     CreateTenantRequest:
       type: object
       properties:
