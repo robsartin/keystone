@@ -160,7 +160,8 @@ class JournalEntryControllerTest {
                 Mockito.any(TenantId.class),
                 Mockito.any(LocalDate.class),
                 Mockito.anyString(),
-                Mockito.anyList()))
+                Mockito.anyList(),
+                Mockito.anyString()))
         .thenReturn(Result.success(validPersisted()));
 
     mvc.perform(
@@ -189,7 +190,8 @@ class JournalEntryControllerTest {
                 Mockito.any(TenantId.class),
                 Mockito.any(LocalDate.class),
                 Mockito.anyString(),
-                Mockito.anyList()))
+                Mockito.anyList(),
+                Mockito.anyString()))
         .thenReturn(
             Result.failure(
                 new JournalError.Unbalanced(new Money(10000L, USD), new Money(9000L, USD))));
@@ -216,7 +218,8 @@ class JournalEntryControllerTest {
                 Mockito.any(TenantId.class),
                 Mockito.any(LocalDate.class),
                 Mockito.anyString(),
-                Mockito.anyList()))
+                Mockito.anyList(),
+                Mockito.anyString()))
         .thenReturn(Result.failure(new JournalError.AccountNotFound(new AccountCode("9999"))));
 
     mvc.perform(
@@ -240,7 +243,8 @@ class JournalEntryControllerTest {
                 Mockito.any(TenantId.class),
                 Mockito.any(LocalDate.class),
                 Mockito.anyString(),
-                Mockito.anyList()))
+                Mockito.anyList(),
+                Mockito.anyString()))
         .thenReturn(Result.failure(new JournalError.AccountInactive(new AccountCode("1000"))));
 
     mvc.perform(
@@ -264,7 +268,8 @@ class JournalEntryControllerTest {
                 Mockito.any(TenantId.class),
                 Mockito.any(LocalDate.class),
                 Mockito.anyString(),
-                Mockito.anyList()))
+                Mockito.anyList(),
+                Mockito.anyString()))
         .thenReturn(Result.failure(new JournalError.AccountNotALeaf(new AccountCode("1000"))));
 
     mvc.perform(
@@ -289,7 +294,8 @@ class JournalEntryControllerTest {
                 Mockito.any(TenantId.class),
                 Mockito.any(LocalDate.class),
                 Mockito.anyString(),
-                Mockito.anyList()))
+                Mockito.anyList(),
+                Mockito.anyString()))
         .thenReturn(
             Result.failure(
                 new JournalError.AccountCurrencyMismatch(new AccountCode("4000"), USD, eur)));
@@ -316,7 +322,8 @@ class JournalEntryControllerTest {
                 Mockito.any(TenantId.class),
                 Mockito.any(LocalDate.class),
                 Mockito.anyString(),
-                Mockito.anyList()))
+                Mockito.anyList(),
+                Mockito.anyString()))
         .thenReturn(
             Result.failure(
                 new JournalError.BaseCurrencyMismatch(new AccountCode("1000-EUR"), USD, eur)));
@@ -344,7 +351,8 @@ class JournalEntryControllerTest {
                 Mockito.any(TenantId.class),
                 Mockito.any(LocalDate.class),
                 Mockito.anyString(),
-                Mockito.anyList()))
+                Mockito.anyList(),
+                Mockito.anyString()))
         .thenReturn(Result.failure(new JournalError.PostingInClosedPeriod(YearMonth.of(2026, 5))));
 
     mvc.perform(

@@ -11,6 +11,7 @@ import co.embracejoy.accounting.keystone.domain.journal.JournalEntryId;
 import co.embracejoy.accounting.keystone.domain.journal.JournalError;
 import co.embracejoy.accounting.keystone.domain.journal.PersistedJournalEntry;
 import co.embracejoy.accounting.keystone.domain.journal.Posting;
+import co.embracejoy.accounting.keystone.domain.journal.ReversalMetadata;
 import co.embracejoy.accounting.keystone.domain.journal.Side;
 import co.embracejoy.accounting.keystone.domain.money.Money;
 import co.embracejoy.accounting.keystone.domain.shared.Result;
@@ -47,6 +48,7 @@ class JpaJournalEntryRepositoryIT {
           .withPassword("test");
 
   @Autowired JpaJournalEntryRepository repository;
+  @Autowired JournalEntryJpaRepository jpaRepository;
   @Autowired AccountRepositoryAdapter accountRepository;
   @Autowired TenantContext tenantContext;
 
@@ -56,6 +58,7 @@ class JpaJournalEntryRepositoryIT {
   private static final AccountCode EQUITY = new AccountCode("3000");
   private static final AccountCode CASH_EUR = new AccountCode("1000-EUR");
   private static final TenantId TENANT = Tenants.DEFAULT_TENANT_ID;
+  private static final String ACTOR = "auth0|test-actor";
 
   @BeforeEach
   void setupTenant() {
@@ -89,7 +92,7 @@ class JpaJournalEntryRepositoryIT {
   @Test
   @DisplayName("save() persists the entry and returns it with a fresh JournalEntryId")
   void shouldPersistAndReturnPersistedEntryWhenSaving() {
-    PersistedJournalEntry persisted = repository.save(validEntry());
+    PersistedJournalEntry persisted = repository.save(validEntry(), ACTOR);
 
     assertThat(persisted.id()).isNotNull();
     assertThat(persisted.id().value()).isNotNull();
@@ -108,7 +111,7 @@ class JpaJournalEntryRepositoryIT {
   @Test
   @DisplayName("findById() returns the entry that was saved")
   void shouldRoundTripWhenSavingAndReadingBack() {
-    PersistedJournalEntry saved = repository.save(validEntry());
+    PersistedJournalEntry saved = repository.save(validEntry(), ACTOR);
 
     Optional<PersistedJournalEntry> found = repository.findById(TENANT, saved.id());
 
@@ -122,7 +125,7 @@ class JpaJournalEntryRepositoryIT {
   @Test
   @DisplayName("UUID v7 ids on saved entries have version 7")
   void shouldUseVersion7UuidWhenSaving() {
-    PersistedJournalEntry persisted = repository.save(validEntry());
+    PersistedJournalEntry persisted = repository.save(validEntry(), ACTOR);
     assertThat(persisted.id().value().version()).isEqualTo(7);
   }
 
@@ -130,9 +133,9 @@ class JpaJournalEntryRepositoryIT {
   @DisplayName("distinctOccurredMonths returns YearMonths of all persisted entries")
   void shouldReturnDistinctMonthsForPostings() {
     // Persist three entries: 2026-05, 2026-05, 2026-06.
-    repository.save(entryOn(LocalDate.of(2026, 5, 1)));
-    repository.save(entryOn(LocalDate.of(2026, 5, 28)));
-    repository.save(entryOn(LocalDate.of(2026, 6, 15)));
+    repository.save(entryOn(LocalDate.of(2026, 5, 1)), ACTOR);
+    repository.save(entryOn(LocalDate.of(2026, 5, 28)), ACTOR);
+    repository.save(entryOn(LocalDate.of(2026, 6, 15)), ACTOR);
 
     Set<YearMonth> months = repository.distinctOccurredMonths(TENANT);
     assertThat(months).contains(YearMonth.of(2026, 5), YearMonth.of(2026, 6));
@@ -162,7 +165,7 @@ class JpaJournalEntryRepositoryIT {
         new JournalEntry(
             TENANT, LocalDate.of(2026, 5, 13), "USD→EUR transfer", List.of(debit, credit));
 
-    PersistedJournalEntry saved = repository.save(entry);
+    PersistedJournalEntry saved = repository.save(entry, ACTOR);
     PersistedJournalEntry found = repository.findById(TENANT, saved.id()).orElseThrow();
 
     assertThat(found.entry().postings()).hasSize(2);
@@ -175,5 +178,61 @@ class JpaJournalEntryRepositoryIT {
     assertThat(debitOut.amount().minorUnits()).isEqualTo(9200L);
     assertThat(debitOut.baseAmount().currency()).isEqualTo(USD);
     assertThat(debitOut.baseAmount().minorUnits()).isEqualTo(10000L);
+  }
+
+  @Test
+  @DisplayName("save() stamps posted_by with the given actor")
+  void shouldStampPostedByWithActorWhenSaving() {
+    PersistedJournalEntry persisted = repository.save(validEntry(), ACTOR);
+
+    JournalEntryEntity entity = jpaRepository.findById(persisted.id().value()).orElseThrow();
+    assertThat(entity.getPostedBy()).isEqualTo(ACTOR);
+  }
+
+  @Test
+  @DisplayName("saves and reads back reverses_id + reversal_reason round-trip")
+  void shouldRoundTripReversalMetadata() {
+    PersistedJournalEntry original = repository.save(validEntry(), ACTOR);
+
+    JournalEntry reversalEntry =
+        JournalEntry.reverse(
+            original.id(), "posted to wrong account", LocalDate.now(), original.entry());
+    ReversalMetadata metadata = new ReversalMetadata(original.id(), "posted to wrong account");
+
+    PersistedJournalEntry persistedReversal =
+        repository.saveReversal(reversalEntry, metadata, ACTOR);
+
+    PersistedJournalEntry loaded =
+        repository.findById(TENANT, persistedReversal.id()).orElseThrow();
+
+    assertThat(loaded.reverses()).isPresent();
+    assertThat(loaded.reverses().get().reversesId()).isEqualTo(original.id());
+    assertThat(loaded.reverses().get().reason()).isEqualTo("posted to wrong account");
+
+    JournalEntryEntity reversalEntity =
+        jpaRepository.findById(persistedReversal.id().value()).orElseThrow();
+    assertThat(reversalEntity.getPostedBy()).isEqualTo(ACTOR);
+  }
+
+  @Test
+  @DisplayName("existsReversalOf returns false when the entry has not been reversed")
+  void shouldReturnFalseWhenEntryNotReversed() {
+    PersistedJournalEntry original = repository.save(validEntry(), ACTOR);
+
+    assertThat(repository.existsReversalOf(TENANT, original.id())).isFalse();
+  }
+
+  @Test
+  @DisplayName("existsReversalOf returns true once a reversal has been saved")
+  void shouldReturnTrueWhenEntryHasBeenReversed() {
+    PersistedJournalEntry original = repository.save(validEntry(), ACTOR);
+    JournalEntry reversalEntry =
+        JournalEntry.reverse(
+            original.id(), "posted to wrong account", LocalDate.now(), original.entry());
+    ReversalMetadata metadata = new ReversalMetadata(original.id(), "posted to wrong account");
+
+    repository.saveReversal(reversalEntry, metadata, ACTOR);
+
+    assertThat(repository.existsReversalOf(TENANT, original.id())).isTrue();
   }
 }

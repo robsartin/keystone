@@ -44,7 +44,11 @@ public final class PostJournalEntryService {
   }
 
   public Result<PersistedJournalEntry, JournalError> post(
-      TenantId tenantId, LocalDate occurredOn, String description, List<Posting> postings) {
+      TenantId tenantId,
+      LocalDate occurredOn,
+      String description,
+      List<Posting> postings,
+      String actor) {
     Set<AccountCode> codes =
         postings.stream().map(Posting::account).collect(Collectors.toCollection(HashSet::new));
     Map<AccountCode, Account> accounts = accountRepository.findByCodeIn(codes);
@@ -58,6 +62,6 @@ public final class PostJournalEntryService {
         new JournalValidationContext(
             accounts, nonLeafCodes, periodStatus, baseCurrency, JournalValidationMode.STRICT);
     return JournalEntry.of(tenantId, occurredOn, description, postings, ctx)
-        .map(journalRepository::save);
+        .map(entry -> journalRepository.save(entry, actor));
   }
 }

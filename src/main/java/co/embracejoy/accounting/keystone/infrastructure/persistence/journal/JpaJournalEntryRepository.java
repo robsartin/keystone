@@ -4,6 +4,7 @@ import co.embracejoy.accounting.keystone.domain.journal.JournalEntry;
 import co.embracejoy.accounting.keystone.domain.journal.JournalEntryId;
 import co.embracejoy.accounting.keystone.domain.journal.JournalEntryRepository;
 import co.embracejoy.accounting.keystone.domain.journal.PersistedJournalEntry;
+import co.embracejoy.accounting.keystone.domain.journal.ReversalMetadata;
 import co.embracejoy.accounting.keystone.domain.tenancy.TenantId;
 import co.embracejoy.accounting.keystone.infrastructure.security.RlsTransactionInterceptor;
 import co.embracejoy.accounting.keystone.infrastructure.security.TenantContext;
@@ -39,13 +40,34 @@ public class JpaJournalEntryRepository implements JournalEntryRepository {
   }
 
   @Override
-  public PersistedJournalEntry save(JournalEntry entry) {
+  public PersistedJournalEntry save(JournalEntry entry, String actor) {
     TenantId tid = tenantContext.require();
     validateTenantMatch(tid, entry.tenantId());
     rlsInterceptor.applyToCurrentTransaction();
-    var entity = JournalEntryEntityMapper.toEntity(entry, UuidV7Generator.create());
+    var entity =
+        JournalEntryEntityMapper.toEntity(entry, UuidV7Generator.create(), actor, Optional.empty());
     var saved = jpa.save(entity);
     return JournalEntryEntityMapper.toDomain(saved, baseCurrency);
+  }
+
+  @Override
+  public PersistedJournalEntry saveReversal(
+      JournalEntry reversal, ReversalMetadata metadata, String actor) {
+    TenantId tid = tenantContext.require();
+    validateTenantMatch(tid, reversal.tenantId());
+    rlsInterceptor.applyToCurrentTransaction();
+    var entity =
+        JournalEntryEntityMapper.toEntity(
+            reversal, UuidV7Generator.create(), actor, Optional.of(metadata));
+    var saved = jpa.save(entity);
+    return JournalEntryEntityMapper.toDomain(saved, baseCurrency);
+  }
+
+  @Override
+  @Transactional(readOnly = true)
+  public boolean existsReversalOf(TenantId tenantId, JournalEntryId originalId) {
+    rlsInterceptor.applyToCurrentTransaction();
+    return jpa.existsByTenantIdAndReversesId(tenantId.value(), originalId.value());
   }
 
   @Override

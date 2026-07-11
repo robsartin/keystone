@@ -335,7 +335,7 @@ class RowLevelSecurityIT {
     Result<JournalEntry, ?> entry =
         JournalEntry.of(tenantId, occurredOn, "seed " + suffix, List.of(debit, credit));
     assertThat(entry).isInstanceOf(Result.Success.class);
-    journalRepo.save(((Result.Success<JournalEntry, ?>) entry).value());
+    journalRepo.save(((Result.Success<JournalEntry, ?>) entry).value(), "test-actor");
   }
 
   private long countRowsForCode(String tenantUuid, String table, String accountCodeSuffix) {
