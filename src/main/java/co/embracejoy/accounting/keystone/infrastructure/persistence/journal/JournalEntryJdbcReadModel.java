@@ -9,6 +9,7 @@ import co.embracejoy.accounting.keystone.domain.journal.JournalEntryReadModel;
 import co.embracejoy.accounting.keystone.domain.journal.PersistedJournalEntry;
 import co.embracejoy.accounting.keystone.domain.journal.Posting;
 import co.embracejoy.accounting.keystone.domain.journal.ReversalMetadata;
+import co.embracejoy.accounting.keystone.domain.journal.ReversedByMetadata;
 import co.embracejoy.accounting.keystone.domain.journal.Side;
 import co.embracejoy.accounting.keystone.domain.money.Money;
 import co.embracejoy.accounting.keystone.domain.tenancy.TenantId;
@@ -16,6 +17,9 @@ import co.embracejoy.accounting.keystone.infrastructure.security.RlsTransactionI
 import co.embracejoy.accounting.keystone.infrastructure.security.TenantContext;
 import java.sql.ResultSet;
 import java.sql.SQLException;
+import java.sql.Timestamp;
+import java.sql.Types;
+import java.time.Instant;
 import java.time.LocalDate;
 import java.util.ArrayList;
 import java.util.Currency;
@@ -44,7 +48,11 @@ import org.springframework.transaction.annotation.Transactional;
  *
  * <p>Postings are hydrated in a second, bulk query keyed by the ids the first query returned —
  * avoids N+1 while keeping the primary query's {@code GROUP BY} limited to entry-level aggregation.
- * {@code findById} is a T5 stub — see {@link JournalEntryReadModel}.
+ *
+ * <p>{@code findById} self-joins {@code journal_entries} to surface {@code reversedBy}: {@code r.id
+ * AS reversed_by_id} etc. via {@code LEFT JOIN journal_entries r ON r.tenant_id = e.tenant_id AND
+ * r.reverses_id = e.id}, so the same-tenant scope survives the join. {@code reverses} comes from
+ * the row's own {@code reverses_id}/{@code reversal_reason} columns, same as {@code findMany}.
  */
 @Repository
 @Transactional(readOnly = true)
@@ -77,6 +85,22 @@ public class JournalEntryJdbcReadModel implements JournalEntryReadModel {
                    <= CAST(:amountMax AS bigint))
       ORDER BY e.id ASC
       LIMIT :limit
+      """;
+
+  private static final String FIND_BY_ID_SQL =
+      """
+      SELECT
+        e.id, e.occurred_on, e.description,
+        e.reverses_id, e.reversal_reason,
+        r.id              AS reversed_by_id,
+        r.posted_at       AS reversed_at,
+        r.posted_by       AS reversed_by,
+        r.reversal_reason AS reversed_reason
+      FROM journal_entries e
+      LEFT JOIN journal_entries r
+        ON r.tenant_id = e.tenant_id
+       AND r.reverses_id = e.id
+      WHERE e.tenant_id = :tenant AND e.id = :id
       """;
 
   private static final String FIND_POSTINGS_SQL =
@@ -119,7 +143,24 @@ public class JournalEntryJdbcReadModel implements JournalEntryReadModel {
 
   @Override
   public Optional<PersistedJournalEntry> findById(TenantId tenantId, JournalEntryId id) {
-    return Optional.empty(); // T5 implements findById with the reversedBy LEFT JOIN.
+    requireTenantMatch(tenantId);
+    rlsInterceptor.applyToCurrentTransaction();
+
+    List<ReversedJoinRow> rows =
+        jdbc.sql(FIND_BY_ID_SQL)
+            .param("tenant", tenantId.value(), Types.OTHER)
+            .param("id", id.value(), Types.OTHER)
+            .query(JournalEntryJdbcReadModel::mapReversedJoinRow)
+            .list();
+
+    if (rows.isEmpty()) {
+      return Optional.empty();
+    }
+
+    ReversedJoinRow row = rows.get(0);
+    List<Posting> postings =
+        fetchPostings(tenantId, List.of(row.id())).getOrDefault(row.id(), List.of());
+    return Optional.of(toDomainWithReversedBy(tenantId, row, postings));
   }
 
   private List<EntryRow> fetchEntryRows(TenantId tenantId, JournalEntryQuery query) {
@@ -188,6 +229,26 @@ public class JournalEntryJdbcReadModel implements JournalEntryReadModel {
         new JournalEntryId(row.id()), entry, reverses, Optional.empty());
   }
 
+  private PersistedJournalEntry toDomainWithReversedBy(
+      TenantId tenantId, ReversedJoinRow row, List<Posting> postings) {
+    JournalEntry entry = new JournalEntry(tenantId, row.occurredOn(), row.description(), postings);
+    Optional<ReversalMetadata> reverses =
+        row.reversesId() == null
+            ? Optional.empty()
+            : Optional.of(
+                new ReversalMetadata(new JournalEntryId(row.reversesId()), row.reversalReason()));
+    Optional<ReversedByMetadata> reversedBy =
+        row.reversedById() == null
+            ? Optional.empty()
+            : Optional.of(
+                new ReversedByMetadata(
+                    new JournalEntryId(row.reversedById()),
+                    row.reversedAt(),
+                    row.reversedByActor(),
+                    row.reversedReason()));
+    return new PersistedJournalEntry(new JournalEntryId(row.id()), entry, reverses, reversedBy);
+  }
+
   private void requireTenantMatch(TenantId tenantId) {
     TenantId contextTid = tenantContext.require();
     if (!contextTid.equals(tenantId)) {
@@ -207,4 +268,29 @@ public class JournalEntryJdbcReadModel implements JournalEntryReadModel {
 
   private record EntryRow(
       UUID id, LocalDate occurredOn, String description, UUID reversesId, String reversalReason) {}
+
+  private static ReversedJoinRow mapReversedJoinRow(ResultSet rs, int rowNum) throws SQLException {
+    Timestamp reversedAtTs = rs.getTimestamp("reversed_at");
+    return new ReversedJoinRow(
+        rs.getObject("id", UUID.class),
+        rs.getObject("occurred_on", LocalDate.class),
+        rs.getString("description"),
+        rs.getObject("reverses_id", UUID.class),
+        rs.getString("reversal_reason"),
+        rs.getObject("reversed_by_id", UUID.class),
+        reversedAtTs == null ? null : reversedAtTs.toInstant(),
+        rs.getString("reversed_by"),
+        rs.getString("reversed_reason"));
+  }
+
+  private record ReversedJoinRow(
+      UUID id,
+      LocalDate occurredOn,
+      String description,
+      UUID reversesId,
+      String reversalReason,
+      UUID reversedById,
+      Instant reversedAt,
+      String reversedByActor,
+      String reversedReason) {}
 }

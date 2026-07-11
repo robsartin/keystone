@@ -14,6 +14,8 @@ import co.embracejoy.accounting.keystone.domain.journal.JournalEntryQuery;
 import co.embracejoy.accounting.keystone.domain.journal.JournalEntryRepository;
 import co.embracejoy.accounting.keystone.domain.journal.PersistedJournalEntry;
 import co.embracejoy.accounting.keystone.domain.journal.Posting;
+import co.embracejoy.accounting.keystone.domain.journal.ReversalMetadata;
+import co.embracejoy.accounting.keystone.domain.journal.ReversedByMetadata;
 import co.embracejoy.accounting.keystone.domain.journal.Side;
 import co.embracejoy.accounting.keystone.domain.money.Money;
 import co.embracejoy.accounting.keystone.domain.tenancy.TenantId;
@@ -202,6 +204,62 @@ class JournalEntryJdbcReadModelIT {
     assertThat(page.items().get(0).entry().description()).isEqualTo("default-tenant-entry");
   }
 
+  @Test
+  @DisplayName("findById returns empty when no entry exists for the given id")
+  void shouldReturnEmptyWhenEntryNotFound() {
+    Optional<PersistedJournalEntry> result =
+        readModel.findById(DEFAULT_TENANT, new JournalEntryId(UUID.randomUUID()));
+
+    assertThat(result).isEmpty();
+  }
+
+  @Test
+  @DisplayName("findById returns an entry with empty reversal metadata when it was never reversed")
+  void shouldReturnEntryWithoutReversalMetadataWhenNeverReversed() {
+    PersistedJournalEntry seeded =
+        seedEntry("plain-entry", LocalDate.of(2026, 6, 1), CASH, EQUITY, 100L);
+
+    Optional<PersistedJournalEntry> result = readModel.findById(DEFAULT_TENANT, seeded.id());
+
+    assertThat(result).isPresent();
+    assertThat(result.get().reverses()).isEmpty();
+    assertThat(result.get().reversedBy()).isEmpty();
+  }
+
+  @Test
+  @DisplayName(
+      "findById surfaces reversedBy metadata (via LEFT JOIN) on the original of a reversal")
+  void shouldReturnReversedByMetadataForOriginalOfAReversalPair() {
+    PersistedJournalEntry original =
+        seedEntry("original", LocalDate.of(2026, 6, 1), CASH, EQUITY, 100L);
+    PersistedJournalEntry reversal = seedReversalOf(original, "typo");
+
+    Optional<PersistedJournalEntry> result = readModel.findById(DEFAULT_TENANT, original.id());
+
+    assertThat(result).isPresent();
+    assertThat(result.get().reversedBy()).isPresent();
+    ReversedByMetadata metadata = result.get().reversedBy().orElseThrow();
+    assertThat(metadata.reversalId()).isEqualTo(reversal.id());
+    assertThat(metadata.reversedBy()).isEqualTo("reversal-actor");
+    assertThat(metadata.reason()).isEqualTo("typo");
+  }
+
+  @Test
+  @DisplayName("findById surfaces reverses metadata (from the row) on the reversal entry itself")
+  void shouldReturnReversesMetadataForReversalEntry() {
+    PersistedJournalEntry original =
+        seedEntry("original", LocalDate.of(2026, 6, 1), CASH, EQUITY, 100L);
+    PersistedJournalEntry reversal = seedReversalOf(original, "typo");
+
+    Optional<PersistedJournalEntry> result = readModel.findById(DEFAULT_TENANT, reversal.id());
+
+    assertThat(result).isPresent();
+    assertThat(result.get().reverses()).isPresent();
+    ReversalMetadata metadata = result.get().reverses().orElseThrow();
+    assertThat(metadata.reversesId()).isEqualTo(original.id());
+    assertThat(metadata.reason()).isEqualTo("typo");
+  }
+
   // ---- helpers ----
 
   private JournalEntryQuery query(int limit) {
@@ -282,6 +340,13 @@ class JournalEntryJdbcReadModelIT {
             description,
             List.of(new Posting(debit, Side.DEBIT, m, m), new Posting(credit, Side.CREDIT, m, m)));
     return journalRepo.save(entry, "test-actor");
+  }
+
+  private PersistedJournalEntry seedReversalOf(PersistedJournalEntry original, String reason) {
+    JournalEntry reversal =
+        JournalEntry.reverse(original.id(), reason, LocalDate.now(), original.entry());
+    return journalRepo.saveReversal(
+        reversal, new ReversalMetadata(original.id(), reason), "reversal-actor");
   }
 
   private void seedSplitDebitEntry(
