@@ -129,6 +129,68 @@ paths:
               schema:
                 type: object
   /journal-entries:
+    get:
+      tags:
+      - journal-entry-controller
+      summary: List journal entries
+      description: "Cursor-paginated list of entries in the current tenant. Supports\
+        \ filtering by date range (from/to), account (any posting touches this account\
+        \ code), description substring (q, ILIKE), and total-debit amount range (amountMin/amountMax)."
+      operationId: list
+      parameters:
+      - name: from
+        in: query
+        required: false
+        schema:
+          type: string
+          format: date
+      - name: to
+        in: query
+        required: false
+        schema:
+          type: string
+          format: date
+      - name: account
+        in: query
+        required: false
+        schema:
+          type: string
+      - name: q
+        in: query
+        required: false
+        schema:
+          type: string
+      - name: amountMin
+        in: query
+        required: false
+        schema:
+          type: integer
+          format: int64
+      - name: amountMax
+        in: query
+        required: false
+        schema:
+          type: integer
+          format: int64
+      - name: after
+        in: query
+        required: false
+        schema:
+          type: string
+      - name: limit
+        in: query
+        required: false
+        schema:
+          type: integer
+          format: int32
+          default: 50
+      responses:
+        "200":
+          description: OK
+          content:
+            '*/*':
+              schema:
+                type: object
     post:
       tags:
       - journal-entry-controller
@@ -159,7 +221,7 @@ paths:
       summary: List all tenants
       description: "Returns every tenant, active and deactivated, ordered by creation\
         \ time."
-      operationId: list
+      operationId: list_1
       responses:
         "200":
           description: OK
@@ -196,7 +258,7 @@ paths:
       - account-controller
       summary: List all accounts
       description: "Returns every account in the chart, ordered by code."
-      operationId: list_1
+      operationId: list_2
       responses:
         "200":
           description: OK
@@ -356,7 +418,7 @@ paths:
       description: "Without query params, returns an empty list (open periods are\
         \ implicit and not enumerable). With ?status=closed, returns every closed\
         \ period in chronological order."
-      operationId: list_2
+      operationId: list_3
       parameters:
       - name: status
         in: query
@@ -394,6 +456,28 @@ paths:
             '*/*':
               schema:
                 type: object
+  /journal-entries/{id}:
+    get:
+      tags:
+      - journal-entry-controller
+      summary: Fetch one journal entry
+      description: "Returns the entry with the given UUID, including reversal metadata\
+        \ (if this entry reverses another OR has been reversed by another). 404 if\
+        \ not found."
+      operationId: get_4
+      parameters:
+      - name: id
+        in: path
+        required: true
+        schema:
+          type: string
+      responses:
+        "200":
+          description: OK
+          content:
+            '*/*':
+              schema:
+                type: object
   /admin/users:
     get:
       tags:
@@ -401,7 +485,7 @@ paths:
       summary: List user role assignments in the current tenant
       description: "Returns every user role assignment scoped to the caller's tenant,\
         \ ordered by grantedAt ascending."
-      operationId: list_3
+      operationId: list_4
       responses:
         "200":
           description: OK
@@ -418,7 +502,7 @@ paths:
       summary: Fetch one tenant by id
       description: "Returns the tenant with the given UUID, or 404 if no such tenant\
         \ exists. A malformed id also returns 404."
-      operationId: get_4
+      operationId: get_5
       parameters:
       - name: id
         in: path
