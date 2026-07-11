@@ -80,6 +80,32 @@ public record JournalEntry(
     return of(tenantId, occurredOn, description, postings, JournalValidationContext.permissive());
   }
 
+  /**
+   * Produce a mirror entry that reverses the given original: same accounts, same amounts, opposite
+   * sides on every posting. Occurred date is {@code today} (per the corrections spec); description
+   * is auto-composed as {@code "Reversal of #<originalId>: <reason>"}. The reversal's tenant is
+   * taken from {@code original.tenantId()}.
+   *
+   * <p>Reversal metadata (the {@code reverses_id} + {@code reversal_reason} columns) is attached at
+   * persistence time by the repository adapter, not stored on the {@link JournalEntry} aggregate.
+   */
+  public static JournalEntry reverse(
+      JournalEntryId originalId, String reason, LocalDate today, JournalEntry original) {
+    Objects.requireNonNull(originalId, "originalId");
+    Objects.requireNonNull(reason, "reason");
+    Objects.requireNonNull(today, "today");
+    Objects.requireNonNull(original, "original");
+    if (reason.isBlank()) {
+      throw new IllegalArgumentException("reason must not be blank");
+    }
+    List<Posting> swapped =
+        original.postings().stream()
+            .map(p -> new Posting(p.account(), p.side().opposite(), p.amount(), p.baseAmount()))
+            .toList();
+    String description = "Reversal of #" + originalId.value() + ": " + reason;
+    return new JournalEntry(original.tenantId(), today, description, swapped);
+  }
+
   private static Result<JournalEntry, JournalError> checkAccounts(
       List<Posting> postings, JournalValidationContext ctx) {
     for (Posting p : postings) {

@@ -41,6 +41,7 @@ public final class ResultMapper {
                   + " but the configured base currency is "
                   + m.expectedByConfig().getCurrencyCode()
                   + ".");
+      case JournalError.NotFound nf -> journalNotFound(nf);
     };
   }
 
@@ -291,6 +292,14 @@ public final class ResultMapper {
         "/journal/posting-in-closed-period",
         "Posting falls in a closed period",
         "Period " + p.period() + " is closed; reopen it before posting.");
+  }
+
+  private static ProblemDetail journalNotFound(JournalError.NotFound nf) {
+    return problem(
+        HttpStatus.NOT_FOUND,
+        "/journal/not-found",
+        "Journal entry not found",
+        "No journal entry with id '" + nf.id().value() + "'.");
   }
 
   private static ProblemDetail overflow(JournalError.Overflow o) {

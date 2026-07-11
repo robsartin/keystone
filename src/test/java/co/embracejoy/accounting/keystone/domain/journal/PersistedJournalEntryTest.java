@@ -8,9 +8,11 @@ import co.embracejoy.accounting.keystone.domain.account.AccountCode;
 import co.embracejoy.accounting.keystone.domain.money.Money;
 import co.embracejoy.accounting.keystone.domain.shared.Result;
 import co.embracejoy.accounting.keystone.domain.tenancy.TenantId;
+import java.time.Instant;
 import java.time.LocalDate;
 import java.util.Currency;
 import java.util.List;
+import java.util.Optional;
 import java.util.UUID;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
@@ -66,5 +68,53 @@ class PersistedJournalEntryTest {
     JournalEntry entry = validEntry();
     JournalEntryId id = new JournalEntryId(UUID.randomUUID());
     assertEquals(new PersistedJournalEntry(id, entry), new PersistedJournalEntry(id, entry));
+  }
+
+  @Test
+  @DisplayName("two-arg constructor defaults reversal metadata to empty")
+  void shouldDefaultReversalMetadataToEmpty() {
+    JournalEntryId id = new JournalEntryId(UUID.randomUUID());
+    JournalEntry entry = validEntry();
+    PersistedJournalEntry p = new PersistedJournalEntry(id, entry);
+    assertEquals(Optional.empty(), p.reverses());
+    assertEquals(Optional.empty(), p.reversedBy());
+  }
+
+  @Test
+  @DisplayName("four-arg constructor exposes reverses and reversedBy")
+  void shouldExposeReversalMetadataWhenConstructedWithFourArgs() {
+    JournalEntryId id = new JournalEntryId(UUID.randomUUID());
+    JournalEntry entry = validEntry();
+    JournalEntryId originalId = new JournalEntryId(UUID.randomUUID());
+    ReversalMetadata reverses = new ReversalMetadata(originalId, "typo");
+    JournalEntryId reversalId = new JournalEntryId(UUID.randomUUID());
+    ReversedByMetadata reversedBy =
+        new ReversedByMetadata(reversalId, Instant.parse("2026-07-09T00:00:00Z"), "alice", "typo");
+
+    PersistedJournalEntry p =
+        new PersistedJournalEntry(id, entry, Optional.of(reverses), Optional.of(reversedBy));
+
+    assertEquals(Optional.of(reverses), p.reverses());
+    assertEquals(Optional.of(reversedBy), p.reversedBy());
+  }
+
+  @Test
+  @DisplayName("rejects null reverses")
+  void shouldThrowWhenReversesIsNull() {
+    JournalEntryId id = new JournalEntryId(UUID.randomUUID());
+    JournalEntry entry = validEntry();
+    assertThrows(
+        NullPointerException.class,
+        () -> new PersistedJournalEntry(id, entry, null, Optional.empty()));
+  }
+
+  @Test
+  @DisplayName("rejects null reversedBy")
+  void shouldThrowWhenReversedByIsNull() {
+    JournalEntryId id = new JournalEntryId(UUID.randomUUID());
+    JournalEntry entry = validEntry();
+    assertThrows(
+        NullPointerException.class,
+        () -> new PersistedJournalEntry(id, entry, Optional.empty(), null));
   }
 }
