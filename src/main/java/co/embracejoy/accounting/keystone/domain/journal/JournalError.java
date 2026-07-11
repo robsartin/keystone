@@ -56,4 +56,7 @@ public sealed interface JournalError {
 
   /** No journal entry exists with the given id (for the given tenant). */
   record NotFound(JournalEntryId id) implements JournalError {}
+
+  /** The requested original has already been reversed — cannot reverse twice. */
+  record AlreadyReversed(JournalEntryId id) implements JournalError {}
 }

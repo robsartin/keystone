@@ -58,6 +58,7 @@ import org.springframework.boot.webmvc.test.autoconfigure.WebMvcTest;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Import;
 import org.springframework.http.MediaType;
+import org.springframework.http.ProblemDetail;
 import org.springframework.test.context.TestPropertySource;
 import org.springframework.test.context.bean.override.mockito.MockitoBean;
 import org.springframework.test.web.servlet.MockMvc;
@@ -559,5 +560,17 @@ class JournalEntryControllerTest {
         .andExpect(status().isBadRequest())
         .andExpect(content().contentTypeCompatibleWith("application/problem+json"))
         .andExpect(jsonPath("$.type").value(endsWith("/journal/invalid-query")));
+  }
+
+  @Test
+  @DisplayName("ResultMapper maps JournalError.AlreadyReversed to 400 /journal/already-reversed")
+  void shouldMapAlreadyReversedTo400() {
+    JournalEntryId id = new JournalEntryId(UUID.fromString("01902f9f-0000-7000-8000-000000000abc"));
+
+    ProblemDetail pd = ResultMapper.toProblemDetail(new JournalError.AlreadyReversed(id));
+
+    assertThat(pd.getStatus()).isEqualTo(400);
+    assertThat(pd.getType().toString()).endsWith("/journal/already-reversed");
+    assertThat(pd.getDetail()).contains(id.value().toString());
   }
 }
