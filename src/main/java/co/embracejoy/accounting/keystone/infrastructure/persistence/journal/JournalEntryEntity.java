@@ -34,6 +34,18 @@ class JournalEntryEntity {
   @Column(name = "created_at", nullable = false, updatable = false, insertable = false)
   private Instant createdAt;
 
+  @Column(name = "reverses_id")
+  private UUID reversesId;
+
+  @Column(name = "reversal_reason")
+  private String reversalReason;
+
+  @Column(name = "posted_at", nullable = false, updatable = false, insertable = false)
+  private Instant postedAt;
+
+  @Column(name = "posted_by")
+  private String postedBy;
+
   // Hibernate's HHH160246: a 'mappedBy' association may not also use @OrderColumn.
   // The application sets PostingEntity.sequenceInEntry explicitly via the mapper's loop
   // index; @OrderBy here just keeps reads deterministic.
@@ -49,11 +61,21 @@ class JournalEntryEntity {
     // JPA required no-arg constructor
   }
 
-  JournalEntryEntity(UUID id, UUID tenantId, LocalDate occurredOn, String description) {
+  JournalEntryEntity(
+      UUID id,
+      UUID tenantId,
+      LocalDate occurredOn,
+      String description,
+      UUID reversesId,
+      String reversalReason,
+      String postedBy) {
     this.id = id;
     this.tenantId = tenantId;
     this.occurredOn = occurredOn;
     this.description = description;
+    this.reversesId = reversesId;
+    this.reversalReason = reversalReason;
+    this.postedBy = postedBy;
   }
 
   UUID getId() {
@@ -70,6 +92,22 @@ class JournalEntryEntity {
 
   String getDescription() {
     return description;
+  }
+
+  UUID getReversesId() {
+    return reversesId;
+  }
+
+  String getReversalReason() {
+    return reversalReason;
+  }
+
+  Instant getPostedAt() {
+    return postedAt;
+  }
+
+  String getPostedBy() {
+    return postedBy;
   }
 
   List<PostingEntity> getPostings() {

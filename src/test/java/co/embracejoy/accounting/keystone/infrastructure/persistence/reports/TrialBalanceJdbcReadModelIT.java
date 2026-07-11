@@ -131,7 +131,7 @@ class TrialBalanceJdbcReadModelIT {
             LocalDate.parse("2026-05-12"),
             "transfer",
             List.of(debitEur, creditUsd));
-    journalRepo.save(entry);
+    journalRepo.save(entry, "test-actor");
 
     List<TrialBalanceRow> rows =
         readModel.fetch(DEFAULT_TENANT, LocalDate.parse("2026-05-13"), false);
@@ -237,6 +237,6 @@ class TrialBalanceJdbcReadModelIT {
             occurredOn,
             "seed " + occurredOn,
             List.of(new Posting(debit, Side.DEBIT, m, m), new Posting(credit, Side.CREDIT, m, m)));
-    journalRepo.save(entry);
+    journalRepo.save(entry, "test-actor");
   }
 }

@@ -49,6 +49,7 @@ class PostJournalEntryServiceTest {
   private static final LocalDate TODAY = LocalDate.parse("2026-05-10");
   private static final TenantId TENANT =
       new TenantId(UUID.fromString("01902f9f-0000-7000-8000-00000000d1f1"));
+  private static final String ACTOR = "test-actor";
 
   private FakeJournalRepo journalRepo;
   private FakeAccountRepo accountRepo;
@@ -93,20 +94,23 @@ class PostJournalEntryServiceTest {
   @DisplayName("persists and returns Success when request is valid")
   void shouldPersistAndReturnSuccessWhenRequestIsValid() {
     Result<PersistedJournalEntry, JournalError> r =
-        service.post(TENANT, TODAY, "opening", List.of(debit(CASH, 1000L), credit(EQUITY, 1000L)));
+        service.post(
+            TENANT, TODAY, "opening", List.of(debit(CASH, 1000L), credit(EQUITY, 1000L)), ACTOR);
 
     assertInstanceOf(Result.Success.class, r);
     assertEquals(1, journalRepo.saved.size());
     PersistedJournalEntry persisted =
         ((Result.Success<PersistedJournalEntry, JournalError>) r).value();
     assertSame(persisted, journalRepo.saved.get(0));
+    assertEquals(ACTOR, journalRepo.lastActor);
   }
 
   @Test
   @DisplayName("returns Failure and does not persist when entry is unbalanced")
   void shouldReturnFailureAndNotPersistWhenUnbalanced() {
     Result<PersistedJournalEntry, JournalError> r =
-        service.post(TENANT, TODAY, "bad", List.of(debit(CASH, 1000L), credit(EQUITY, 999L)));
+        service.post(
+            TENANT, TODAY, "bad", List.of(debit(CASH, 1000L), credit(EQUITY, 999L)), ACTOR);
 
     assertInstanceOf(Result.Failure.class, r);
     assertInstanceOf(
@@ -118,7 +122,8 @@ class PostJournalEntryServiceTest {
   @Test
   @DisplayName("returns Failure when postings are empty")
   void shouldReturnFailureWhenPostingsEmpty() {
-    Result<PersistedJournalEntry, JournalError> r = service.post(TENANT, TODAY, "empty", List.of());
+    Result<PersistedJournalEntry, JournalError> r =
+        service.post(TENANT, TODAY, "empty", List.of(), ACTOR);
 
     assertInstanceOf(Result.Failure.class, r);
     assertInstanceOf(
@@ -132,7 +137,8 @@ class PostJournalEntryServiceTest {
   void shouldReturnAccountNotFoundWhenAccountUnknown() {
     AccountCode ghost = new AccountCode("9999");
     Result<PersistedJournalEntry, JournalError> r =
-        service.post(TENANT, TODAY, "bad", List.of(debit(ghost, 500L), credit(EQUITY, 500L)));
+        service.post(
+            TENANT, TODAY, "bad", List.of(debit(ghost, 500L), credit(EQUITY, 500L)), ACTOR);
 
     assertInstanceOf(Result.Failure.class, r);
     assertInstanceOf(
@@ -149,7 +155,7 @@ class PostJournalEntryServiceTest {
     periodRepo.seedClosed(todayMonth);
 
     Result<PersistedJournalEntry, JournalError> r =
-        service.post(TENANT, TODAY, "bad", List.of(debit(CASH, 100L), credit(EQUITY, 100L)));
+        service.post(TENANT, TODAY, "bad", List.of(debit(CASH, 100L), credit(EQUITY, 100L)), ACTOR);
 
     assertInstanceOf(Result.Failure.class, r);
     JournalError error = ((Result.Failure<PersistedJournalEntry, JournalError>) r).error();
@@ -162,12 +168,14 @@ class PostJournalEntryServiceTest {
 
   private static final class FakeJournalRepo implements JournalEntryRepository {
     final List<PersistedJournalEntry> saved = new ArrayList<>();
+    String lastActor;
 
     @Override
-    public PersistedJournalEntry save(JournalEntry entry) {
+    public PersistedJournalEntry save(JournalEntry entry, String actor) {
       PersistedJournalEntry p =
           new PersistedJournalEntry(new JournalEntryId(UUID.randomUUID()), entry);
       saved.add(p);
+      lastActor = actor;
       return p;
     }
 
@@ -179,6 +187,19 @@ class PostJournalEntryServiceTest {
     @Override
     public java.util.Set<java.time.YearMonth> distinctOccurredMonths(TenantId tenantId) {
       return java.util.Set.of();
+    }
+
+    @Override
+    public PersistedJournalEntry saveReversal(
+        JournalEntry reversal,
+        co.embracejoy.accounting.keystone.domain.journal.ReversalMetadata metadata,
+        String actor) {
+      throw new UnsupportedOperationException("not needed in PostJournalEntryServiceTest");
+    }
+
+    @Override
+    public boolean existsReversalOf(TenantId tenantId, JournalEntryId originalId) {
+      throw new UnsupportedOperationException("not needed in PostJournalEntryServiceTest");
     }
   }
 

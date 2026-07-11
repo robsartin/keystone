@@ -1,18 +1,24 @@
 package co.embracejoy.accounting.keystone.infrastructure.web;
 
+import static org.assertj.core.api.Assertions.assertThat;
 import static org.hamcrest.Matchers.containsString;
 import static org.hamcrest.Matchers.endsWith;
+import static org.hamcrest.Matchers.hasSize;
 import static org.hamcrest.Matchers.notNullValue;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.content;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.header;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
+import co.embracejoy.accounting.keystone.application.journal.JournalEntryQueryService;
 import co.embracejoy.accounting.keystone.application.journal.PostJournalEntryService;
 import co.embracejoy.accounting.keystone.domain.account.AccountCode;
 import co.embracejoy.accounting.keystone.domain.journal.JournalEntry;
 import co.embracejoy.accounting.keystone.domain.journal.JournalEntryId;
+import co.embracejoy.accounting.keystone.domain.journal.JournalEntryPage;
+import co.embracejoy.accounting.keystone.domain.journal.JournalEntryQuery;
 import co.embracejoy.accounting.keystone.domain.journal.JournalError;
 import co.embracejoy.accounting.keystone.domain.journal.PersistedJournalEntry;
 import co.embracejoy.accounting.keystone.domain.journal.Posting;
@@ -28,6 +34,7 @@ import co.embracejoy.accounting.keystone.domain.tenancy.TenantId;
 import co.embracejoy.accounting.keystone.domain.tenancy.TenantRepository;
 import co.embracejoy.accounting.keystone.infrastructure.observability.MetricsConfig;
 import co.embracejoy.accounting.keystone.infrastructure.security.SecurityConfig;
+import co.embracejoy.accounting.keystone.infrastructure.security.Tenants;
 import co.embracejoy.accounting.keystone.testsupport.JwtTestSupport;
 import co.embracejoy.accounting.keystone.testsupport.TestSecurityConfig;
 import io.micrometer.core.instrument.Counter;
@@ -43,6 +50,7 @@ import java.util.function.Supplier;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
+import org.mockito.ArgumentCaptor;
 import org.mockito.Mockito;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.TestConfiguration;
@@ -73,6 +81,7 @@ class JournalEntryControllerTest {
   @Autowired MockMvc mvc;
   @Autowired JwtTestSupport jwt;
   @MockitoBean PostJournalEntryService service;
+  @MockitoBean JournalEntryQueryService queryService;
   @MockitoBean TenantRepository tenants;
   @MockitoBean TenantUserRoleRepository roles;
   @MockitoBean PlatformAdminRepository platformAdmins;
@@ -150,6 +159,27 @@ class JournalEntryControllerTest {
         new JournalEntryId(UUID.fromString("01902f9f-0000-7000-8000-000000000000")), entry);
   }
 
+  private static PersistedJournalEntry anEntry(String id, String description) {
+    Result<JournalEntry, JournalError> r =
+        JournalEntry.of(
+            TENANT,
+            LocalDate.parse("2026-05-10"),
+            description,
+            List.of(
+                new Posting(
+                    new AccountCode("1000"),
+                    Side.DEBIT,
+                    new Money(10000L, USD),
+                    new Money(10000L, USD)),
+                new Posting(
+                    new AccountCode("3000"),
+                    Side.CREDIT,
+                    new Money(10000L, USD),
+                    new Money(10000L, USD))));
+    JournalEntry entry = ((Result.Success<JournalEntry, JournalError>) r).value();
+    return new PersistedJournalEntry(new JournalEntryId(UUID.fromString(id)), entry);
+  }
+
   @Test
   @DisplayName("returns 201 + Location with the new id when service returns Success")
   void shouldReturn201WhenSuccess() throws Exception {
@@ -160,7 +190,8 @@ class JournalEntryControllerTest {
                 Mockito.any(TenantId.class),
                 Mockito.any(LocalDate.class),
                 Mockito.anyString(),
-                Mockito.anyList()))
+                Mockito.anyList(),
+                Mockito.anyString()))
         .thenReturn(Result.success(validPersisted()));
 
     mvc.perform(
@@ -189,7 +220,8 @@ class JournalEntryControllerTest {
                 Mockito.any(TenantId.class),
                 Mockito.any(LocalDate.class),
                 Mockito.anyString(),
-                Mockito.anyList()))
+                Mockito.anyList(),
+                Mockito.anyString()))
         .thenReturn(
             Result.failure(
                 new JournalError.Unbalanced(new Money(10000L, USD), new Money(9000L, USD))));
@@ -216,7 +248,8 @@ class JournalEntryControllerTest {
                 Mockito.any(TenantId.class),
                 Mockito.any(LocalDate.class),
                 Mockito.anyString(),
-                Mockito.anyList()))
+                Mockito.anyList(),
+                Mockito.anyString()))
         .thenReturn(Result.failure(new JournalError.AccountNotFound(new AccountCode("9999"))));
 
     mvc.perform(
@@ -240,7 +273,8 @@ class JournalEntryControllerTest {
                 Mockito.any(TenantId.class),
                 Mockito.any(LocalDate.class),
                 Mockito.anyString(),
-                Mockito.anyList()))
+                Mockito.anyList(),
+                Mockito.anyString()))
         .thenReturn(Result.failure(new JournalError.AccountInactive(new AccountCode("1000"))));
 
     mvc.perform(
@@ -264,7 +298,8 @@ class JournalEntryControllerTest {
                 Mockito.any(TenantId.class),
                 Mockito.any(LocalDate.class),
                 Mockito.anyString(),
-                Mockito.anyList()))
+                Mockito.anyList(),
+                Mockito.anyString()))
         .thenReturn(Result.failure(new JournalError.AccountNotALeaf(new AccountCode("1000"))));
 
     mvc.perform(
@@ -289,7 +324,8 @@ class JournalEntryControllerTest {
                 Mockito.any(TenantId.class),
                 Mockito.any(LocalDate.class),
                 Mockito.anyString(),
-                Mockito.anyList()))
+                Mockito.anyList(),
+                Mockito.anyString()))
         .thenReturn(
             Result.failure(
                 new JournalError.AccountCurrencyMismatch(new AccountCode("4000"), USD, eur)));
@@ -316,7 +352,8 @@ class JournalEntryControllerTest {
                 Mockito.any(TenantId.class),
                 Mockito.any(LocalDate.class),
                 Mockito.anyString(),
-                Mockito.anyList()))
+                Mockito.anyList(),
+                Mockito.anyString()))
         .thenReturn(
             Result.failure(
                 new JournalError.BaseCurrencyMismatch(new AccountCode("1000-EUR"), USD, eur)));
@@ -344,7 +381,8 @@ class JournalEntryControllerTest {
                 Mockito.any(TenantId.class),
                 Mockito.any(LocalDate.class),
                 Mockito.anyString(),
-                Mockito.anyList()))
+                Mockito.anyList(),
+                Mockito.anyString()))
         .thenReturn(Result.failure(new JournalError.PostingInClosedPeriod(YearMonth.of(2026, 5))));
 
     mvc.perform(
@@ -399,5 +437,127 @@ class JournalEntryControllerTest {
         .andExpect(status().isForbidden())
         .andExpect(content().contentType("application/problem+json"))
         .andExpect(jsonPath("$.type").value(endsWith("/problems/auth/insufficient-role")));
+  }
+
+  @Test
+  @DisplayName("GET /journal-entries/{id} returns 200 with entry")
+  void shouldReturn200WhenEntryFound() throws Exception {
+    JournalEntryId id = new JournalEntryId(UUID.fromString("01902f9f-0000-7000-8000-0000000000ee"));
+    PersistedJournalEntry persisted = new PersistedJournalEntry(id, validPersisted().entry());
+    Mockito.when(queryService.findById(TENANT, id)).thenReturn(Optional.of(persisted));
+
+    mvc.perform(get("/journal-entries/" + id.value()).with(withTestAuth(Role.READ_ONLY)))
+        .andExpect(status().isOk())
+        .andExpect(jsonPath("$.id").value(id.value().toString()));
+  }
+
+  @Test
+  @DisplayName("GET /journal-entries/{id} returns 404 when entry not found")
+  void shouldReturn404WhenEntryNotFound() throws Exception {
+    JournalEntryId id = new JournalEntryId(UUID.randomUUID());
+    Mockito.when(queryService.findById(Mockito.any(), Mockito.eq(id))).thenReturn(Optional.empty());
+
+    mvc.perform(get("/journal-entries/" + id.value()).with(withTestAuth(Role.ADMIN)))
+        .andExpect(status().isNotFound())
+        .andExpect(content().contentType("application/problem+json"))
+        .andExpect(jsonPath("$.type").value(endsWith("/journal/not-found")));
+  }
+
+  @Test
+  @DisplayName("GET /journal-entries/{id} returns 404 when path variable is not a UUID")
+  void shouldReturn404WhenGetByIdWithMalformedUuid() throws Exception {
+    mvc.perform(get("/journal-entries/not-a-uuid").with(withTestAuth(Role.ADMIN)))
+        .andExpect(status().isNotFound())
+        .andExpect(content().contentType("application/problem+json"))
+        .andExpect(jsonPath("$.type").value(endsWith("/journal/not-found")))
+        .andExpect(jsonPath("$.detail", containsString("not-a-uuid")));
+  }
+
+  @Test
+  @DisplayName("GET /journal-entries/{id} returns 401 when no auth")
+  void shouldReturn401WhenNoAuth() throws Exception {
+    JournalEntryId id = new JournalEntryId(UUID.randomUUID());
+    mvc.perform(get("/journal-entries/" + id.value())).andExpect(status().isUnauthorized());
+  }
+
+  @Test
+  @DisplayName("GET /journal-entries returns items + null nextCursor when under limit")
+  void shouldReturn200WithItemsAndNoCursor() throws Exception {
+    JournalEntryPage page =
+        new JournalEntryPage(
+            List.of(anEntry("01902f9f-0000-7000-8000-000000000001", "one")), Optional.empty());
+    Mockito.when(queryService.findMany(Mockito.eq(Tenants.DEFAULT_TENANT_ID), Mockito.any()))
+        .thenReturn(page);
+
+    mvc.perform(get("/journal-entries").with(withTestAuth(Role.READ_ONLY)))
+        .andExpect(status().isOk())
+        .andExpect(jsonPath("$.items", hasSize(1)))
+        .andExpect(jsonPath("$.nextCursor").doesNotExist());
+  }
+
+  @Test
+  @DisplayName("GET /journal-entries with filters passes them into the service")
+  void shouldPassFiltersThroughToService() throws Exception {
+    Mockito.when(queryService.findMany(Mockito.any(), Mockito.any()))
+        .thenReturn(new JournalEntryPage(List.of(), Optional.empty()));
+
+    mvc.perform(
+            get("/journal-entries")
+                .param("from", "2026-06-01")
+                .param("to", "2026-06-30")
+                .param("account", "1000")
+                .param("q", "coffee")
+                .param("amountMin", "100")
+                .param("amountMax", "1000")
+                .param("limit", "20")
+                .with(withTestAuth(Role.READ_ONLY)))
+        .andExpect(status().isOk());
+
+    ArgumentCaptor<JournalEntryQuery> captor = ArgumentCaptor.forClass(JournalEntryQuery.class);
+    Mockito.verify(queryService).findMany(Mockito.eq(Tenants.DEFAULT_TENANT_ID), captor.capture());
+    JournalEntryQuery q = captor.getValue();
+    assertThat(q.from()).isEqualTo(Optional.of(LocalDate.of(2026, 6, 1)));
+    assertThat(q.q()).isEqualTo(Optional.of("coffee"));
+    assertThat(q.amountMin()).isEqualTo(Optional.of(100L));
+    assertThat(q.limit()).isEqualTo(20);
+  }
+
+  @Test
+  @DisplayName("GET /journal-entries returns nextCursor when service supplies one")
+  void shouldReturnNextCursorWhenPresent() throws Exception {
+    JournalEntryId nextId =
+        new JournalEntryId(UUID.fromString("01902f9f-0000-7000-8000-000000000099"));
+    Mockito.when(queryService.findMany(Mockito.any(), Mockito.any()))
+        .thenReturn(new JournalEntryPage(List.of(), Optional.of(nextId)));
+
+    mvc.perform(get("/journal-entries").with(withTestAuth(Role.READ_ONLY)))
+        .andExpect(status().isOk())
+        .andExpect(jsonPath("$.nextCursor").value(nextId.value().toString()));
+  }
+
+  @Test
+  @DisplayName("GET /journal-entries returns 400 when limit exceeds max")
+  void shouldReturn400WhenLimitExceedsMax() throws Exception {
+    mvc.perform(get("/journal-entries").param("limit", "999").with(withTestAuth(Role.READ_ONLY)))
+        .andExpect(status().isBadRequest());
+  }
+
+  @Test
+  @DisplayName("GET /journal-entries returns 400 when after cursor is not a valid UUID")
+  void shouldReturn400WhenAfterCursorIsMalformed() throws Exception {
+    mvc.perform(
+            get("/journal-entries").param("after", "not-a-uuid").with(withTestAuth(Role.READ_ONLY)))
+        .andExpect(status().isBadRequest())
+        .andExpect(content().contentTypeCompatibleWith("application/problem+json"))
+        .andExpect(jsonPath("$.type").value(endsWith("/journal/invalid-query")));
+  }
+
+  @Test
+  @DisplayName("GET /journal-entries returns 400 when account code is blank")
+  void shouldReturn400WhenAccountCodeIsBlank() throws Exception {
+    mvc.perform(get("/journal-entries").param("account", "").with(withTestAuth(Role.READ_ONLY)))
+        .andExpect(status().isBadRequest())
+        .andExpect(content().contentTypeCompatibleWith("application/problem+json"))
+        .andExpect(jsonPath("$.type").value(endsWith("/journal/invalid-query")));
   }
 }

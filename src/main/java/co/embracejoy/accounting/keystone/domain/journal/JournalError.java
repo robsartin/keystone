@@ -53,4 +53,7 @@ public sealed interface JournalError {
       java.util.Currency expectedByConfig,
       java.util.Currency actualOnPosting)
       implements JournalError {}
+
+  /** No journal entry exists with the given id (for the given tenant). */
+  record NotFound(JournalEntryId id) implements JournalError {}
 }

@@ -1,12 +1,14 @@
 package co.embracejoy.accounting.keystone.infrastructure.config;
 
 import co.embracejoy.accounting.keystone.application.account.AccountService;
+import co.embracejoy.accounting.keystone.application.journal.JournalEntryQueryService;
 import co.embracejoy.accounting.keystone.application.journal.PostJournalEntryService;
 import co.embracejoy.accounting.keystone.application.period.PeriodService;
 import co.embracejoy.accounting.keystone.application.reports.TrialBalanceService;
 import co.embracejoy.accounting.keystone.application.security.UserRoleService;
 import co.embracejoy.accounting.keystone.application.tenancy.TenantService;
 import co.embracejoy.accounting.keystone.domain.account.AccountRepository;
+import co.embracejoy.accounting.keystone.domain.journal.JournalEntryReadModel;
 import co.embracejoy.accounting.keystone.domain.journal.JournalEntryRepository;
 import co.embracejoy.accounting.keystone.domain.period.PeriodRepository;
 import co.embracejoy.accounting.keystone.domain.reports.TrialBalanceReadModel;
@@ -53,6 +55,11 @@ public class ApplicationConfig {
   @Bean
   public TrialBalanceService trialBalanceService(TrialBalanceReadModel readModel) {
     return new TrialBalanceService(readModel);
+  }
+
+  @Bean
+  public JournalEntryQueryService journalEntryQueryService(JournalEntryReadModel readModel) {
+    return new JournalEntryQueryService(readModel);
   }
 
   @Bean

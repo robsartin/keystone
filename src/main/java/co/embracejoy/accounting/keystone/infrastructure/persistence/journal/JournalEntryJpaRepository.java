@@ -10,6 +10,8 @@ interface JournalEntryJpaRepository extends JpaRepository<JournalEntryEntity, UU
 
   Optional<JournalEntryEntity> findByTenantIdAndId(UUID tenantId, UUID id);
 
+  boolean existsByTenantIdAndReversesId(UUID tenantId, UUID reversesId);
+
   @Query(
       "SELECT DISTINCT FUNCTION('to_char', e.occurredOn, 'YYYY-MM')"
           + " FROM JournalEntryEntity e WHERE e.tenantId = :tenantId")

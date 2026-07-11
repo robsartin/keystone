@@ -225,7 +225,7 @@ class PeriodServiceTest {
     }
 
     @Override
-    public PersistedJournalEntry save(JournalEntry entry) {
+    public PersistedJournalEntry save(JournalEntry entry, String actor) {
       throw new UnsupportedOperationException("not needed in PeriodServiceTest");
     }
 
@@ -237,6 +237,19 @@ class PeriodServiceTest {
     @Override
     public Set<YearMonth> distinctOccurredMonths(TenantId tenantId) {
       return Set.copyOf(months);
+    }
+
+    @Override
+    public PersistedJournalEntry saveReversal(
+        JournalEntry reversal,
+        co.embracejoy.accounting.keystone.domain.journal.ReversalMetadata metadata,
+        String actor) {
+      throw new UnsupportedOperationException("not needed in PeriodServiceTest");
+    }
+
+    @Override
+    public boolean existsReversalOf(TenantId tenantId, JournalEntryId originalId) {
+      throw new UnsupportedOperationException("not needed in PeriodServiceTest");
     }
   }
 }

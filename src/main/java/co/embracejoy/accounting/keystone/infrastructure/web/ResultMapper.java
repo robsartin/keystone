@@ -41,6 +41,7 @@ public final class ResultMapper {
                   + " but the configured base currency is "
                   + m.expectedByConfig().getCurrencyCode()
                   + ".");
+      case JournalError.NotFound nf -> journalNotFound(nf);
     };
   }
 
@@ -162,6 +163,19 @@ public final class ResultMapper {
         "/admin/tenant-not-found",
         "Tenant not found",
         "No tenant with id '" + rawId + "'.");
+  }
+
+  public static ProblemDetail journalNotFoundByRawId(String rawId) {
+    return problem(
+        HttpStatus.NOT_FOUND,
+        "/journal/not-found",
+        "Journal entry not found",
+        "No journal entry with id '" + rawId + "'.");
+  }
+
+  public static ProblemDetail invalidJournalQuery(String reason) {
+    return problem(
+        HttpStatus.BAD_REQUEST, "/journal/invalid-query", "Invalid journal-entry query", reason);
   }
 
   public static ProblemDetail toProblemDetail(AccountError err) {
@@ -291,6 +305,14 @@ public final class ResultMapper {
         "/journal/posting-in-closed-period",
         "Posting falls in a closed period",
         "Period " + p.period() + " is closed; reopen it before posting.");
+  }
+
+  private static ProblemDetail journalNotFound(JournalError.NotFound nf) {
+    return problem(
+        HttpStatus.NOT_FOUND,
+        "/journal/not-found",
+        "Journal entry not found",
+        "No journal entry with id '" + nf.id().value() + "'.");
   }
 
   private static ProblemDetail overflow(JournalError.Overflow o) {
