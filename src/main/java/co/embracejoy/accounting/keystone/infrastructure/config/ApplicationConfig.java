@@ -3,6 +3,7 @@ package co.embracejoy.accounting.keystone.infrastructure.config;
 import co.embracejoy.accounting.keystone.application.account.AccountService;
 import co.embracejoy.accounting.keystone.application.journal.JournalEntryQueryService;
 import co.embracejoy.accounting.keystone.application.journal.PostJournalEntryService;
+import co.embracejoy.accounting.keystone.application.journal.ReverseJournalEntryService;
 import co.embracejoy.accounting.keystone.application.period.PeriodService;
 import co.embracejoy.accounting.keystone.application.reports.TrialBalanceService;
 import co.embracejoy.accounting.keystone.application.security.UserRoleService;
@@ -45,6 +46,14 @@ public class ApplicationConfig {
       KeystoneProperties properties) {
     return new PostJournalEntryService(
         journalRepository, accountRepository, periodService, properties.baseCurrency());
+  }
+
+  @Bean
+  public ReverseJournalEntryService reverseJournalEntryService(
+      JournalEntryRepository journalRepository,
+      PostJournalEntryService postJournalEntryService,
+      Clock clock) {
+    return new ReverseJournalEntryService(journalRepository, postJournalEntryService, clock);
   }
 
   @Bean

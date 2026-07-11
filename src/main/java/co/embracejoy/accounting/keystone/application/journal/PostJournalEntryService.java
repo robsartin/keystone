@@ -11,6 +11,7 @@ import co.embracejoy.accounting.keystone.domain.journal.JournalValidationContext
 import co.embracejoy.accounting.keystone.domain.journal.JournalValidationMode;
 import co.embracejoy.accounting.keystone.domain.journal.PersistedJournalEntry;
 import co.embracejoy.accounting.keystone.domain.journal.Posting;
+import co.embracejoy.accounting.keystone.domain.journal.ReversalMetadata;
 import co.embracejoy.accounting.keystone.domain.period.PeriodStatus;
 import co.embracejoy.accounting.keystone.domain.shared.Result;
 import co.embracejoy.accounting.keystone.domain.tenancy.TenantId;
@@ -49,6 +50,28 @@ public final class PostJournalEntryService {
       String description,
       List<Posting> postings,
       String actor) {
+    JournalValidationContext ctx = buildContext(tenantId, postings, occurredOn);
+    return JournalEntry.of(tenantId, occurredOn, description, postings, ctx)
+        .map(entry -> journalRepository.save(entry, actor));
+  }
+
+  /**
+   * Persist a reversal entry, applying the same balance/period/account validation stack as {@link
+   * #post}. On success, delegates to {@code journalRepository.saveReversal(...)} so the {@code
+   * reverses_id} + {@code reversal_reason} columns populate.
+   */
+  public Result<PersistedJournalEntry, JournalError> postReversal(
+      TenantId tenantId, JournalEntry reversal, ReversalMetadata metadata, String actor) {
+    JournalValidationContext ctx =
+        buildContext(tenantId, reversal.postings(), reversal.occurredOn());
+    return JournalEntry.of(
+            tenantId, reversal.occurredOn(), reversal.description(), reversal.postings(), ctx)
+        .map(validated -> journalRepository.saveReversal(validated, metadata, actor));
+  }
+
+  /** Extracted context-building — shared by {@link #post} and {@link #postReversal}. */
+  private JournalValidationContext buildContext(
+      TenantId tenantId, List<Posting> postings, LocalDate occurredOn) {
     Set<AccountCode> codes =
         postings.stream().map(Posting::account).collect(Collectors.toCollection(HashSet::new));
     Map<AccountCode, Account> accounts = accountRepository.findByCodeIn(codes);
@@ -58,10 +81,7 @@ public final class PostJournalEntryService {
             .collect(Collectors.toUnmodifiableSet());
     PeriodStatus periodStatus =
         periodService.findByYearMonth(tenantId, YearMonth.from(occurredOn)).status();
-    JournalValidationContext ctx =
-        new JournalValidationContext(
-            accounts, nonLeafCodes, periodStatus, baseCurrency, JournalValidationMode.STRICT);
-    return JournalEntry.of(tenantId, occurredOn, description, postings, ctx)
-        .map(entry -> journalRepository.save(entry, actor));
+    return new JournalValidationContext(
+        accounts, nonLeafCodes, periodStatus, baseCurrency, JournalValidationMode.STRICT);
   }
 }

@@ -2,6 +2,7 @@ package co.embracejoy.accounting.keystone.infrastructure.web;
 
 import co.embracejoy.accounting.keystone.application.journal.JournalEntryQueryService;
 import co.embracejoy.accounting.keystone.application.journal.PostJournalEntryService;
+import co.embracejoy.accounting.keystone.application.journal.ReverseJournalEntryService;
 import co.embracejoy.accounting.keystone.domain.account.AccountCode;
 import co.embracejoy.accounting.keystone.domain.journal.JournalEntryId;
 import co.embracejoy.accounting.keystone.domain.journal.JournalEntryQuery;
@@ -17,6 +18,7 @@ import co.embracejoy.accounting.keystone.infrastructure.web.dto.JournalEntryResp
 import co.embracejoy.accounting.keystone.infrastructure.web.dto.ListJournalEntriesResponse;
 import co.embracejoy.accounting.keystone.infrastructure.web.dto.PostJournalEntryRequest;
 import co.embracejoy.accounting.keystone.infrastructure.web.dto.PostingRequest;
+import co.embracejoy.accounting.keystone.infrastructure.web.dto.ReverseJournalEntryRequest;
 import io.micrometer.core.instrument.Counter;
 import io.micrometer.core.instrument.Timer;
 import io.swagger.v3.oas.annotations.Operation;
@@ -47,6 +49,7 @@ public class JournalEntryController {
 
   private final PostJournalEntryService service;
   private final JournalEntryQueryService queryService;
+  private final ReverseJournalEntryService reverseService;
   private final Currency baseCurrency;
   private final TenantContext tenantContext;
   private final Counter postedOk;
@@ -56,6 +59,7 @@ public class JournalEntryController {
   public JournalEntryController(
       PostJournalEntryService service,
       JournalEntryQueryService queryService,
+      ReverseJournalEntryService reverseService,
       @Qualifier("keystoneBaseCurrency") Currency keystoneBaseCurrency,
       TenantContext tenantContext,
       @Qualifier("journalEntriesPostedOk") Counter journalEntriesPostedOk,
@@ -63,6 +67,7 @@ public class JournalEntryController {
       @Qualifier("journalEntriesPostDuration") Timer journalEntriesPostDuration) {
     this.service = service;
     this.queryService = queryService;
+    this.reverseService = reverseService;
     this.baseCurrency = keystoneBaseCurrency;
     this.tenantContext = tenantContext;
     this.postedOk = journalEntriesPostedOk;
@@ -166,6 +171,34 @@ public class JournalEntryController {
     }
     return ResponseEntity.ok(
         ListJournalEntriesResponse.of(queryService.findMany(tenantContext.require(), query)));
+  }
+
+  @PostMapping("/{id}/reverse")
+  @PreAuthorize("hasAnyRole('ADMIN','BOOKKEEPER')")
+  @Operation(
+      operationId = "reverseJournalEntry",
+      summary = "Reverse a journal entry",
+      description =
+          "Posts a mirror entry (debits/credits swapped) referencing the original via reverses_id."
+              + " Reversal date is today; the original is never modified. Blocks reversing an"
+              + " already-reversed entry (400 /journal/already-reversed) and unknown ids"
+              + " (404 /journal/not-found).")
+  public ResponseEntity<?> reverse(
+      @PathVariable String id, @Valid @RequestBody ReverseJournalEntryRequest req) {
+    JournalEntryId originalId;
+    try {
+      originalId = new JournalEntryId(UUID.fromString(id));
+    } catch (IllegalArgumentException e) {
+      return notFoundByRawId(id);
+    }
+    String actor = SecurityContextHolder.getContext().getAuthentication().getName();
+    return reverseService
+        .reverse(tenantContext.require(), originalId, req.reason(), actor)
+        .fold(
+            persisted ->
+                ResponseEntity.created(URI.create("/journal-entries/" + persisted.id().value()))
+                    .body(JournalEntryResponse.of(persisted)),
+            this::error);
   }
 
   private ResponseEntity<ProblemDetail> error(JournalError err) {

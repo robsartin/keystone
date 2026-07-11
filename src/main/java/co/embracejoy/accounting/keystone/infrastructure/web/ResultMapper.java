@@ -41,6 +41,7 @@ public final class ResultMapper {
                   + " but the configured base currency is "
                   + m.expectedByConfig().getCurrencyCode()
                   + ".");
+      case JournalError.AlreadyReversed ar -> journalAlreadyReversed(ar);
       case JournalError.NotFound nf -> journalNotFound(nf);
     };
   }
@@ -313,6 +314,14 @@ public final class ResultMapper {
         "/journal/not-found",
         "Journal entry not found",
         "No journal entry with id '" + nf.id().value() + "'.");
+  }
+
+  private static ProblemDetail journalAlreadyReversed(JournalError.AlreadyReversed ar) {
+    return problem(
+        HttpStatus.BAD_REQUEST,
+        "/journal/already-reversed",
+        "Journal entry has already been reversed",
+        "Journal entry '" + ar.id().value() + "' has already been reversed.");
   }
 
   private static ProblemDetail overflow(JournalError.Overflow o) {

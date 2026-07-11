@@ -17,6 +17,7 @@ import co.embracejoy.accounting.keystone.domain.journal.JournalEntryRepository;
 import co.embracejoy.accounting.keystone.domain.journal.JournalError;
 import co.embracejoy.accounting.keystone.domain.journal.PersistedJournalEntry;
 import co.embracejoy.accounting.keystone.domain.journal.Posting;
+import co.embracejoy.accounting.keystone.domain.journal.ReversalMetadata;
 import co.embracejoy.accounting.keystone.domain.journal.Side;
 import co.embracejoy.accounting.keystone.domain.money.Money;
 import co.embracejoy.accounting.keystone.domain.period.Period;
@@ -164,11 +165,52 @@ class PostJournalEntryServiceTest {
     assertEquals(0, journalRepo.saved.size());
   }
 
+  @Test
+  @DisplayName("postReversal returns success and delegates to saveReversal with actor")
+  void shouldPostReversalAndDelegateToSaveReversalWithActor() {
+    JournalEntry original =
+        new JournalEntry(
+            TENANT, TODAY, "opening", List.of(debit(CASH, 1000L), credit(EQUITY, 1000L)));
+    JournalEntryId originalId = new JournalEntryId(UUID.randomUUID());
+    JournalEntry reversal =
+        JournalEntry.reverse(originalId, "typo", LocalDate.of(2026, 7, 11), original);
+    ReversalMetadata metadata = new ReversalMetadata(originalId, "typo");
+
+    Result<PersistedJournalEntry, JournalError> r =
+        service.postReversal(TENANT, reversal, metadata, "reverser-actor");
+
+    assertInstanceOf(Result.Success.class, r);
+    assertEquals(metadata, journalRepo.lastReversalMetadata);
+    assertEquals("reverser-actor", journalRepo.lastActor);
+  }
+
+  @Test
+  @DisplayName("postReversal returns PostingInClosedPeriod when today's period is closed")
+  void shouldReturnClosedPeriodErrorWhenReversalDateInClosedPeriod() {
+    JournalEntry original =
+        new JournalEntry(
+            TENANT, TODAY, "opening", List.of(debit(CASH, 1000L), credit(EQUITY, 1000L)));
+    JournalEntryId originalId = new JournalEntryId(UUID.randomUUID());
+    LocalDate reversalDate = LocalDate.of(2026, 7, 11);
+    periodRepo.seedClosed(YearMonth.from(reversalDate));
+    JournalEntry reversal = JournalEntry.reverse(originalId, "typo", reversalDate, original);
+    ReversalMetadata metadata = new ReversalMetadata(originalId, "typo");
+
+    Result<PersistedJournalEntry, JournalError> r =
+        service.postReversal(TENANT, reversal, metadata, "reverser-actor");
+
+    assertInstanceOf(Result.Failure.class, r);
+    assertInstanceOf(
+        JournalError.PostingInClosedPeriod.class,
+        ((Result.Failure<PersistedJournalEntry, JournalError>) r).error());
+  }
+
   // ---- fakes ----
 
   private static final class FakeJournalRepo implements JournalEntryRepository {
     final List<PersistedJournalEntry> saved = new ArrayList<>();
     String lastActor;
+    ReversalMetadata lastReversalMetadata;
 
     @Override
     public PersistedJournalEntry save(JournalEntry entry, String actor) {
@@ -181,7 +223,7 @@ class PostJournalEntryServiceTest {
 
     @Override
     public Optional<PersistedJournalEntry> findById(TenantId tenantId, JournalEntryId id) {
-      return Optional.empty();
+      throw new UnsupportedOperationException("not needed in PostJournalEntryServiceTest");
     }
 
     @Override
@@ -191,10 +233,17 @@ class PostJournalEntryServiceTest {
 
     @Override
     public PersistedJournalEntry saveReversal(
-        JournalEntry reversal,
-        co.embracejoy.accounting.keystone.domain.journal.ReversalMetadata metadata,
-        String actor) {
-      throw new UnsupportedOperationException("not needed in PostJournalEntryServiceTest");
+        JournalEntry reversal, ReversalMetadata metadata, String actor) {
+      lastReversalMetadata = metadata;
+      lastActor = actor;
+      PersistedJournalEntry p =
+          new PersistedJournalEntry(
+              new JournalEntryId(UUID.randomUUID()),
+              reversal,
+              Optional.of(metadata),
+              Optional.empty());
+      saved.add(p);
+      return p;
     }
 
     @Override

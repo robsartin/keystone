@@ -14,6 +14,7 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 
 import co.embracejoy.accounting.keystone.application.journal.JournalEntryQueryService;
 import co.embracejoy.accounting.keystone.application.journal.PostJournalEntryService;
+import co.embracejoy.accounting.keystone.application.journal.ReverseJournalEntryService;
 import co.embracejoy.accounting.keystone.domain.account.AccountCode;
 import co.embracejoy.accounting.keystone.domain.journal.JournalEntry;
 import co.embracejoy.accounting.keystone.domain.journal.JournalEntryId;
@@ -58,6 +59,7 @@ import org.springframework.boot.webmvc.test.autoconfigure.WebMvcTest;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Import;
 import org.springframework.http.MediaType;
+import org.springframework.http.ProblemDetail;
 import org.springframework.test.context.TestPropertySource;
 import org.springframework.test.context.bean.override.mockito.MockitoBean;
 import org.springframework.test.web.servlet.MockMvc;
@@ -82,6 +84,7 @@ class JournalEntryControllerTest {
   @Autowired JwtTestSupport jwt;
   @MockitoBean PostJournalEntryService service;
   @MockitoBean JournalEntryQueryService queryService;
+  @MockitoBean ReverseJournalEntryService reverseService;
   @MockitoBean TenantRepository tenants;
   @MockitoBean TenantUserRoleRepository roles;
   @MockitoBean PlatformAdminRepository platformAdmins;
@@ -559,5 +562,140 @@ class JournalEntryControllerTest {
         .andExpect(status().isBadRequest())
         .andExpect(content().contentTypeCompatibleWith("application/problem+json"))
         .andExpect(jsonPath("$.type").value(endsWith("/journal/invalid-query")));
+  }
+
+  @Test
+  @DisplayName("ResultMapper maps JournalError.AlreadyReversed to 400 /journal/already-reversed")
+  void shouldMapAlreadyReversedTo400() {
+    JournalEntryId id = new JournalEntryId(UUID.fromString("01902f9f-0000-7000-8000-000000000abc"));
+
+    ProblemDetail pd = ResultMapper.toProblemDetail(new JournalError.AlreadyReversed(id));
+
+    assertThat(pd.getStatus()).isEqualTo(400);
+    assertThat(pd.getType().toString()).endsWith("/journal/already-reversed");
+    assertThat(pd.getDetail()).contains(id.value().toString());
+  }
+
+  @Test
+  @DisplayName("POST /journal-entries/{id}/reverse returns 201 + Location on success")
+  void shouldReturn201WhenReverseSucceeds() throws Exception {
+    JournalEntryId originalId =
+        new JournalEntryId(UUID.fromString("01902f9f-0000-7000-8000-000000000001"));
+    PersistedJournalEntry reversal =
+        anEntry("01902f9f-0000-7000-8000-000000000002", "reversal of opening");
+    Mockito.when(
+            reverseService.reverse(
+                Mockito.eq(Tenants.DEFAULT_TENANT_ID),
+                Mockito.eq(originalId),
+                Mockito.eq("typo"),
+                Mockito.anyString()))
+        .thenReturn(Result.success(reversal));
+
+    mvc.perform(
+            post("/journal-entries/" + originalId.value() + "/reverse")
+                .contentType(MediaType.APPLICATION_JSON)
+                .content("{ \"reason\": \"typo\" }")
+                .with(withTestAuth(Role.BOOKKEEPER)))
+        .andExpect(status().isCreated())
+        .andExpect(
+            header().string("Location", endsWith("/journal-entries/" + reversal.id().value())))
+        .andExpect(jsonPath("$.id").value(reversal.id().value().toString()));
+  }
+
+  @Test
+  @DisplayName("POST /journal-entries/{id}/reverse returns 404 when original not found")
+  void shouldReturn404WhenOriginalNotFound() throws Exception {
+    JournalEntryId originalId = new JournalEntryId(UUID.randomUUID());
+    Mockito.when(
+            reverseService.reverse(
+                Mockito.any(), Mockito.eq(originalId), Mockito.any(), Mockito.any()))
+        .thenReturn(Result.failure(new JournalError.NotFound(originalId)));
+
+    mvc.perform(
+            post("/journal-entries/" + originalId.value() + "/reverse")
+                .contentType(MediaType.APPLICATION_JSON)
+                .content("{ \"reason\": \"typo\" }")
+                .with(withTestAuth(Role.ADMIN)))
+        .andExpect(status().isNotFound())
+        .andExpect(content().contentType("application/problem+json"))
+        .andExpect(jsonPath("$.type").value(endsWith("/journal/not-found")));
+  }
+
+  @Test
+  @DisplayName("POST /journal-entries/{id}/reverse returns 400 when already reversed")
+  void shouldReturn400WhenAlreadyReversed() throws Exception {
+    JournalEntryId originalId = new JournalEntryId(UUID.randomUUID());
+    Mockito.when(
+            reverseService.reverse(
+                Mockito.any(), Mockito.eq(originalId), Mockito.any(), Mockito.any()))
+        .thenReturn(Result.failure(new JournalError.AlreadyReversed(originalId)));
+
+    mvc.perform(
+            post("/journal-entries/" + originalId.value() + "/reverse")
+                .contentType(MediaType.APPLICATION_JSON)
+                .content("{ \"reason\": \"typo\" }")
+                .with(withTestAuth(Role.BOOKKEEPER)))
+        .andExpect(status().isBadRequest())
+        .andExpect(content().contentType("application/problem+json"))
+        .andExpect(jsonPath("$.type").value(endsWith("/journal/already-reversed")));
+  }
+
+  @Test
+  @DisplayName("POST /journal-entries/{id}/reverse returns 400 when reason is blank")
+  void shouldReturn400WhenReasonBlank() throws Exception {
+    JournalEntryId originalId = new JournalEntryId(UUID.randomUUID());
+
+    mvc.perform(
+            post("/journal-entries/" + originalId.value() + "/reverse")
+                .contentType(MediaType.APPLICATION_JSON)
+                .content("{ \"reason\": \"\" }")
+                .with(withTestAuth(Role.BOOKKEEPER)))
+        .andExpect(status().isBadRequest());
+  }
+
+  @Test
+  @DisplayName("POST /journal-entries/{id}/reverse returns 400 when reason exceeds 500 characters")
+  void shouldReturn400WhenReasonExceedsMaxLength() throws Exception {
+    JournalEntryId originalId = new JournalEntryId(UUID.randomUUID());
+    String tooLong = "x".repeat(501);
+
+    mvc.perform(
+            post("/journal-entries/" + originalId.value() + "/reverse")
+                .contentType(MediaType.APPLICATION_JSON)
+                .content("{ \"reason\": \"" + tooLong + "\" }")
+                .with(withTestAuth(Role.BOOKKEEPER)))
+        .andExpect(status().isBadRequest());
+  }
+
+  @Test
+  @DisplayName("POST /journal-entries/{id}/reverse returns 400 when today's period is closed")
+  void shouldReturn400WhenReversingInClosedPeriod() throws Exception {
+    JournalEntryId originalId = new JournalEntryId(UUID.randomUUID());
+    Mockito.when(
+            reverseService.reverse(
+                Mockito.any(), Mockito.eq(originalId), Mockito.any(), Mockito.any()))
+        .thenReturn(Result.failure(new JournalError.PostingInClosedPeriod(YearMonth.of(2026, 7))));
+
+    mvc.perform(
+            post("/journal-entries/" + originalId.value() + "/reverse")
+                .contentType(MediaType.APPLICATION_JSON)
+                .content("{ \"reason\": \"typo\" }")
+                .with(withTestAuth(Role.BOOKKEEPER)))
+        .andExpect(status().isBadRequest())
+        .andExpect(content().contentType("application/problem+json"))
+        .andExpect(jsonPath("$.type").value(endsWith("/journal/posting-in-closed-period")));
+  }
+
+  @Test
+  @DisplayName("POST /journal-entries/{id}/reverse returns 403 when caller has only READ_ONLY")
+  void shouldReturn403WhenReadOnlyTriesToReverse() throws Exception {
+    JournalEntryId originalId = new JournalEntryId(UUID.randomUUID());
+
+    mvc.perform(
+            post("/journal-entries/" + originalId.value() + "/reverse")
+                .contentType(MediaType.APPLICATION_JSON)
+                .content("{ \"reason\": \"typo\" }")
+                .with(withTestAuth(Role.READ_ONLY)))
+        .andExpect(status().isForbidden());
   }
 }
