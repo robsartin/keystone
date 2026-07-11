@@ -2,6 +2,112 @@
 
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
 
+## Amendment 1 (2026-07-09) — read before executing
+
+Three plan gaps caught after merge. Apply these overrides throughout:
+
+### A1.1 — `JournalEntry` construction
+
+The plan's tests use `JournalEntry.raw(LocalDate, String, List<Posting>)` — that method does **not** exist. `JournalEntry` is a record with canonical constructor `(TenantId tenantId, LocalDate occurredOn, String description, List<Posting> postings)`. Two implications:
+
+- Test-side entry construction uses either the canonical constructor directly OR `JournalEntry.of(tenantId, occurredOn, description, postings, JournalValidationContext.permissive())` (returns `Result` — unwrap via `.orElseThrow(...)` in test setup). Read `src/test/java/co/embracejoy/accounting/keystone/domain/journal/JournalEntryTest.java` for the actual convention.
+- `JournalEntry.reverse(...)` takes the original entry's tenant from `original.tenantId()`. Signature and body:
+
+```java
+public static JournalEntry reverse(
+    JournalEntryId originalId, String reason, java.time.LocalDate today, JournalEntry original) {
+  Objects.requireNonNull(originalId, "originalId");
+  Objects.requireNonNull(reason, "reason");
+  Objects.requireNonNull(today, "today");
+  Objects.requireNonNull(original, "original");
+  if (reason.isBlank()) {
+    throw new IllegalArgumentException("reason must not be blank");
+  }
+  List<Posting> swapped =
+      original.postings().stream()
+          .map(p -> new Posting(p.account(), p.side().opposite(), p.amount(), p.baseAmount()))
+          .toList();
+  String description = "Reversal of #" + originalId.value() + ": " + reason;
+  return new JournalEntry(original.tenantId(), today, description, swapped);
+}
+```
+
+No `Result` return — derived state from validated input; the canonical constructor's null/copyOf checks are sufficient. `Side.opposite()` doesn't exist yet; T1 adds it (Amendment A1.4).
+
+### A1.2 — V10 migration grows two more columns
+
+`ReversedByMetadata` needs `reversedAt` (Instant) and `reversedBy` (String). Neither exists on `journal_entries` (only `created_at` — row insertion timestamp, no semantic "posted by" field). V10 SQL becomes:
+
+```sql
+ALTER TABLE journal_entries
+  ADD COLUMN reverses_id UUID NULL,
+  ADD COLUMN reversal_reason TEXT NULL,
+  ADD COLUMN posted_at TIMESTAMPTZ NOT NULL DEFAULT now(),
+  ADD COLUMN posted_by TEXT NULL;
+
+ALTER TABLE journal_entries
+  ADD CONSTRAINT journal_entries_reverses_fk
+  FOREIGN KEY (tenant_id, reverses_id)
+  REFERENCES journal_entries (tenant_id, id);
+
+CREATE INDEX journal_entries_reverses_idx
+  ON journal_entries (tenant_id, reverses_id);
+```
+
+`posted_at` is `NOT NULL DEFAULT now()` so existing rows backfill without a data migration. `posted_by` is nullable — historical rows have no known actor; new rows (after this migration) populate from the JWT sub via the actor propagation change in Amendment A1.5.
+
+### A1.3 — `JournalEntryRepository` port gains two methods
+
+The plan added `saveReversal(...)` to the adapter class only. But `application/journal/ReverseJournalEntryService` (Phase B) can only depend on the domain port (ArchUnit's `APPLICATION_DOES_NOT_DEPEND_ON_INFRASTRUCTURE`). Both `existsReversalOf` and `saveReversal` land on the port in Phase A T2:
+
+```java
+// src/main/java/co/embracejoy/accounting/keystone/domain/journal/JournalEntryRepository.java
+public interface JournalEntryRepository {
+  // existing:
+  PersistedJournalEntry save(JournalEntry entry, String actor);           // signature change — see A1.5
+  Optional<PersistedJournalEntry> findById(TenantId tenantId, JournalEntryId id);
+  Set<YearMonth> distinctOccurredMonths(TenantId tenantId);
+  // NEW in T2:
+  PersistedJournalEntry saveReversal(JournalEntry reversal, ReversalMetadata metadata, String actor);
+  boolean existsReversalOf(TenantId tenantId, JournalEntryId originalId);
+}
+```
+
+`saveReversal` is exercised end-to-end in Phase B; T2 covers the round-trip in the adapter IT.
+
+### A1.4 — Add `Side.opposite()` in T1
+
+The reverse factory (A1.1) uses `Side.opposite()`. Doesn't exist. Add:
+
+```java
+// src/main/java/co/embracejoy/accounting/keystone/domain/journal/Side.java
+public Side opposite() {
+  return this == DEBIT ? CREDIT : DEBIT;
+}
+```
+
+Test in `JournalEntryReversalTest` (or a small `SideTest`) — one assertion per direction is enough.
+
+### A1.5 — Propagate `actor` through the write path in T2
+
+`posted_by` must populate at save time. Existing `JournalEntryController.create(...)` and `PostJournalEntryService.post(...)` don't carry an actor. Fold into T2:
+
+- `PostJournalEntryService.post(...)` and `JournalEntryRepository.save(...)` gain a `String actor` argument.
+- `JournalEntryController.create(...)` reads it from `SecurityContextHolder.getContext().getAuthentication().getName()` — same pattern as `UserRoleUiController.grant(...)` in Slice 5.
+- `JournalEntryRepositoryAdapter.save(...)` writes the actor to the new `posted_by` column.
+- Existing `JournalEntryControllerTest` cases use `.with(withTestAuth(...))` — they already have a JWT sub in the SecurityContext, so the tests should still pass; just add one assertion in the round-trip IT that `posted_by` matches the actor sub.
+- Existing `ApplicationSmokeIT` passes `smoke-user` as the JWT sub → `posted_by = "smoke-user"` on every entry it writes. Not exercised in a smoke assertion, just documented behavior.
+
+### A1.6 — `ReversedByMetadata` populated from real columns in T5
+
+T5 step 3's LEFT JOIN pulls `r.posted_at` and `r.posted_by` (real after A1.2) into `ReversedByMetadata`. Delete the fallback caveat about non-existent columns.
+
+---
+
+Everything below is the original merged plan. Apply the amendments above wherever they touch a task.
+
+---
+
 **Goal:** Ship migration V10 + persistence extensions + read model + `GET /journal-entries` (list, cursor + filters) + `GET /journal-entries/{id}` (detail with reversal metadata). Phase A of Slice 7; the reverse endpoint lands in Phase B, the UI in Phase C.
 
 **Architecture:** Add nullable `reverses_id` + `reversal_reason` columns to `journal_entries` (V10, composite FK preserving tenant isolation). Domain gains an unused `reverse()` factory and a `NotFound` error variant. Persistence adapter round-trips the new columns. A new `JournalEntryReadModel` port (JdbcClient adapter, per the `TrialBalanceReadModel` precedent from Slice 4) serves the list + detail queries; cursor pagination uses `id > cursor` (UUID v7 sorts by time). Controller gains two `@GetMapping` endpoints; OpenAPI snapshot regen closes the phase.
