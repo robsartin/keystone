@@ -3,12 +3,14 @@ package co.embracejoy.accounting.keystone.infrastructure.web;
 import static org.hamcrest.Matchers.containsString;
 import static org.hamcrest.Matchers.endsWith;
 import static org.hamcrest.Matchers.notNullValue;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.content;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.header;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
+import co.embracejoy.accounting.keystone.application.journal.JournalEntryQueryService;
 import co.embracejoy.accounting.keystone.application.journal.PostJournalEntryService;
 import co.embracejoy.accounting.keystone.domain.account.AccountCode;
 import co.embracejoy.accounting.keystone.domain.journal.JournalEntry;
@@ -73,6 +75,7 @@ class JournalEntryControllerTest {
   @Autowired MockMvc mvc;
   @Autowired JwtTestSupport jwt;
   @MockitoBean PostJournalEntryService service;
+  @MockitoBean JournalEntryQueryService queryService;
   @MockitoBean TenantRepository tenants;
   @MockitoBean TenantUserRoleRepository roles;
   @MockitoBean PlatformAdminRepository platformAdmins;
@@ -407,5 +410,46 @@ class JournalEntryControllerTest {
         .andExpect(status().isForbidden())
         .andExpect(content().contentType("application/problem+json"))
         .andExpect(jsonPath("$.type").value(endsWith("/problems/auth/insufficient-role")));
+  }
+
+  @Test
+  @DisplayName("GET /journal-entries/{id} returns 200 with entry")
+  void shouldReturn200WhenEntryFound() throws Exception {
+    JournalEntryId id = new JournalEntryId(UUID.fromString("01902f9f-0000-7000-8000-0000000000ee"));
+    PersistedJournalEntry persisted = new PersistedJournalEntry(id, validPersisted().entry());
+    Mockito.when(queryService.findById(TENANT, id)).thenReturn(Optional.of(persisted));
+
+    mvc.perform(get("/journal-entries/" + id.value()).with(withTestAuth(Role.READ_ONLY)))
+        .andExpect(status().isOk())
+        .andExpect(jsonPath("$.id").value(id.value().toString()));
+  }
+
+  @Test
+  @DisplayName("GET /journal-entries/{id} returns 404 when entry not found")
+  void shouldReturn404WhenEntryNotFound() throws Exception {
+    JournalEntryId id = new JournalEntryId(UUID.randomUUID());
+    Mockito.when(queryService.findById(Mockito.any(), Mockito.eq(id))).thenReturn(Optional.empty());
+
+    mvc.perform(get("/journal-entries/" + id.value()).with(withTestAuth(Role.ADMIN)))
+        .andExpect(status().isNotFound())
+        .andExpect(content().contentType("application/problem+json"))
+        .andExpect(jsonPath("$.type").value(endsWith("/journal/not-found")));
+  }
+
+  @Test
+  @DisplayName("GET /journal-entries/{id} returns 404 when path variable is not a UUID")
+  void shouldReturn404WhenGetByIdWithMalformedUuid() throws Exception {
+    mvc.perform(get("/journal-entries/not-a-uuid").with(withTestAuth(Role.ADMIN)))
+        .andExpect(status().isNotFound())
+        .andExpect(content().contentType("application/problem+json"))
+        .andExpect(jsonPath("$.type").value(endsWith("/journal/not-found")))
+        .andExpect(jsonPath("$.detail", containsString("not-a-uuid")));
+  }
+
+  @Test
+  @DisplayName("GET /journal-entries/{id} returns 401 when no auth")
+  void shouldReturn401WhenNoAuth() throws Exception {
+    JournalEntryId id = new JournalEntryId(UUID.randomUUID());
+    mvc.perform(get("/journal-entries/" + id.value())).andExpect(status().isUnauthorized());
   }
 }

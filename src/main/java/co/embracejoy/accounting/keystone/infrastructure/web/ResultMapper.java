@@ -165,6 +165,14 @@ public final class ResultMapper {
         "No tenant with id '" + rawId + "'.");
   }
 
+  public static ProblemDetail journalNotFoundByRawId(String rawId) {
+    return problem(
+        HttpStatus.NOT_FOUND,
+        "/journal/not-found",
+        "Journal entry not found",
+        "No journal entry with id '" + rawId + "'.");
+  }
+
   public static ProblemDetail toProblemDetail(AccountError err) {
     return switch (err) {
       case AccountError.CodeAlreadyExists c -> accountCodeAlreadyExists(c);
