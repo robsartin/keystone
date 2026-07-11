@@ -5,6 +5,7 @@ import static org.assertj.core.api.Assertions.assertThat;
 import co.embracejoy.accounting.keystone.infrastructure.security.Tenants;
 import co.embracejoy.accounting.keystone.testsupport.JwtTestSupport;
 import co.embracejoy.accounting.keystone.testsupport.TestSecurityConfig;
+import java.net.URI;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
@@ -441,6 +442,69 @@ class ApplicationSmokeIT {
   }
 
   @Test
+  @DisplayName("Reversal round-trip: POST entry → POST reverse → GET both back with metadata")
+  void shouldReverseAnEntryAndSurfaceMetadataOnBothSides() {
+    RestClient client = client();
+
+    // 1. Post a balanced original
+    ResponseEntity<String> createOriginal = postReversalOriginal(client);
+    assertThat(createOriginal.getStatusCode()).isEqualTo(HttpStatus.CREATED);
+    String originalId = idFromLocation(createOriginal.getHeaders().getLocation());
+
+    // 2. Reverse it
+    ResponseEntity<String> reverse = reverseEntry(client, originalId);
+    assertThat(reverse.getStatusCode()).isEqualTo(HttpStatus.CREATED);
+    String reversalId = idFromLocation(reverse.getHeaders().getLocation());
+    assertThat(reverse.getBody()).contains("\"reversesId\":\"" + originalId + "\"");
+    assertThat(reverse.getBody()).contains("\"reversalReason\":\"smoke test reversal\"");
+
+    // 3. GET the original — should now carry reversedBy metadata
+    ResponseEntity<String> originalDetail = getEntry(client, originalId);
+    assertThat(originalDetail.getStatusCode()).isEqualTo(HttpStatus.OK);
+    assertThat(originalDetail.getBody()).contains("\"reversedById\":\"" + reversalId + "\"");
+    assertThat(originalDetail.getBody()).contains("\"reversedReason\":\"smoke test reversal\"");
+  }
+
+  private ResponseEntity<String> postReversalOriginal(RestClient client) {
+    return client
+        .post()
+        .uri("/journal-entries")
+        .contentType(MediaType.APPLICATION_JSON)
+        .body(reversalOriginalBody())
+        .retrieve()
+        .toEntity(String.class);
+  }
+
+  private ResponseEntity<String> reverseEntry(RestClient client, String originalId) {
+    return client
+        .post()
+        .uri("/journal-entries/" + originalId + "/reverse")
+        .contentType(MediaType.APPLICATION_JSON)
+        .body("{ \"reason\": \"smoke test reversal\" }")
+        .retrieve()
+        .toEntity(String.class);
+  }
+
+  private ResponseEntity<String> getEntry(RestClient client, String id) {
+    return client.get().uri("/journal-entries/" + id).retrieve().toEntity(String.class);
+  }
+
+  private static String reversalOriginalBody() {
+    return """
+        {
+          "occurredOn": "2026-07-11",
+          "description": "original for reversal smoke",
+          "postings": [
+            { "account": "1000", "side": "DEBIT",  "minorUnits": 4200,
+              "currency": "USD", "baseMinorUnits": 4200 },
+            { "account": "3000", "side": "CREDIT", "minorUnits": 4200,
+              "currency": "USD", "baseMinorUnits": 4200 }
+          ]
+        }
+        """;
+  }
+
+  @Test
   @DisplayName("Admin API: platform admin creates + lists tenants end-to-end")
   void shouldCreateAndListTenantsAsPlatformAdmin() {
     seedPlatformAdmin("smoke-platform-admin");
@@ -478,5 +542,14 @@ class ApplicationSmokeIT {
         .baseUrl("http://localhost:" + port)
         .defaultHeader("Authorization", "Bearer " + jwt.mintWithoutTenant(userSub))
         .build();
+  }
+
+  private static String idFromLocation(URI location) {
+    String path = location.getPath();
+    // path is /journal-entries/<uuid> or /journal-entries/<uuid>/reverse — take segment after
+    // /journal-entries/.
+    int start = path.indexOf("/journal-entries/") + "/journal-entries/".length();
+    int end = path.indexOf('/', start);
+    return end == -1 ? path.substring(start) : path.substring(start, end);
   }
 }
