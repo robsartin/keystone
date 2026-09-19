@@ -25,12 +25,12 @@
         <maven.compiler.target>25</maven.compiler.target>
         <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
 
-        <!-- Force JUnit Jupiter 6. Spring Boot 4.0.3's BOM may already
-             ship 6.x; this override is harmless if so, and forces 6.x
-             if the BOM still points at 5.x. -->
-        <junit-jupiter.version>6.0.0</junit-jupiter.version>
+        <!-- Run AHEAD of the Spring Boot BOM. Boot 4.0.3 already manages
+             JUnit Jupiter/Platform 6.0.3; this override lifts them to the
+             latest 6.x release. Drop it once the BOM catches up. -->
+        <junit-jupiter.version>6.1.3</junit-jupiter.version>
 
-        <archunit.version>1.4.1</archunit.version>
+        <archunit.version>1.5.0</archunit.version>
         <jacoco.version>0.8.13</jacoco.version>
         <checkstyle.version>10.25.0</checkstyle.version>
         <maven-checkstyle-plugin.version>3.6.0</maven-checkstyle-plugin.version>
@@ -127,7 +127,7 @@
         </dependency>
         <dependency>
             <groupId>com.tngtech.archunit</groupId>
-            <artifactId>archunit-junit5</artifactId>
+            <artifactId>archunit-junit6</artifactId>
             <version>${archunit.version}</version>
             <scope>test</scope>
         </dependency>
