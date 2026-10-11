@@ -345,8 +345,13 @@ class JournalEntryJdbcReadModelIT {
   private PersistedJournalEntry seedReversalOf(PersistedJournalEntry original, String reason) {
     JournalEntry reversal =
         JournalEntry.reverse(original.id(), reason, LocalDate.now(), original.entry());
-    return journalRepo.saveReversal(
-        reversal, new ReversalMetadata(original.id(), reason), "reversal-actor");
+    return journalRepo
+        .saveReversal(reversal, new ReversalMetadata(original.id(), reason), "reversal-actor")
+        .fold(
+            persisted -> persisted,
+            error -> {
+              throw new AssertionError("seed reversal failed: " + error);
+            });
   }
 
   private void seedSplitDebitEntry(

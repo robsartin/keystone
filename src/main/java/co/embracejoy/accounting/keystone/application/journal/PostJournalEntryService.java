@@ -66,7 +66,7 @@ public final class PostJournalEntryService {
         buildContext(tenantId, reversal.postings(), reversal.occurredOn());
     return JournalEntry.of(
             tenantId, reversal.occurredOn(), reversal.description(), reversal.postings(), ctx)
-        .map(validated -> journalRepository.saveReversal(validated, metadata, actor));
+        .flatMap(validated -> journalRepository.saveReversal(validated, metadata, actor));
   }
 
   /** Extracted context-building — shared by {@link #post} and {@link #postReversal}. */
