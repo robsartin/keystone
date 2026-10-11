@@ -232,7 +232,7 @@ class PostJournalEntryServiceTest {
     }
 
     @Override
-    public PersistedJournalEntry saveReversal(
+    public Result<PersistedJournalEntry, JournalError> saveReversal(
         JournalEntry reversal, ReversalMetadata metadata, String actor) {
       lastReversalMetadata = metadata;
       lastActor = actor;
@@ -243,7 +243,7 @@ class PostJournalEntryServiceTest {
               Optional.of(metadata),
               Optional.empty());
       saved.add(p);
-      return p;
+      return Result.success(p);
     }
 
     @Override

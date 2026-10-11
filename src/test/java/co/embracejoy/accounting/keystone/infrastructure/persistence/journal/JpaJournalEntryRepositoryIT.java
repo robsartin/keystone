@@ -211,7 +211,9 @@ class JpaJournalEntryRepositoryIT {
     ReversalMetadata metadata = new ReversalMetadata(original.id(), "posted to wrong account");
 
     PersistedJournalEntry persistedReversal =
-        repository.saveReversal(reversalEntry, metadata, ACTOR);
+        ((Result.Success<PersistedJournalEntry, JournalError>)
+                repository.saveReversal(reversalEntry, metadata, ACTOR))
+            .value();
 
     PersistedJournalEntry loaded =
         repository.findById(TENANT, persistedReversal.id()).orElseThrow();
@@ -247,6 +249,43 @@ class JpaJournalEntryRepositoryIT {
     assertThat(repository.existsReversalOf(TENANT, original.id())).isTrue();
   }
 
+  /**
+   * Runs {@code task} on two threads released together by a barrier, so both are inside the call
+   * before either can finish. Returns each outcome: the task's value, or the Throwable it threw.
+   */
+  private List<Object> raceTwo(Callable<Object> task) throws Exception {
+    CyclicBarrier bothReady = new CyclicBarrier(2);
+    Callable<Object> gated =
+        () -> {
+          RequestContextHolder.setRequestAttributes(
+              new ServletRequestAttributes(new MockHttpServletRequest()));
+          try {
+            tenantContext.set(TENANT);
+            bothReady.await(10, TimeUnit.SECONDS);
+            return task.call();
+          } catch (RuntimeException e) {
+            return e;
+          } finally {
+            RequestContextHolder.resetRequestAttributes();
+          }
+        };
+    ExecutorService pool = Executors.newFixedThreadPool(2);
+    try {
+      Future<Object> a = pool.submit(gated);
+      Future<Object> b = pool.submit(gated);
+      return List.of(a.get(30, TimeUnit.SECONDS), b.get(30, TimeUnit.SECONDS));
+    } finally {
+      pool.shutdownNow();
+    }
+  }
+
+  private int reversalRowsOf(PersistedJournalEntry original) {
+    return jdbc.queryForObject(
+        "select count(*) from journal_entries where reverses_id = ?",
+        Integer.class,
+        original.id().value());
+  }
+
   @Test
   @DisplayName("exactly one reversal is persisted when two threads reverse the same original")
   void shouldPersistExactlyOneReversalWhenTwoThreadsReverseSameOriginal() throws Exception {
@@ -254,39 +293,10 @@ class JpaJournalEntryRepositoryIT {
     JournalEntry reversalEntry =
         JournalEntry.reverse(original.id(), "double click", LocalDate.now(), original.entry());
     ReversalMetadata metadata = new ReversalMetadata(original.id(), "double click");
-    CyclicBarrier bothReady = new CyclicBarrier(2);
 
-    Callable<Boolean> attempt =
-        () -> {
-          RequestContextHolder.setRequestAttributes(
-              new ServletRequestAttributes(new MockHttpServletRequest()));
-          try {
-            tenantContext.set(TENANT);
-            bothReady.await(10, TimeUnit.SECONDS);
-            repository.saveReversal(reversalEntry, metadata, ACTOR);
-            return true;
-          } catch (RuntimeException e) {
-            return false;
-          } finally {
-            RequestContextHolder.resetRequestAttributes();
-          }
-        };
+    List<Object> outcomes = raceTwo(() -> repository.saveReversal(reversalEntry, metadata, ACTOR));
 
-    ExecutorService pool = Executors.newFixedThreadPool(2);
-    try {
-      Future<Boolean> a = pool.submit(attempt);
-      Future<Boolean> b = pool.submit(attempt);
-      int successes = (a.get(30, TimeUnit.SECONDS) ? 1 : 0) + (b.get(30, TimeUnit.SECONDS) ? 1 : 0);
-
-      Integer reversalRows =
-          jdbc.queryForObject(
-              "select count(*) from journal_entries where reverses_id = ?",
-              Integer.class,
-              original.id().value());
-      assertThat(successes).as("saveReversal calls that succeeded").isEqualTo(1);
-      assertThat(reversalRows).as("reversal rows for one original").isEqualTo(1);
-    } finally {
-      pool.shutdownNow();
-    }
+    assertThat(outcomes.stream().filter(o -> o instanceof Result.Success<?, ?>)).hasSize(1);
+    assertThat(reversalRowsOf(original)).as("reversal rows for one original").isEqualTo(1);
   }
 }

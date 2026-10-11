@@ -3,8 +3,10 @@ package co.embracejoy.accounting.keystone.infrastructure.persistence.journal;
 import co.embracejoy.accounting.keystone.domain.journal.JournalEntry;
 import co.embracejoy.accounting.keystone.domain.journal.JournalEntryId;
 import co.embracejoy.accounting.keystone.domain.journal.JournalEntryRepository;
+import co.embracejoy.accounting.keystone.domain.journal.JournalError;
 import co.embracejoy.accounting.keystone.domain.journal.PersistedJournalEntry;
 import co.embracejoy.accounting.keystone.domain.journal.ReversalMetadata;
+import co.embracejoy.accounting.keystone.domain.shared.Result;
 import co.embracejoy.accounting.keystone.domain.tenancy.TenantId;
 import co.embracejoy.accounting.keystone.infrastructure.security.RlsTransactionInterceptor;
 import co.embracejoy.accounting.keystone.infrastructure.security.TenantContext;
@@ -51,7 +53,7 @@ public class JpaJournalEntryRepository implements JournalEntryRepository {
   }
 
   @Override
-  public PersistedJournalEntry saveReversal(
+  public Result<PersistedJournalEntry, JournalError> saveReversal(
       JournalEntry reversal, ReversalMetadata metadata, String actor) {
     TenantId tid = tenantContext.require();
     validateTenantMatch(tid, reversal.tenantId());
@@ -60,7 +62,7 @@ public class JpaJournalEntryRepository implements JournalEntryRepository {
         JournalEntryEntityMapper.toEntity(
             reversal, UuidV7Generator.create(), actor, Optional.of(metadata));
     var saved = jpa.save(entity);
-    return JournalEntryEntityMapper.toDomain(saved, baseCurrency);
+    return Result.success(JournalEntryEntityMapper.toDomain(saved, baseCurrency));
   }
 
   @Override

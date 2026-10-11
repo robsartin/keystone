@@ -240,10 +240,12 @@ class PeriodServiceTest {
     }
 
     @Override
-    public PersistedJournalEntry saveReversal(
-        JournalEntry reversal,
-        co.embracejoy.accounting.keystone.domain.journal.ReversalMetadata metadata,
-        String actor) {
+    public co.embracejoy.accounting.keystone.domain.shared.Result<
+            PersistedJournalEntry, co.embracejoy.accounting.keystone.domain.journal.JournalError>
+        saveReversal(
+            JournalEntry reversal,
+            co.embracejoy.accounting.keystone.domain.journal.ReversalMetadata metadata,
+            String actor) {
       throw new UnsupportedOperationException("not needed in PeriodServiceTest");
     }
 

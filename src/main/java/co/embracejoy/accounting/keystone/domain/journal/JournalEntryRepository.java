@@ -1,5 +1,6 @@
 package co.embracejoy.accounting.keystone.domain.journal;
 
+import co.embracejoy.accounting.keystone.domain.shared.Result;
 import co.embracejoy.accounting.keystone.domain.tenancy.TenantId;
 import java.util.Optional;
 
@@ -28,8 +29,11 @@ public interface JournalEntryRepository {
    * {@code reversal_reason} columns from {@code metadata}.
    *
    * @param actor the identity (JWT sub) posting the reversal, stamped onto {@code posted_by}
+   * @return the persisted reversal, or {@link JournalError.AlreadyReversed} when a reversal of the
+   *     same original already exists (including one committed by a concurrent request after the
+   *     caller's {@link #existsReversalOf} check)
    */
-  PersistedJournalEntry saveReversal(
+  Result<PersistedJournalEntry, JournalError> saveReversal(
       JournalEntry reversal, ReversalMetadata metadata, String actor);
 
   /** Whether a reversal of {@code originalId} already exists for the given tenant. */
