@@ -25,12 +25,22 @@ import java.util.Currency;
 import java.util.List;
 import java.util.Optional;
 import java.util.Set;
+import java.util.concurrent.Callable;
+import java.util.concurrent.CyclicBarrier;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
+import java.util.concurrent.Future;
+import java.util.concurrent.TimeUnit;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.boot.testcontainers.service.connection.ServiceConnection;
+import org.springframework.jdbc.core.JdbcTemplate;
+import org.springframework.mock.web.MockHttpServletRequest;
+import org.springframework.web.context.request.RequestContextHolder;
+import org.springframework.web.context.request.ServletRequestAttributes;
 import org.testcontainers.containers.PostgreSQLContainer;
 import org.testcontainers.junit.jupiter.Container;
 import org.testcontainers.junit.jupiter.Testcontainers;
@@ -51,6 +61,7 @@ class JpaJournalEntryRepositoryIT {
   @Autowired JournalEntryJpaRepository jpaRepository;
   @Autowired AccountRepositoryAdapter accountRepository;
   @Autowired TenantContext tenantContext;
+  @Autowired JdbcTemplate jdbc;
 
   private static final Currency USD = Currency.getInstance("USD");
   private static final Currency EUR = Currency.getInstance("EUR");
@@ -234,5 +245,48 @@ class JpaJournalEntryRepositoryIT {
     repository.saveReversal(reversalEntry, metadata, ACTOR);
 
     assertThat(repository.existsReversalOf(TENANT, original.id())).isTrue();
+  }
+
+  @Test
+  @DisplayName("exactly one reversal is persisted when two threads reverse the same original")
+  void shouldPersistExactlyOneReversalWhenTwoThreadsReverseSameOriginal() throws Exception {
+    PersistedJournalEntry original = repository.save(validEntry(), ACTOR);
+    JournalEntry reversalEntry =
+        JournalEntry.reverse(original.id(), "double click", LocalDate.now(), original.entry());
+    ReversalMetadata metadata = new ReversalMetadata(original.id(), "double click");
+    CyclicBarrier bothReady = new CyclicBarrier(2);
+
+    Callable<Boolean> attempt =
+        () -> {
+          RequestContextHolder.setRequestAttributes(
+              new ServletRequestAttributes(new MockHttpServletRequest()));
+          try {
+            tenantContext.set(TENANT);
+            bothReady.await(10, TimeUnit.SECONDS);
+            repository.saveReversal(reversalEntry, metadata, ACTOR);
+            return true;
+          } catch (RuntimeException e) {
+            return false;
+          } finally {
+            RequestContextHolder.resetRequestAttributes();
+          }
+        };
+
+    ExecutorService pool = Executors.newFixedThreadPool(2);
+    try {
+      Future<Boolean> a = pool.submit(attempt);
+      Future<Boolean> b = pool.submit(attempt);
+      int successes = (a.get(30, TimeUnit.SECONDS) ? 1 : 0) + (b.get(30, TimeUnit.SECONDS) ? 1 : 0);
+
+      Integer reversalRows =
+          jdbc.queryForObject(
+              "select count(*) from journal_entries where reverses_id = ?",
+              Integer.class,
+              original.id().value());
+      assertThat(successes).as("saveReversal calls that succeeded").isEqualTo(1);
+      assertThat(reversalRows).as("reversal rows for one original").isEqualTo(1);
+    } finally {
+      pool.shutdownNow();
+    }
   }
 }
