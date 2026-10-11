@@ -34,6 +34,7 @@ See [ADR-0001](0001-record-decisions-in-adrs.md) for the meta-decision.
 | [0021](0021-server-rendered-ui-thymeleaf-htmx-no-build.md) | Server-rendered admin UI — Thymeleaf + HTMX, no JS build step | Accepted |
 | [0022](0022-playwright-and-axe-core-ci-gate.md) | Playwright + axe-core browser tests as a CI gate | Accepted |
 | [0023](0023-reversal-uniqueness-enforced-by-database-and-reported-via-result.md) | Reversal uniqueness enforced by the database and reported through the port's Result | Accepted |
+| [0024](0024-http-status-policy-for-domain-errors.md) | HTTP status policy for domain errors | Proposed |
 
 ## Numbering
 
