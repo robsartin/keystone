@@ -2,12 +2,15 @@ package co.embracejoy.accounting.keystone.infrastructure.persistence.journal;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
+import co.embracejoy.accounting.keystone.application.journal.PostJournalEntryService;
+import co.embracejoy.accounting.keystone.application.journal.ReverseJournalEntryService;
 import co.embracejoy.accounting.keystone.domain.account.Account;
 import co.embracejoy.accounting.keystone.domain.account.AccountCode;
 import co.embracejoy.accounting.keystone.domain.account.AccountStatus;
 import co.embracejoy.accounting.keystone.domain.account.AccountType;
 import co.embracejoy.accounting.keystone.domain.journal.JournalEntry;
 import co.embracejoy.accounting.keystone.domain.journal.JournalEntryId;
+import co.embracejoy.accounting.keystone.domain.journal.JournalEntryRepository;
 import co.embracejoy.accounting.keystone.domain.journal.JournalError;
 import co.embracejoy.accounting.keystone.domain.journal.PersistedJournalEntry;
 import co.embracejoy.accounting.keystone.domain.journal.Posting;
@@ -19,6 +22,7 @@ import co.embracejoy.accounting.keystone.domain.tenancy.TenantId;
 import co.embracejoy.accounting.keystone.infrastructure.persistence.account.AccountRepositoryAdapter;
 import co.embracejoy.accounting.keystone.infrastructure.security.TenantContext;
 import co.embracejoy.accounting.keystone.infrastructure.security.Tenants;
+import java.time.Clock;
 import java.time.LocalDate;
 import java.time.YearMonth;
 import java.util.Currency;
@@ -62,6 +66,7 @@ class JpaJournalEntryRepositoryIT {
   @Autowired AccountRepositoryAdapter accountRepository;
   @Autowired TenantContext tenantContext;
   @Autowired JdbcTemplate jdbc;
+  @Autowired PostJournalEntryService postJournalEntryService;
 
   private static final Currency USD = Currency.getInstance("USD");
   private static final Currency EUR = Currency.getInstance("EUR");
@@ -297,6 +302,89 @@ class JpaJournalEntryRepositoryIT {
     List<Object> outcomes = raceTwo(() -> repository.saveReversal(reversalEntry, metadata, ACTOR));
 
     assertThat(outcomes.stream().filter(o -> o instanceof Result.Success<?, ?>)).hasSize(1);
+    assertThat(outcomes)
+        .as("the loser is a domain failure, not a thrown persistence exception")
+        .contains(Result.failure(new JournalError.AlreadyReversed(original.id())));
     assertThat(reversalRowsOf(original)).as("reversal rows for one original").isEqualTo(1);
+  }
+
+  @Test
+  @DisplayName(
+      "reverse service returns AlreadyReversed for the loser when both pass the exists check")
+  void shouldReturnAlreadyReversedWhenBothRequestsPassTheExistsCheck() throws Exception {
+    PersistedJournalEntry original = repository.save(validEntry(), ACTOR);
+    CyclicBarrier bothChecked = new CyclicBarrier(2);
+    JournalEntryRepository gated = new GatedExistsRepository(repository, bothChecked);
+    ReverseJournalEntryService service =
+        new ReverseJournalEntryService(gated, postJournalEntryService, Clock.systemUTC());
+
+    List<Object> outcomes = raceTwo(() -> service.reverse(TENANT, original.id(), "retry", ACTOR));
+
+    assertThat(outcomes.stream().filter(o -> o instanceof Result.Success<?, ?>)).hasSize(1);
+    assertThat(outcomes)
+        .as("the loser is Result.failure(AlreadyReversed), not an exception")
+        .contains(Result.failure(new JournalError.AlreadyReversed(original.id())));
+    assertThat(reversalRowsOf(original)).as("reversal rows for one original").isEqualTo(1);
+  }
+
+  @Test
+  @DisplayName("an unrelated integrity violation is rethrown, not reported as AlreadyReversed")
+  void shouldRethrowWhenReversedEntryDoesNotExist() {
+    PersistedJournalEntry original = repository.save(validEntry(), ACTOR);
+    JournalEntryId missing = new JournalEntryId(java.util.UUID.randomUUID());
+    JournalEntry reversalEntry =
+        JournalEntry.reverse(missing, "dangling", LocalDate.now(), original.entry());
+    ReversalMetadata metadata = new ReversalMetadata(missing, "dangling");
+
+    org.assertj.core.api.Assertions.assertThatThrownBy(
+            () -> repository.saveReversal(reversalEntry, metadata, ACTOR))
+        .isInstanceOf(org.springframework.dao.DataIntegrityViolationException.class);
+  }
+
+  /**
+   * Delegates to the real repository, but after {@code existsReversalOf} answers it waits for the
+   * other thread to have answered too -- so both callers are guaranteed to have seen "not reversed"
+   * before either inserts. This makes the check-then-act race deterministic.
+   */
+  private static final class GatedExistsRepository implements JournalEntryRepository {
+    private final JournalEntryRepository delegate;
+    private final CyclicBarrier barrier;
+
+    GatedExistsRepository(JournalEntryRepository delegate, CyclicBarrier barrier) {
+      this.delegate = delegate;
+      this.barrier = barrier;
+    }
+
+    @Override
+    public boolean existsReversalOf(TenantId tenantId, JournalEntryId originalId) {
+      boolean exists = delegate.existsReversalOf(tenantId, originalId);
+      try {
+        barrier.await(10, TimeUnit.SECONDS);
+      } catch (Exception e) {
+        throw new IllegalStateException("barrier failed", e);
+      }
+      return exists;
+    }
+
+    @Override
+    public PersistedJournalEntry save(JournalEntry entry, String actor) {
+      return delegate.save(entry, actor);
+    }
+
+    @Override
+    public Optional<PersistedJournalEntry> findById(TenantId tenantId, JournalEntryId id) {
+      return delegate.findById(tenantId, id);
+    }
+
+    @Override
+    public Set<YearMonth> distinctOccurredMonths(TenantId tenantId) {
+      return delegate.distinctOccurredMonths(tenantId);
+    }
+
+    @Override
+    public Result<PersistedJournalEntry, JournalError> saveReversal(
+        JournalEntry reversal, ReversalMetadata metadata, String actor) {
+      return delegate.saveReversal(reversal, metadata, actor);
+    }
   }
 }
