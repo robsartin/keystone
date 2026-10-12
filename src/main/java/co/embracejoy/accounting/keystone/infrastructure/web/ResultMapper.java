@@ -250,6 +250,7 @@ public final class ResultMapper {
 
   private static ProblemDetail journalAccountNotALeaf(JournalError.AccountNotALeaf a) {
     return problem(
+        HttpStatus.CONFLICT,
         "/journal/account-not-a-leaf",
         "Posting targets a non-leaf account",
         "Account '" + a.code().value() + "' has children; post to a leaf instead.");

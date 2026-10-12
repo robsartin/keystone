@@ -151,12 +151,12 @@ class ResultMapperTest {
   }
 
   @Test
-  @DisplayName("JournalError.AccountNotALeaf maps to 400 with code in detail")
+  @DisplayName("JournalError.AccountNotALeaf maps to 409 with code in detail")
   void shouldMapJournalAccountNotALeafToProblemDetail() {
     ProblemDetail pd =
         ResultMapper.toProblemDetail(new JournalError.AccountNotALeaf(new AccountCode("1000")));
 
-    assertThat(pd.getStatus()).isEqualTo(HttpStatus.BAD_REQUEST.value());
+    assertThat(pd.getStatus()).isEqualTo(HttpStatus.CONFLICT.value());
     assertThat(pd.getType().toString()).endsWith("/journal/account-not-a-leaf");
     assertThat(pd.getDetail()).contains("1000");
   }

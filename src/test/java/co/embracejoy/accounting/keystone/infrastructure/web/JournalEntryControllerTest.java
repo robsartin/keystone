@@ -293,8 +293,8 @@ class JournalEntryControllerTest {
   }
 
   @Test
-  @DisplayName("returns 400 ProblemDetail when service returns Failure(AccountNotALeaf)")
-  void shouldReturn400WhenAccountNotALeaf() throws Exception {
+  @DisplayName("returns 409 ProblemDetail when service returns Failure(AccountNotALeaf)")
+  void shouldReturn409WhenAccountNotALeaf() throws Exception {
     Mockito.when(journalEntriesPostDuration.record(Mockito.any(Supplier.class)))
         .thenAnswer(inv -> inv.<Supplier<?>>getArgument(0).get());
     Mockito.when(
@@ -311,8 +311,9 @@ class JournalEntryControllerTest {
                 .contentType(MediaType.APPLICATION_JSON)
                 .content(validBody())
                 .with(withTestAuth(Role.ADMIN)))
-        .andExpect(status().isBadRequest())
+        .andExpect(status().isConflict())
         .andExpect(content().contentType("application/problem+json"))
+        .andExpect(jsonPath("$.status").value(409))
         .andExpect(jsonPath("$.type").value(endsWith("/journal/account-not-a-leaf")))
         .andExpect(jsonPath("$.detail", containsString("1000")));
   }
