@@ -192,15 +192,13 @@ return result.fold(
         return ResponseEntity.created(URI.create("/journal-entries/" + persisted.id().value()))
             .body(JournalEntryResponse.of(persisted));
     },
-    error -> {
+    err -> {
         postedInvalid.increment();
-        return ResponseEntity.badRequest()
-            .contentType(MediaType.parseMediaType("application/problem+json"))
-            .body(ResultMapper.toProblemDetail(error));
+        return error(err); // status comes from ResultMapper (ADR-0024)
     });
 ```
 
-On success the controller returns `201 Created` with a `JournalEntryResponse` JSON body and a `Location` header. On failure it returns `400 Bad Request` with an RFC 9457 `ProblemDetail` body.
+On success the controller returns `201 Created` with a `JournalEntryResponse` JSON body and a `Location` header. On failure it returns the status `ResultMapper` chose for the error (400 for invalid input, 409 for a state conflict; see [ADR-0024](../adr/0024-http-status-policy-for-domain-errors.md)) with an RFC 9457 `ProblemDetail` body.
 
 ---
 

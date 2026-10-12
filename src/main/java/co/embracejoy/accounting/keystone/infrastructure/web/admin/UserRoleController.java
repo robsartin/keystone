@@ -72,7 +72,7 @@ public class UserRoleController {
       description =
           "Assigns the given role (ADMIN, BOOKKEEPER, or READ_ONLY) to the user in the caller's"
               + " tenant. Idempotent: re-granting the same role is a no-op. Demoting the lone"
-              + " tenant Admin (yourself) is rejected with 400.")
+              + " tenant Admin (yourself) is rejected with 409.")
   public ResponseEntity<?> grant(
       @PathVariable String userSub, @Valid @RequestBody GrantRoleRequest req) {
     String currentUserSub = currentUserSub();
@@ -87,7 +87,7 @@ public class UserRoleController {
       summary = "Revoke a user's role",
       description =
           "Removes the user's role assignment in the caller's tenant. Returns 204 on success, 404"
-              + " if no role was granted, or 400 if the caller is the lone tenant Admin.")
+              + " if no role was granted, or 409 if the caller is the lone tenant Admin.")
   public ResponseEntity<?> revoke(@PathVariable String userSub) {
     String currentUserSub = currentUserSub();
     Result<Void, SecurityError> r =

@@ -83,7 +83,10 @@ public class JournalEntryController {
           "Persists a balanced double-entry journal entry. Each posting carries a transaction"
               + " amount and a base-currency equivalent (baseMinorUnits); the entry must balance"
               + " in the configured base currency. Postings against an unknown, inactive, or"
-              + " non-leaf account are rejected; so are postings into a closed period.")
+              + " non-leaf account are rejected; so are postings into a closed period. Invalid input"
+              + " is 400; a posting that conflicts with the current state of an account or period is"
+              + " 409 (/journal/account-inactive, /journal/account-not-a-leaf,"
+              + " /journal/posting-in-closed-period).")
   public ResponseEntity<?> post(@Valid @RequestBody PostJournalEntryRequest request) {
     TenantId tid = tenantContext.require();
     return postDuration.record(() -> handle(tid, request));
@@ -179,7 +182,7 @@ public class JournalEntryController {
       description =
           "Posts a mirror entry (debits/credits swapped) referencing the original via reverses_id."
               + " Reversal date is today; the original is never modified. Blocks reversing an"
-              + " already-reversed entry (400 /journal/already-reversed) and unknown ids"
+              + " already-reversed entry (409 /journal/already-reversed) and unknown ids"
               + " (404 /journal/not-found).")
   public ResponseEntity<?> reverse(
       @PathVariable String id, @Valid @RequestBody ReverseJournalEntryRequest req) {

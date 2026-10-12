@@ -40,7 +40,7 @@ paths:
       summary: Grant or change a user's role
       description: "Assigns the given role (ADMIN, BOOKKEEPER, or READ_ONLY) to the\
         \ user in the caller's tenant. Idempotent: re-granting the same role is a\
-        \ no-op. Demoting the lone tenant Admin (yourself) is rejected with 400."
+        \ no-op. Demoting the lone tenant Admin (yourself) is rejected with 409."
       operationId: grant
       parameters:
       - name: userSub
@@ -66,7 +66,7 @@ paths:
       - user-role-controller
       summary: Revoke a user's role
       description: "Removes the user's role assignment in the caller's tenant. Returns\
-        \ 204 on success, 404 if no role was granted, or 400 if the caller is the\
+        \ 204 on success, 404 if no role was granted, or 409 if the caller is the\
         \ lone tenant Admin."
       operationId: revoke
       parameters:
@@ -199,7 +199,9 @@ paths:
         \ a transaction amount and a base-currency equivalent (baseMinorUnits); the\
         \ entry must balance in the configured base currency. Postings against an\
         \ unknown, inactive, or non-leaf account are rejected; so are postings into\
-        \ a closed period."
+        \ a closed period. Invalid input is 400; a posting that conflicts with the\
+        \ current state of an account or period is 409 (/journal/account-inactive,\
+        \ /journal/account-not-a-leaf, /journal/posting-in-closed-period)."
       operationId: post
       requestBody:
         content:
@@ -221,7 +223,7 @@ paths:
       summary: Reverse a journal entry
       description: Posts a mirror entry (debits/credits swapped) referencing the original
         via reverses_id. Reversal date is today; the original is never modified. Blocks
-        reversing an already-reversed entry (400 /journal/already-reversed) and unknown
+        reversing an already-reversed entry (409 /journal/already-reversed) and unknown
         ids (404 /journal/not-found).
       operationId: reverseJournalEntry
       parameters:
