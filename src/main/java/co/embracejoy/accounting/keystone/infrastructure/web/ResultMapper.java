@@ -242,6 +242,7 @@ public final class ResultMapper {
 
   private static ProblemDetail journalAccountInactive(JournalError.AccountInactive a) {
     return problem(
+        HttpStatus.CONFLICT,
         "/journal/account-inactive",
         "Posting references a deactivated account",
         "Account '" + a.code().value() + "' is not active.");
