@@ -204,7 +204,7 @@ class ResultMapperTest {
   }
 
   @Test
-  @DisplayName("PeriodError.NotMostRecentlyClosed maps to 400 with periods in detail")
+  @DisplayName("PeriodError.NotMostRecentlyClosed maps to 409 with periods in detail")
   void shouldMapNotMostRecentlyClosedToProblemDetail() {
     YearMonth attempted = YearMonth.of(2026, 5);
     YearMonth latest = YearMonth.of(2026, 6);
@@ -212,7 +212,7 @@ class ResultMapperTest {
         ResultMapper.toProblemDetail(
             new PeriodError.NotMostRecentlyClosed(attempted, Optional.of(latest)));
 
-    assertThat(pd.getStatus()).isEqualTo(HttpStatus.BAD_REQUEST.value());
+    assertThat(pd.getStatus()).isEqualTo(HttpStatus.CONFLICT.value());
     assertThat(pd.getType().toString()).endsWith("/period/not-most-recently-closed");
     assertThat(pd.getDetail()).contains("2026-05").contains("2026-06");
   }

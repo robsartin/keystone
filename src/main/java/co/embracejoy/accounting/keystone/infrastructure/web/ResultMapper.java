@@ -60,7 +60,7 @@ public final class ResultMapper {
                   + " (or an earlier month) first.");
       case PeriodError.NotMostRecentlyClosed n ->
           problem(
-              HttpStatus.BAD_REQUEST,
+              HttpStatus.CONFLICT,
               "/period/not-most-recently-closed",
               "Period reopen requires the most-recently-closed period",
               "Cannot reopen "
