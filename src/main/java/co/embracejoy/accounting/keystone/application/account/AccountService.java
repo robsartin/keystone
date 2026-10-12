@@ -45,7 +45,10 @@ public final class AccountService {
     return repository.rename(existing, newCode);
   }
 
-  /** Re-parent an account. Validates the new parent exists and detects cycles. */
+  /**
+   * Re-parent an account. Rejects a self-parent, validates the new parent exists and detects
+   * cycles.
+   */
   public Result<Account, AccountError> setParent(
       AccountCode code, Optional<AccountCode> newParentCode) {
     Optional<Account> opt = repository.findByCode(code);
@@ -53,6 +56,11 @@ public final class AccountService {
       return Result.failure(new AccountError.NotFound(code));
     }
     if (newParentCode.isPresent()) {
+      if (newParentCode.get().equals(code)) {
+        // Checked once the account is known to exist and before the parent lookup and the cycle
+        // walk: the parent trivially exists, and no state change can cure it (ADR-0024 rule 2).
+        return Result.failure(new AccountError.SelfParent(code));
+      }
       if (repository.findByCode(newParentCode.get()).isEmpty()) {
         return Result.failure(new AccountError.ParentNotFound(newParentCode.get()));
       }
