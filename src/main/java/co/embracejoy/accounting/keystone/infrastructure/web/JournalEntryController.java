@@ -102,11 +102,9 @@ public class JournalEntryController {
           return ResponseEntity.created(URI.create("/journal-entries/" + persisted.id().value()))
               .body(JournalEntryResponse.of(persisted));
         },
-        error -> {
+        err -> {
           postedInvalid.increment();
-          return ResponseEntity.badRequest()
-              .contentType(MediaType.parseMediaType("application/problem+json"))
-              .body(ResultMapper.toProblemDetail(error));
+          return error(err);
         });
   }
 

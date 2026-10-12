@@ -400,6 +400,34 @@ class JournalEntryControllerTest {
   }
 
   @Test
+  @DisplayName("POST /journal-entries answers the status ResultMapper chose, not a fixed 400")
+  void shouldAnswerMappedStatusWhenPostFailsWithAVariantMappedAwayFrom400() throws Exception {
+    // JournalError.NotFound is mapped to 404 by ResultMapper. No real post produces it today;
+    // it is the seam that proves the controller honours the mapper's status (ADR-0024 rule 5).
+    JournalEntryId missing = new JournalEntryId(UUID.randomUUID());
+    Mockito.when(journalEntriesPostDuration.record(Mockito.any(Supplier.class)))
+        .thenAnswer(inv -> inv.<Supplier<?>>getArgument(0).get());
+    Mockito.when(
+            service.post(
+                Mockito.any(TenantId.class),
+                Mockito.any(LocalDate.class),
+                Mockito.anyString(),
+                Mockito.anyList(),
+                Mockito.anyString()))
+        .thenReturn(Result.failure(new JournalError.NotFound(missing)));
+
+    mvc.perform(
+            post("/journal-entries")
+                .contentType(MediaType.APPLICATION_JSON)
+                .content(validBody())
+                .with(withTestAuth(Role.ADMIN)))
+        .andExpect(status().isNotFound())
+        .andExpect(content().contentType("application/problem+json"))
+        .andExpect(jsonPath("$.status").value(404))
+        .andExpect(jsonPath("$.type").value(endsWith("/journal/not-found")));
+  }
+
+  @Test
   @DisplayName("returns 400 ProblemDetail when Bean Validation rejects the request")
   void shouldReturn400WhenValidationFails() throws Exception {
     String invalidBody =
