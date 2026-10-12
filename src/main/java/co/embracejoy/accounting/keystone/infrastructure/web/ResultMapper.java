@@ -303,6 +303,7 @@ public final class ResultMapper {
 
   private static ProblemDetail journalPostingInClosedPeriod(JournalError.PostingInClosedPeriod p) {
     return problem(
+        HttpStatus.CONFLICT,
         "/journal/posting-in-closed-period",
         "Posting falls in a closed period",
         "Period " + p.period() + " is closed; reopen it before posting.");

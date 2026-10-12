@@ -375,8 +375,8 @@ class JournalEntryControllerTest {
   }
 
   @Test
-  @DisplayName("returns 400 ProblemDetail when service returns Failure(PostingInClosedPeriod)")
-  void shouldReturn400WhenPostingInClosedPeriod() throws Exception {
+  @DisplayName("returns 409 ProblemDetail when service returns Failure(PostingInClosedPeriod)")
+  void shouldReturn409WhenPostingInClosedPeriod() throws Exception {
     Mockito.when(journalEntriesPostDuration.record(Mockito.any(Supplier.class)))
         .thenAnswer(inv -> inv.<Supplier<?>>getArgument(0).get());
     Mockito.when(
@@ -393,8 +393,9 @@ class JournalEntryControllerTest {
                 .contentType(MediaType.APPLICATION_JSON)
                 .content(validBody())
                 .with(withTestAuth(Role.ADMIN)))
-        .andExpect(status().isBadRequest())
+        .andExpect(status().isConflict())
         .andExpect(content().contentType("application/problem+json"))
+        .andExpect(jsonPath("$.status").value(409))
         .andExpect(jsonPath("$.type").value(endsWith("/journal/posting-in-closed-period")))
         .andExpect(jsonPath("$.detail", containsString("2026-05")));
   }
@@ -697,8 +698,8 @@ class JournalEntryControllerTest {
   }
 
   @Test
-  @DisplayName("POST /journal-entries/{id}/reverse returns 400 when today's period is closed")
-  void shouldReturn400WhenReversingInClosedPeriod() throws Exception {
+  @DisplayName("POST /journal-entries/{id}/reverse returns 409 when today's period is closed")
+  void shouldReturn409WhenReversingInClosedPeriod() throws Exception {
     JournalEntryId originalId = new JournalEntryId(UUID.randomUUID());
     Mockito.when(
             reverseService.reverse(
@@ -710,8 +711,9 @@ class JournalEntryControllerTest {
                 .contentType(MediaType.APPLICATION_JSON)
                 .content("{ \"reason\": \"typo\" }")
                 .with(withTestAuth(Role.BOOKKEEPER)))
-        .andExpect(status().isBadRequest())
+        .andExpect(status().isConflict())
         .andExpect(content().contentType("application/problem+json"))
+        .andExpect(jsonPath("$.status").value(409))
         .andExpect(jsonPath("$.type").value(endsWith("/journal/posting-in-closed-period")));
   }
 

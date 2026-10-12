@@ -230,12 +230,12 @@ class ResultMapperTest {
   }
 
   @Test
-  @DisplayName("JournalError.PostingInClosedPeriod maps to 400 with period in detail")
+  @DisplayName("JournalError.PostingInClosedPeriod maps to 409 with period in detail")
   void shouldMapPostingInClosedPeriodToProblemDetail() {
     YearMonth period = YearMonth.of(2026, 5);
     ProblemDetail pd = ResultMapper.toProblemDetail(new JournalError.PostingInClosedPeriod(period));
 
-    assertThat(pd.getStatus()).isEqualTo(HttpStatus.BAD_REQUEST.value());
+    assertThat(pd.getStatus()).isEqualTo(HttpStatus.CONFLICT.value());
     assertThat(pd.getType().toString()).endsWith("/journal/posting-in-closed-period");
     assertThat(pd.getTitle()).isEqualTo("Posting falls in a closed period");
     assertThat(pd.getDetail()).contains("2026-05");
