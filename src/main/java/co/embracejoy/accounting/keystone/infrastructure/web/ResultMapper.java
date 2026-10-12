@@ -185,6 +185,7 @@ public final class ResultMapper {
       case AccountError.NotFound n -> accountNotFound(n);
       case AccountError.ParentNotFound p -> accountParentNotFound(p);
       case AccountError.CycleWouldBeCreated c -> accountCycleWouldBeCreated(c);
+      case AccountError.SelfParent s -> accountSelfParent(s);
       case AccountError.CodeInUseByPosting u -> accountCodeInUseByPosting(u);
     };
   }
@@ -211,6 +212,14 @@ public final class ResultMapper {
         "/account/parent-not-found",
         "Parent account not found",
         "No account with code '" + p.parentCode().value() + "' to set as parent.");
+  }
+
+  private static ProblemDetail accountSelfParent(AccountError.SelfParent s) {
+    return problem(
+        HttpStatus.BAD_REQUEST,
+        "/account/self-parent",
+        "Account cannot be its own parent",
+        "Account '" + s.code().value() + "' cannot be set as its own parent.");
   }
 
   private static ProblemDetail accountCycleWouldBeCreated(AccountError.CycleWouldBeCreated c) {

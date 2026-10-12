@@ -102,6 +102,40 @@ class AccountServiceTest {
   }
 
   @Test
+  @DisplayName("setParent returns SelfParent when the new parent is the account itself")
+  void shouldReturnSelfParentWhenParentIsTheAccountItself() {
+    service.create(
+        TENANT, new AccountCode("1"), "Assets", AccountType.ASSET, USD, Optional.empty());
+
+    Result<Account, AccountError> r =
+        service.setParent(new AccountCode("1"), Optional.of(new AccountCode("1")));
+
+    assertThat(((Result.Failure<Account, AccountError>) r).error())
+        .isEqualTo(new AccountError.SelfParent(new AccountCode("1")));
+  }
+
+  @Test
+  @DisplayName("setParent returns CycleWouldBeCreated when two accounts would parent each other")
+  void shouldReturnCycleWhenReparentingUnderDirectChild() {
+    service.create(
+        TENANT, new AccountCode("1"), "Assets", AccountType.ASSET, USD, Optional.empty());
+    service.create(
+        TENANT,
+        new AccountCode("10"),
+        "Current",
+        AccountType.ASSET,
+        USD,
+        Optional.of(new AccountCode("1")));
+
+    Result<Account, AccountError> r =
+        service.setParent(new AccountCode("1"), Optional.of(new AccountCode("10")));
+
+    assertThat(((Result.Failure<Account, AccountError>) r).error())
+        .isEqualTo(
+            new AccountError.CycleWouldBeCreated(new AccountCode("1"), new AccountCode("10")));
+  }
+
+  @Test
   @DisplayName("rename to an unused code succeeds")
   void shouldRenameWhenNewCodeFree() {
     service.create(
