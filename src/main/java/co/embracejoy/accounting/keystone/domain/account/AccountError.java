@@ -16,6 +16,12 @@ public sealed interface AccountError {
   record CycleWouldBeCreated(AccountCode child, AccountCode proposedParent)
       implements AccountError {}
 
+  /**
+   * Setting {@code code}'s parent to itself. Unlike {@link CycleWouldBeCreated} no change to the
+   * chart can cure this, so it is invalid input rather than a state conflict (ADR-0024 rule 2).
+   */
+  record SelfParent(AccountCode code) implements AccountError {}
+
   /** Renaming to {@code code} would clash with a code already in use by an existing account. */
   record CodeInUseByPosting(AccountCode code) implements AccountError {}
 }

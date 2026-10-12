@@ -107,6 +107,17 @@ class ResultMapperTest {
   }
 
   @Test
+  @DisplayName("SelfParent maps to 400 with its own type and the account code in detail")
+  void shouldMapSelfParentToBadRequestWhenAccountIsItsOwnParent() {
+    ProblemDetail pd =
+        ResultMapper.toProblemDetail(new AccountError.SelfParent(new AccountCode("1000")));
+
+    assertThat(pd.getStatus()).isEqualTo(HttpStatus.BAD_REQUEST.value());
+    assertThat(pd.getType().toString()).endsWith("/account/self-parent");
+    assertThat(pd.getDetail()).contains("1000");
+  }
+
+  @Test
   @DisplayName("CycleWouldBeCreated maps to 409 with child and proposed parent in detail")
   void shouldMapCycleWouldBeCreatedToProblemDetail() {
     ProblemDetail pd =

@@ -44,6 +44,13 @@ class AccountErrorTest {
   }
 
   @Test
+  @DisplayName("SelfParent carries the account code")
+  void selfParentCarriesCode() {
+    AccountError e = new AccountError.SelfParent(CODE);
+    assertEquals(CODE, ((AccountError.SelfParent) e).code());
+  }
+
+  @Test
   @DisplayName("CodeInUseByPosting carries the rename-target code")
   void codeInUseCarriesCode() {
     AccountError e = new AccountError.CodeInUseByPosting(CODE);
@@ -53,8 +60,8 @@ class AccountErrorTest {
   @Test
   @DisplayName("AccountError is sealed and lists every variant")
   void sealedListIsComplete() {
-    // Five permitted subtypes — pin the count so any future variant trips a sealed-switch
+    // Six permitted subtypes — pin the count so any future variant trips a sealed-switch
     // somewhere or this test.
-    assertEquals(5, AccountError.class.getPermittedSubclasses().length);
+    assertEquals(6, AccountError.class.getPermittedSubclasses().length);
   }
 }

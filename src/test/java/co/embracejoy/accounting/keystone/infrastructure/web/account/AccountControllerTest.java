@@ -267,6 +267,26 @@ class AccountControllerTest {
   }
 
   @Test
+  @DisplayName("PATCH /accounts/{code} returns 400 + self-parent when the parent is the account")
+  void shouldReturn400WhenAccountReparentedUnderItself() throws Exception {
+    Mockito.when(service.setParent(Mockito.any(), Mockito.any()))
+        .thenReturn(Result.failure(new AccountError.SelfParent(CODE_1000)));
+
+    mvc.perform(
+            patch("/accounts/1000")
+                .contentType(MediaType.APPLICATION_JSON)
+                .content(
+                    """
+                    {"newParentCode":"1000"}
+                    """)
+                .with(withTestAuth(Role.ADMIN)))
+        .andExpect(status().isBadRequest())
+        .andExpect(content().contentType("application/problem+json"))
+        .andExpect(jsonPath("$.status").value(400))
+        .andExpect(jsonPath("$.type").value(endsWith("/account/self-parent")));
+  }
+
+  @Test
   @DisplayName("PATCH /accounts/{code} returns 409 + cycle-would-be-created")
   void shouldReturn409WhenCycleDetected() throws Exception {
     Mockito.when(service.setParent(Mockito.any(), Mockito.any()))
