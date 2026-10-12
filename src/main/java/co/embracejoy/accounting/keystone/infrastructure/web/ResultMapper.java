@@ -227,7 +227,7 @@ public final class ResultMapper {
 
   private static ProblemDetail accountCodeInUseByPosting(AccountError.CodeInUseByPosting u) {
     return problem(
-        HttpStatus.BAD_REQUEST,
+        HttpStatus.CONFLICT,
         "/account/code-in-use-by-posting",
         "Account code already in use",
         "Code '" + u.code().value() + "' is already in use; pick a different code.");

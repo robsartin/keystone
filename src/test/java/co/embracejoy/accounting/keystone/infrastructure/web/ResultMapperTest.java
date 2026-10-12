@@ -116,12 +116,12 @@ class ResultMapperTest {
   }
 
   @Test
-  @DisplayName("CodeInUseByPosting maps to 400 with code in detail")
+  @DisplayName("CodeInUseByPosting maps to 409 with code in detail")
   void shouldMapCodeInUseByPostingToProblemDetail() {
     ProblemDetail pd =
         ResultMapper.toProblemDetail(new AccountError.CodeInUseByPosting(new AccountCode("1000")));
 
-    assertThat(pd.getStatus()).isEqualTo(HttpStatus.BAD_REQUEST.value());
+    assertThat(pd.getStatus()).isEqualTo(HttpStatus.CONFLICT.value());
     assertThat(pd.getType().toString()).endsWith("/account/code-in-use-by-posting");
     assertThat(pd.getDetail()).contains("1000");
   }

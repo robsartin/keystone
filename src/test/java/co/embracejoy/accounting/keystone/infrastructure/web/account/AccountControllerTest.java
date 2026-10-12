@@ -246,6 +246,27 @@ class AccountControllerTest {
   }
 
   @Test
+  @DisplayName("PATCH /accounts/{code} returns 409 + code-in-use-by-posting when newCode is taken")
+  void shouldReturn409WhenRenameTargetCodeIsTaken() throws Exception {
+    Mockito.when(service.rename(Mockito.any(), Mockito.any()))
+        .thenReturn(Result.failure(new AccountError.CodeInUseByPosting(new AccountCode("1001"))));
+
+    mvc.perform(
+            patch("/accounts/1000")
+                .contentType(MediaType.APPLICATION_JSON)
+                .content(
+                    """
+                    {"newCode":"1001"}
+                    """)
+                .with(withTestAuth(Role.ADMIN)))
+        .andExpect(status().isConflict())
+        .andExpect(content().contentType("application/problem+json"))
+        .andExpect(jsonPath("$.status").value(409))
+        .andExpect(jsonPath("$.type").value(endsWith("/account/code-in-use-by-posting")))
+        .andExpect(jsonPath("$.detail", containsString("1001")));
+  }
+
+  @Test
   @DisplayName("PATCH /accounts/{code} returns 409 + cycle-would-be-created")
   void shouldReturn409WhenCycleDetected() throws Exception {
     Mockito.when(service.setParent(Mockito.any(), Mockito.any()))
