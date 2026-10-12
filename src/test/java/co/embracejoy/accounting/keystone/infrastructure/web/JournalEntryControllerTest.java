@@ -267,8 +267,8 @@ class JournalEntryControllerTest {
   }
 
   @Test
-  @DisplayName("returns 400 ProblemDetail when service returns Failure(AccountInactive)")
-  void shouldReturn400WhenAccountInactive() throws Exception {
+  @DisplayName("returns 409 ProblemDetail when service returns Failure(AccountInactive)")
+  void shouldReturn409WhenAccountInactive() throws Exception {
     Mockito.when(journalEntriesPostDuration.record(Mockito.any(Supplier.class)))
         .thenAnswer(inv -> inv.<Supplier<?>>getArgument(0).get());
     Mockito.when(
@@ -285,15 +285,16 @@ class JournalEntryControllerTest {
                 .contentType(MediaType.APPLICATION_JSON)
                 .content(validBody())
                 .with(withTestAuth(Role.ADMIN)))
-        .andExpect(status().isBadRequest())
+        .andExpect(status().isConflict())
         .andExpect(content().contentType("application/problem+json"))
+        .andExpect(jsonPath("$.status").value(409))
         .andExpect(jsonPath("$.type").value(endsWith("/journal/account-inactive")))
         .andExpect(jsonPath("$.detail", containsString("1000")));
   }
 
   @Test
-  @DisplayName("returns 400 ProblemDetail when service returns Failure(AccountNotALeaf)")
-  void shouldReturn400WhenAccountNotALeaf() throws Exception {
+  @DisplayName("returns 409 ProblemDetail when service returns Failure(AccountNotALeaf)")
+  void shouldReturn409WhenAccountNotALeaf() throws Exception {
     Mockito.when(journalEntriesPostDuration.record(Mockito.any(Supplier.class)))
         .thenAnswer(inv -> inv.<Supplier<?>>getArgument(0).get());
     Mockito.when(
@@ -310,8 +311,9 @@ class JournalEntryControllerTest {
                 .contentType(MediaType.APPLICATION_JSON)
                 .content(validBody())
                 .with(withTestAuth(Role.ADMIN)))
-        .andExpect(status().isBadRequest())
+        .andExpect(status().isConflict())
         .andExpect(content().contentType("application/problem+json"))
+        .andExpect(jsonPath("$.status").value(409))
         .andExpect(jsonPath("$.type").value(endsWith("/journal/account-not-a-leaf")))
         .andExpect(jsonPath("$.detail", containsString("1000")));
   }
@@ -375,8 +377,8 @@ class JournalEntryControllerTest {
   }
 
   @Test
-  @DisplayName("returns 400 ProblemDetail when service returns Failure(PostingInClosedPeriod)")
-  void shouldReturn400WhenPostingInClosedPeriod() throws Exception {
+  @DisplayName("returns 409 ProblemDetail when service returns Failure(PostingInClosedPeriod)")
+  void shouldReturn409WhenPostingInClosedPeriod() throws Exception {
     Mockito.when(journalEntriesPostDuration.record(Mockito.any(Supplier.class)))
         .thenAnswer(inv -> inv.<Supplier<?>>getArgument(0).get());
     Mockito.when(
@@ -393,10 +395,39 @@ class JournalEntryControllerTest {
                 .contentType(MediaType.APPLICATION_JSON)
                 .content(validBody())
                 .with(withTestAuth(Role.ADMIN)))
-        .andExpect(status().isBadRequest())
+        .andExpect(status().isConflict())
         .andExpect(content().contentType("application/problem+json"))
+        .andExpect(jsonPath("$.status").value(409))
         .andExpect(jsonPath("$.type").value(endsWith("/journal/posting-in-closed-period")))
         .andExpect(jsonPath("$.detail", containsString("2026-05")));
+  }
+
+  @Test
+  @DisplayName("POST /journal-entries answers the status ResultMapper chose, not a fixed 400")
+  void shouldAnswerMappedStatusWhenPostFailsWithAVariantMappedAwayFrom400() throws Exception {
+    // JournalError.NotFound is mapped to 404 by ResultMapper. No real post produces it today;
+    // it is the seam that proves the controller honours the mapper's status (ADR-0024 rule 5).
+    JournalEntryId missing = new JournalEntryId(UUID.randomUUID());
+    Mockito.when(journalEntriesPostDuration.record(Mockito.any(Supplier.class)))
+        .thenAnswer(inv -> inv.<Supplier<?>>getArgument(0).get());
+    Mockito.when(
+            service.post(
+                Mockito.any(TenantId.class),
+                Mockito.any(LocalDate.class),
+                Mockito.anyString(),
+                Mockito.anyList(),
+                Mockito.anyString()))
+        .thenReturn(Result.failure(new JournalError.NotFound(missing)));
+
+    mvc.perform(
+            post("/journal-entries")
+                .contentType(MediaType.APPLICATION_JSON)
+                .content(validBody())
+                .with(withTestAuth(Role.ADMIN)))
+        .andExpect(status().isNotFound())
+        .andExpect(content().contentType("application/problem+json"))
+        .andExpect(jsonPath("$.status").value(404))
+        .andExpect(jsonPath("$.type").value(endsWith("/journal/not-found")));
   }
 
   @Test
@@ -565,13 +596,13 @@ class JournalEntryControllerTest {
   }
 
   @Test
-  @DisplayName("ResultMapper maps JournalError.AlreadyReversed to 400 /journal/already-reversed")
-  void shouldMapAlreadyReversedTo400() {
+  @DisplayName("ResultMapper maps JournalError.AlreadyReversed to 409 /journal/already-reversed")
+  void shouldMapAlreadyReversedTo409() {
     JournalEntryId id = new JournalEntryId(UUID.fromString("01902f9f-0000-7000-8000-000000000abc"));
 
     ProblemDetail pd = ResultMapper.toProblemDetail(new JournalError.AlreadyReversed(id));
 
-    assertThat(pd.getStatus()).isEqualTo(400);
+    assertThat(pd.getStatus()).isEqualTo(409);
     assertThat(pd.getType().toString()).endsWith("/journal/already-reversed");
     assertThat(pd.getDetail()).contains(id.value().toString());
   }
@@ -622,8 +653,8 @@ class JournalEntryControllerTest {
   }
 
   @Test
-  @DisplayName("POST /journal-entries/{id}/reverse returns 400 when already reversed")
-  void shouldReturn400WhenAlreadyReversed() throws Exception {
+  @DisplayName("POST /journal-entries/{id}/reverse returns 409 when already reversed")
+  void shouldReturn409WhenAlreadyReversed() throws Exception {
     JournalEntryId originalId = new JournalEntryId(UUID.randomUUID());
     Mockito.when(
             reverseService.reverse(
@@ -635,8 +666,9 @@ class JournalEntryControllerTest {
                 .contentType(MediaType.APPLICATION_JSON)
                 .content("{ \"reason\": \"typo\" }")
                 .with(withTestAuth(Role.BOOKKEEPER)))
-        .andExpect(status().isBadRequest())
+        .andExpect(status().isConflict())
         .andExpect(content().contentType("application/problem+json"))
+        .andExpect(jsonPath("$.status").value(409))
         .andExpect(jsonPath("$.type").value(endsWith("/journal/already-reversed")));
   }
 
@@ -668,8 +700,8 @@ class JournalEntryControllerTest {
   }
 
   @Test
-  @DisplayName("POST /journal-entries/{id}/reverse returns 400 when today's period is closed")
-  void shouldReturn400WhenReversingInClosedPeriod() throws Exception {
+  @DisplayName("POST /journal-entries/{id}/reverse returns 409 when today's period is closed")
+  void shouldReturn409WhenReversingInClosedPeriod() throws Exception {
     JournalEntryId originalId = new JournalEntryId(UUID.randomUUID());
     Mockito.when(
             reverseService.reverse(
@@ -681,8 +713,9 @@ class JournalEntryControllerTest {
                 .contentType(MediaType.APPLICATION_JSON)
                 .content("{ \"reason\": \"typo\" }")
                 .with(withTestAuth(Role.BOOKKEEPER)))
-        .andExpect(status().isBadRequest())
+        .andExpect(status().isConflict())
         .andExpect(content().contentType("application/problem+json"))
+        .andExpect(jsonPath("$.status").value(409))
         .andExpect(jsonPath("$.type").value(endsWith("/journal/posting-in-closed-period")));
   }
 

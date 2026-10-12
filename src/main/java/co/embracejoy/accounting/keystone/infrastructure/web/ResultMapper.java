@@ -50,7 +50,7 @@ public final class ResultMapper {
     return switch (err) {
       case PeriodError.NotSequentiallyClosable n ->
           problem(
-              HttpStatus.BAD_REQUEST,
+              HttpStatus.CONFLICT,
               "/period/not-sequentially-closable",
               "Period close is out of order",
               "Cannot close "
@@ -60,7 +60,7 @@ public final class ResultMapper {
                   + " (or an earlier month) first.");
       case PeriodError.NotMostRecentlyClosed n ->
           problem(
-              HttpStatus.BAD_REQUEST,
+              HttpStatus.CONFLICT,
               "/period/not-most-recently-closed",
               "Period reopen requires the most-recently-closed period",
               "Cannot reopen "
@@ -93,7 +93,7 @@ public final class ResultMapper {
               in.reason());
       case TenantError.Deactivated d ->
           problem(
-              HttpStatus.BAD_REQUEST,
+              HttpStatus.CONFLICT,
               "/admin/tenant-deactivated",
               "Tenant is deactivated",
               "Tenant '" + d.id().value() + "' is deactivated.");
@@ -124,7 +124,7 @@ public final class ResultMapper {
 
   private static ProblemDetail securityCannotOrphanSelf(SecurityError.CannotOrphanSelf c) {
     return problem(
-        HttpStatus.BAD_REQUEST,
+        HttpStatus.CONFLICT,
         "/admin/cannot-orphan-self",
         "Cannot orphan the lone tenant admin",
         "User '"
@@ -191,7 +191,7 @@ public final class ResultMapper {
 
   private static ProblemDetail accountCodeAlreadyExists(AccountError.CodeAlreadyExists c) {
     return problem(
-        HttpStatus.BAD_REQUEST,
+        HttpStatus.CONFLICT,
         "/account/code-already-exists",
         "Account code already exists",
         "An account with code '" + c.code().value() + "' already exists.");
@@ -215,7 +215,7 @@ public final class ResultMapper {
 
   private static ProblemDetail accountCycleWouldBeCreated(AccountError.CycleWouldBeCreated c) {
     return problem(
-        HttpStatus.BAD_REQUEST,
+        HttpStatus.CONFLICT,
         "/account/cycle-would-be-created",
         "Account hierarchy would form a cycle",
         "Setting '"
@@ -227,7 +227,7 @@ public final class ResultMapper {
 
   private static ProblemDetail accountCodeInUseByPosting(AccountError.CodeInUseByPosting u) {
     return problem(
-        HttpStatus.BAD_REQUEST,
+        HttpStatus.CONFLICT,
         "/account/code-in-use-by-posting",
         "Account code already in use",
         "Code '" + u.code().value() + "' is already in use; pick a different code.");
@@ -242,6 +242,7 @@ public final class ResultMapper {
 
   private static ProblemDetail journalAccountInactive(JournalError.AccountInactive a) {
     return problem(
+        HttpStatus.CONFLICT,
         "/journal/account-inactive",
         "Posting references a deactivated account",
         "Account '" + a.code().value() + "' is not active.");
@@ -249,6 +250,7 @@ public final class ResultMapper {
 
   private static ProblemDetail journalAccountNotALeaf(JournalError.AccountNotALeaf a) {
     return problem(
+        HttpStatus.CONFLICT,
         "/journal/account-not-a-leaf",
         "Posting targets a non-leaf account",
         "Account '" + a.code().value() + "' has children; post to a leaf instead.");
@@ -303,6 +305,7 @@ public final class ResultMapper {
 
   private static ProblemDetail journalPostingInClosedPeriod(JournalError.PostingInClosedPeriod p) {
     return problem(
+        HttpStatus.CONFLICT,
         "/journal/posting-in-closed-period",
         "Posting falls in a closed period",
         "Period " + p.period() + " is closed; reopen it before posting.");
@@ -318,7 +321,7 @@ public final class ResultMapper {
 
   private static ProblemDetail journalAlreadyReversed(JournalError.AlreadyReversed ar) {
     return problem(
-        HttpStatus.BAD_REQUEST,
+        HttpStatus.CONFLICT,
         "/journal/already-reversed",
         "Journal entry has already been reversed",
         "Journal entry '" + ar.id().value() + "' has already been reversed.");

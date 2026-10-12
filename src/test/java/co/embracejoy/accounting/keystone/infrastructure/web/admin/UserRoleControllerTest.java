@@ -168,8 +168,8 @@ class UserRoleControllerTest {
   }
 
   @Test
-  @DisplayName("PUT /admin/users/{userSub} returns 400 when grant would orphan self")
-  void shouldReturn400WhenGrantOrphansSelf() throws Exception {
+  @DisplayName("PUT /admin/users/{userSub} returns 409 when grant would orphan self")
+  void shouldReturn409WhenGrantOrphansSelf() throws Exception {
     Mockito.when(
             service.grant(
                 Mockito.eq(Tenants.DEFAULT_TENANT_ID),
@@ -188,8 +188,9 @@ class UserRoleControllerTest {
                     {"role":"READ_ONLY"}
                     """)
                 .with(withTestAuth(Role.ADMIN)))
-        .andExpect(status().isBadRequest())
+        .andExpect(status().isConflict())
         .andExpect(content().contentType("application/problem+json"))
+        .andExpect(jsonPath("$.status").value(409))
         .andExpect(jsonPath("$.type").value(endsWith("/admin/cannot-orphan-self")));
   }
 
@@ -222,8 +223,8 @@ class UserRoleControllerTest {
   }
 
   @Test
-  @DisplayName("DELETE /admin/users/{userSub} returns 400 when revoke would orphan self")
-  void shouldReturn400WhenRevokeOrphansSelf() throws Exception {
+  @DisplayName("DELETE /admin/users/{userSub} returns 409 when revoke would orphan self")
+  void shouldReturn409WhenRevokeOrphansSelf() throws Exception {
     Mockito.when(
             service.revoke(
                 Mockito.eq(Tenants.DEFAULT_TENANT_ID), Mockito.eq(CALLER_SUB), Mockito.anyString()))
@@ -232,8 +233,9 @@ class UserRoleControllerTest {
                 new SecurityError.CannotOrphanSelf(Tenants.DEFAULT_TENANT_ID, CALLER_SUB)));
 
     mvc.perform(delete("/admin/users/" + CALLER_URL).with(withTestAuth(Role.ADMIN)))
-        .andExpect(status().isBadRequest())
+        .andExpect(status().isConflict())
         .andExpect(content().contentType("application/problem+json"))
+        .andExpect(jsonPath("$.status").value(409))
         .andExpect(jsonPath("$.type").value(endsWith("/admin/cannot-orphan-self")));
   }
 

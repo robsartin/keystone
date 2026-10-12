@@ -8,10 +8,13 @@ import co.embracejoy.accounting.keystone.domain.journal.JournalError;
 import co.embracejoy.accounting.keystone.domain.journal.Side;
 import co.embracejoy.accounting.keystone.domain.money.Money;
 import co.embracejoy.accounting.keystone.domain.period.PeriodError;
+import co.embracejoy.accounting.keystone.domain.tenancy.TenantError;
+import co.embracejoy.accounting.keystone.domain.tenancy.TenantId;
 import java.time.YearMonth;
 import java.util.Currency;
 import java.util.Optional;
 import java.util.Set;
+import java.util.UUID;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.springframework.http.HttpStatus;
@@ -69,12 +72,12 @@ class ResultMapperTest {
   // --- AccountError variants ---
 
   @Test
-  @DisplayName("CodeAlreadyExists maps to 400 with code in detail")
+  @DisplayName("CodeAlreadyExists maps to 409 with code in detail")
   void shouldMapCodeAlreadyExistsToProblemDetail() {
     ProblemDetail pd =
         ResultMapper.toProblemDetail(new AccountError.CodeAlreadyExists(new AccountCode("1000")));
 
-    assertThat(pd.getStatus()).isEqualTo(HttpStatus.BAD_REQUEST.value());
+    assertThat(pd.getStatus()).isEqualTo(HttpStatus.CONFLICT.value());
     assertThat(pd.getType().toString()).endsWith("/account/code-already-exists");
     assertThat(pd.getTitle()).isEqualTo("Account code already exists");
     assertThat(pd.getDetail()).contains("1000");
@@ -104,24 +107,24 @@ class ResultMapperTest {
   }
 
   @Test
-  @DisplayName("CycleWouldBeCreated maps to 400 with child and proposed parent in detail")
+  @DisplayName("CycleWouldBeCreated maps to 409 with child and proposed parent in detail")
   void shouldMapCycleWouldBeCreatedToProblemDetail() {
     ProblemDetail pd =
         ResultMapper.toProblemDetail(
             new AccountError.CycleWouldBeCreated(new AccountCode("1000"), new AccountCode("1001")));
 
-    assertThat(pd.getStatus()).isEqualTo(HttpStatus.BAD_REQUEST.value());
+    assertThat(pd.getStatus()).isEqualTo(HttpStatus.CONFLICT.value());
     assertThat(pd.getType().toString()).endsWith("/account/cycle-would-be-created");
     assertThat(pd.getDetail()).contains("1000").contains("1001");
   }
 
   @Test
-  @DisplayName("CodeInUseByPosting maps to 400 with code in detail")
+  @DisplayName("CodeInUseByPosting maps to 409 with code in detail")
   void shouldMapCodeInUseByPostingToProblemDetail() {
     ProblemDetail pd =
         ResultMapper.toProblemDetail(new AccountError.CodeInUseByPosting(new AccountCode("1000")));
 
-    assertThat(pd.getStatus()).isEqualTo(HttpStatus.BAD_REQUEST.value());
+    assertThat(pd.getStatus()).isEqualTo(HttpStatus.CONFLICT.value());
     assertThat(pd.getType().toString()).endsWith("/account/code-in-use-by-posting");
     assertThat(pd.getDetail()).contains("1000");
   }
@@ -140,23 +143,23 @@ class ResultMapperTest {
   }
 
   @Test
-  @DisplayName("JournalError.AccountInactive maps to 400 with code in detail")
+  @DisplayName("JournalError.AccountInactive maps to 409 with code in detail")
   void shouldMapJournalAccountInactiveToProblemDetail() {
     ProblemDetail pd =
         ResultMapper.toProblemDetail(new JournalError.AccountInactive(new AccountCode("1000")));
 
-    assertThat(pd.getStatus()).isEqualTo(HttpStatus.BAD_REQUEST.value());
+    assertThat(pd.getStatus()).isEqualTo(HttpStatus.CONFLICT.value());
     assertThat(pd.getType().toString()).endsWith("/journal/account-inactive");
     assertThat(pd.getDetail()).contains("1000");
   }
 
   @Test
-  @DisplayName("JournalError.AccountNotALeaf maps to 400 with code in detail")
+  @DisplayName("JournalError.AccountNotALeaf maps to 409 with code in detail")
   void shouldMapJournalAccountNotALeafToProblemDetail() {
     ProblemDetail pd =
         ResultMapper.toProblemDetail(new JournalError.AccountNotALeaf(new AccountCode("1000")));
 
-    assertThat(pd.getStatus()).isEqualTo(HttpStatus.BAD_REQUEST.value());
+    assertThat(pd.getStatus()).isEqualTo(HttpStatus.CONFLICT.value());
     assertThat(pd.getType().toString()).endsWith("/journal/account-not-a-leaf");
     assertThat(pd.getDetail()).contains("1000");
   }
@@ -190,21 +193,21 @@ class ResultMapperTest {
   // --- PeriodError variants ---
 
   @Test
-  @DisplayName("PeriodError.NotSequentiallyClosable maps to 400 with months in detail")
+  @DisplayName("PeriodError.NotSequentiallyClosable maps to 409 with months in detail")
   void shouldMapNotSequentiallyClosableToProblemDetail() {
     YearMonth attempted = YearMonth.of(2026, 6);
     YearMonth earliest = YearMonth.of(2026, 5);
     ProblemDetail pd =
         ResultMapper.toProblemDetail(new PeriodError.NotSequentiallyClosable(attempted, earliest));
 
-    assertThat(pd.getStatus()).isEqualTo(HttpStatus.BAD_REQUEST.value());
+    assertThat(pd.getStatus()).isEqualTo(HttpStatus.CONFLICT.value());
     assertThat(pd.getType().toString()).endsWith("/period/not-sequentially-closable");
     assertThat(pd.getTitle()).isEqualTo("Period close is out of order");
     assertThat(pd.getDetail()).contains("2026-06").contains("2026-05");
   }
 
   @Test
-  @DisplayName("PeriodError.NotMostRecentlyClosed maps to 400 with periods in detail")
+  @DisplayName("PeriodError.NotMostRecentlyClosed maps to 409 with periods in detail")
   void shouldMapNotMostRecentlyClosedToProblemDetail() {
     YearMonth attempted = YearMonth.of(2026, 5);
     YearMonth latest = YearMonth.of(2026, 6);
@@ -212,7 +215,7 @@ class ResultMapperTest {
         ResultMapper.toProblemDetail(
             new PeriodError.NotMostRecentlyClosed(attempted, Optional.of(latest)));
 
-    assertThat(pd.getStatus()).isEqualTo(HttpStatus.BAD_REQUEST.value());
+    assertThat(pd.getStatus()).isEqualTo(HttpStatus.CONFLICT.value());
     assertThat(pd.getType().toString()).endsWith("/period/not-most-recently-closed");
     assertThat(pd.getDetail()).contains("2026-05").contains("2026-06");
   }
@@ -230,14 +233,31 @@ class ResultMapperTest {
   }
 
   @Test
-  @DisplayName("JournalError.PostingInClosedPeriod maps to 400 with period in detail")
+  @DisplayName("JournalError.PostingInClosedPeriod maps to 409 with period in detail")
   void shouldMapPostingInClosedPeriodToProblemDetail() {
     YearMonth period = YearMonth.of(2026, 5);
     ProblemDetail pd = ResultMapper.toProblemDetail(new JournalError.PostingInClosedPeriod(period));
 
-    assertThat(pd.getStatus()).isEqualTo(HttpStatus.BAD_REQUEST.value());
+    assertThat(pd.getStatus()).isEqualTo(HttpStatus.CONFLICT.value());
     assertThat(pd.getType().toString()).endsWith("/journal/posting-in-closed-period");
     assertThat(pd.getTitle()).isEqualTo("Posting falls in a closed period");
     assertThat(pd.getDetail()).contains("2026-05");
+  }
+
+  // --- TenantError variants ---
+
+  @Test
+  @DisplayName("TenantError.Deactivated maps to 409 with tenant id in detail")
+  void shouldMapTenantDeactivatedToProblemDetail() {
+    // No endpoint produces this as a failure today (TenantController turns it into a 200), so
+    // the mapper is the only place its status can be pinned.
+    TenantId id = new TenantId(UUID.fromString("01902f9f-0000-7000-8000-00000000d1f1"));
+
+    ProblemDetail pd = ResultMapper.toProblemDetail(new TenantError.Deactivated(id));
+
+    assertThat(pd.getStatus()).isEqualTo(HttpStatus.CONFLICT.value());
+    assertThat(pd.getType().toString()).endsWith("/admin/tenant-deactivated");
+    assertThat(pd.getTitle()).isEqualTo("Tenant is deactivated");
+    assertThat(pd.getDetail()).contains(id.value().toString());
   }
 }

@@ -155,14 +155,15 @@ class PeriodControllerTest {
   }
 
   @Test
-  @DisplayName("POST /periods/{yyyy-mm}/close returns 400 when not sequentially closable")
-  void shouldReturn400WhenNotSequentiallyClosable() throws Exception {
+  @DisplayName("POST /periods/{yyyy-mm}/close returns 409 when not sequentially closable")
+  void shouldReturn409WhenNotSequentiallyClosable() throws Exception {
     Mockito.when(service.close(TENANT, JUN_2026, "system"))
         .thenReturn(Result.failure(new PeriodError.NotSequentiallyClosable(JUN_2026, MAY_2026)));
 
     mvc.perform(post("/periods/2026-06/close").with(withTestAuth(Role.ADMIN)))
-        .andExpect(status().isBadRequest())
+        .andExpect(status().isConflict())
         .andExpect(content().contentType("application/problem+json"))
+        .andExpect(jsonPath("$.status").value(409))
         .andExpect(jsonPath("$.type").value(endsWith("/period/not-sequentially-closable")))
         .andExpect(jsonPath("$.detail", containsString("2026-05")));
   }
@@ -188,15 +189,16 @@ class PeriodControllerTest {
   }
 
   @Test
-  @DisplayName("POST /periods/{yyyy-mm}/reopen returns 400 when not most-recently-closed")
-  void shouldReturn400WhenNotMostRecentlyClosed() throws Exception {
+  @DisplayName("POST /periods/{yyyy-mm}/reopen returns 409 when not most-recently-closed")
+  void shouldReturn409WhenNotMostRecentlyClosed() throws Exception {
     Mockito.when(service.reopen(TENANT, MAY_2026, "system"))
         .thenReturn(
             Result.failure(new PeriodError.NotMostRecentlyClosed(MAY_2026, Optional.of(JUN_2026))));
 
     mvc.perform(post("/periods/2026-05/reopen").with(withTestAuth(Role.ADMIN)))
-        .andExpect(status().isBadRequest())
+        .andExpect(status().isConflict())
         .andExpect(content().contentType("application/problem+json"))
+        .andExpect(jsonPath("$.status").value(409))
         .andExpect(jsonPath("$.type").value(endsWith("/period/not-most-recently-closed")))
         .andExpect(jsonPath("$.detail", containsString("2026-06")));
   }

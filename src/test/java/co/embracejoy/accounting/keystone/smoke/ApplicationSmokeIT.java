@@ -240,7 +240,7 @@ class ApplicationSmokeIT {
 
     // Step 3: post same entry again → should be rejected
     ResponseEntity<String> rejectedPost = postJuneEntrySwallowError(client);
-    assertThat(rejectedPost.getStatusCode()).isEqualTo(HttpStatus.BAD_REQUEST);
+    assertThat(rejectedPost.getStatusCode()).isEqualTo(HttpStatus.CONFLICT);
     assertThat(rejectedPost.getBody()).contains("/problems/journal/posting-in-closed-period");
 
     // Step 4: reopen June 2026

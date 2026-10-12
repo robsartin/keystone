@@ -38,25 +38,63 @@ break), so treat any unrecognized `type` as a generic `4xx`/`5xx` per its
 All URIs share the base `https://embracejoy.co/problems`. The URI is an
 identifier, not a live link — nothing is served at that address.
 
+## Status policy
+
+The HTTP status says what kind of failure it is
+([ADR-0024](adr/0024-http-status-policy-for-domain-errors.md)):
+
+| Status | Meaning | Retry the same request? |
+|---|---|---|
+| `400` | **Invalid input.** The request is wrong on its own: decidable from the request and static configuration, with no stored state read. A name in the body that resolves to nothing (an unknown posting account, an unknown parent account) is also `400`. | No. Fix the request. |
+| `404` | **Missing target.** The resource the URL addresses does not exist in your tenant. Another tenant's resource is indistinguishable from an absent one, so it is `404`, never `403`. | No. |
+| `409` | **State conflict.** The request is well-formed and everything it references exists, but it conflicts with the current state of a resource. | Yes, once that state changes (reopen the period, reactivate the account, add a second Admin, ...). |
+| `401` | **Not authenticated.** No valid credential. | After authenticating. |
+| `403` | **Not authorised.** Valid credential, but your role (or an unrecognised tenant claim) grants no access to the endpoint. | No. |
+
+### Change on 2026-10-11: eleven problem types moved from 400 to 409
+
+These `type` URIs now carry status `409`; they were `400` before. The `type`
+URIs themselves are unchanged. This is a deliberate, breaking change to the
+status line and to the `status` field, made under the stability promise below.
+Clients that branch on `type` are unaffected; clients that branch on `400` for
+these cases must also handle `409`.
+
+`/journal/already-reversed`, `/journal/posting-in-closed-period`,
+`/journal/account-inactive`, `/journal/account-not-a-leaf`,
+`/period/not-sequentially-closable`, `/period/not-most-recently-closed`,
+`/admin/cannot-orphan-self`, `/admin/tenant-deactivated`,
+`/account/code-already-exists`, `/account/cycle-would-be-created`,
+`/account/code-in-use-by-posting`.
+
+Two of these are worth knowing. `/journal/account-not-a-leaf` is `409` because
+the account's children can be re-parented, after which the same posting
+succeeds; `/journal/account-currency-mismatch` stays `400` because an account's
+currency is fixed. `/admin/tenant-deactivated` is mapped but no endpoint
+returns it today (`DELETE /admin/tenants/{id}` answers `200` for an
+already-deactivated tenant), so it changes nothing on the wire yet.
+
 ---
 
 ## Journal entry errors
 
-Returned by `POST /journal-entries`. All are `400 Bad Request` — the request was
-understood but the entry it describes is not a valid posting.
+Returned by `POST /journal-entries`, `POST /journal-entries/{id}/reverse`,
+`GET /journal-entries/{id}` and `GET /journal-entries`.
 
-| `type` (relative to the base) | title | cause | resolution |
-|---|---|---|---|
-| `/journal/no-postings` | Journal entry has no postings | The entry had an empty `postings` array. | Include at least one posting. (A well-formed double entry has at least two.) |
-| `/journal/unbalanced` | Journal entry is not balanced | Sum of debits ≠ sum of credits, measured in the base currency. | Adjust amounts so total debits equal total credits. |
-| `/journal/mixed-currencies` | Journal entry mixes currencies | Postings reference more than one transaction currency in a slice that requires a single one. | Split into one entry per transaction currency, or use base-anchored multi-currency postings. |
-| `/journal/account-not-found` | Posting references an unknown account | A posting's `account` code does not exist in the chart of accounts. | Create the account first (`POST /accounts`) or fix the code. |
-| `/journal/account-inactive` | Posting references a deactivated account | The target account exists but has been deactivated. | Post to an active account, or reactivate it (`POST /accounts/{code}/reactivate`). |
-| `/journal/account-not-a-leaf` | Posting targets a non-leaf account | The account has child accounts; only leaf accounts can be posted to. | Post to one of its leaf descendants instead. |
-| `/journal/account-currency-mismatch` | Posting currency does not match account currency | A posting's `currency` differs from the account's fixed currency. | Use the account's own currency, or post to an account denominated in the currency you need. |
-| `/journal/posting-in-closed-period` | Posting falls in a closed period | `occurredOn` lands in a calendar month that has been closed. | Reopen the period (`POST /periods/{yyyymm}/reopen`) or date the entry into an open period. |
-| `/journal/base-currency-mismatch` | Posting baseAmount currency does not match the configured base | A posting's `baseMinorUnits` were interpreted in a currency other than the server's configured base. | Express `baseMinorUnits` in the configured base currency (default `USD`). |
-| `/journal/overflow` | Posting sum overflowed | Summing one side of the entry exceeded `Long.MAX_VALUE` minor units. | Split the entry into smaller amounts. (This is a guardrail against absurd inputs.) |
+| `type` (relative to the base) | title | status | cause | resolution |
+|---|---|---|---|---|
+| `/journal/no-postings` | Journal entry has no postings | 400 | The entry had an empty `postings` array. | Include at least one posting. (A well-formed double entry has at least two.) |
+| `/journal/unbalanced` | Journal entry is not balanced | 400 | Sum of debits ≠ sum of credits, measured in the base currency. | Adjust amounts so total debits equal total credits. |
+| `/journal/mixed-currencies` | Journal entry mixes currencies | 400 | Postings reference more than one transaction currency in a slice that requires a single one. | Split into one entry per transaction currency, or use base-anchored multi-currency postings. |
+| `/journal/account-not-found` | Posting references an unknown account | 400 | A posting's `account` code does not exist in the chart of accounts. (A name in the body, so `400`, not `404`.) | Create the account first (`POST /accounts`) or fix the code. |
+| `/journal/account-inactive` | Posting references a deactivated account | 409 | The target account exists but has been deactivated. | Post to an active account, or reactivate it (`POST /accounts/{code}/reactivate`) and retry. |
+| `/journal/account-not-a-leaf` | Posting targets a non-leaf account | 409 | The account has child accounts; only leaf accounts can be posted to. | Post to one of its leaf descendants instead, or re-parent its children and retry. |
+| `/journal/account-currency-mismatch` | Posting currency does not match account currency | 400 | A posting's `currency` differs from the account's fixed currency. | Use the account's own currency, or post to an account denominated in the currency you need. |
+| `/journal/posting-in-closed-period` | Posting falls in a closed period | 409 | `occurredOn` lands in a calendar month that has been closed. Also returned by the reverse endpoint when today's month is closed. | Reopen the period (`POST /periods/{yyyymm}/reopen`) and retry, or date the entry into an open period. |
+| `/journal/base-currency-mismatch` | Posting baseAmount currency does not match the configured base | 400 | A posting's `baseMinorUnits` were interpreted in a currency other than the server's configured base. | Express `baseMinorUnits` in the configured base currency (default `USD`). |
+| `/journal/overflow` | Posting sum overflowed | 400 | Summing one side of the entry exceeded `Long.MAX_VALUE` minor units. | Split the entry into smaller amounts. (This is a guardrail against absurd inputs.) |
+| `/journal/already-reversed` | Journal entry has already been reversed | 409 | `POST /journal-entries/{id}/reverse` on an entry that already has a reversal. | None needed: the entry is already reversed. |
+| `/journal/not-found` | Journal entry not found | 404 | The `{id}` in the URL is not a journal entry in your tenant (including a value that is not a UUID). | Check the id. |
+| `/journal/invalid-query` | Invalid journal-entry query | 400 | A `GET /journal-entries` query parameter is malformed (for example a blank `account` or a malformed `after` cursor). | Fix the parameter named in `detail`. |
 
 ### Example bodies
 
@@ -120,6 +158,18 @@ understood but the entry it describes is not a valid posting.
 }
 ```
 
+`/journal/posting-in-closed-period`
+
+```json
+{
+  "type": "https://embracejoy.co/problems/journal/posting-in-closed-period",
+  "title": "Posting falls in a closed period",
+  "status": 409,
+  "detail": "Period 2026-05 is closed; reopen it before posting.",
+  "instance": "/journal-entries"
+}
+```
+
 ---
 
 ## Account errors
@@ -129,11 +179,11 @@ the (de)activation endpoints).
 
 | `type` (relative to the base) | title | status | cause | resolution |
 |---|---|---|---|---|
-| `/account/code-already-exists` | Account code already exists | 400 | Creating an account with a code already in the chart. | Choose a different code, or update the existing account. |
+| `/account/code-already-exists` | Account code already exists | 409 | Creating an account with a code already in the chart. | Choose a different code, or update the existing account. |
 | `/account/not-found` | Account not found | 404 | Referenced a code that isn't in the chart. | Create the account, or correct the code. |
 | `/account/parent-not-found` | Parent account not found | 400 | `parentCode` points at an account that doesn't exist. | Create the parent first, or drop/fix `parentCode`. |
-| `/account/cycle-would-be-created` | Account hierarchy would form a cycle | 400 | Re-parenting would make an account its own ancestor. | Choose a parent that isn't a descendant of the account. |
-| `/account/code-in-use-by-posting` | Account code already in use | 400 | Reusing a code that historical postings already reference. | Pick a different code; codes bound to postings are immutable. |
+| `/account/cycle-would-be-created` | Account hierarchy would form a cycle | 409 | Re-parenting would make an account its own ancestor (a request to make an account its own parent can never succeed). | Choose a parent that isn't the account or one of its descendants. |
+| `/account/code-in-use-by-posting` | Account code already in use | 409 | `PATCH /accounts/{code}` renamed the account to a code another account already holds. | Pick a different code, or free the code first. |
 
 ### Example body
 
@@ -158,8 +208,8 @@ Returned by the period-close/reopen endpoints (`POST /periods/{yyyymm}/close`,
 
 | `type` (relative to the base) | title | status | cause | resolution |
 |---|---|---|---|---|
-| `/period/not-sequentially-closable` | Period close is out of order | 400 | Tried to close a month while an earlier month with postings is still open. | Close the earliest open active month first, then work forward. |
-| `/period/not-most-recently-closed` | Period reopen requires the most-recently-closed period | 400 | Tried to reopen a month that isn't the latest closed one. | Reopen the most-recently-closed month first. |
+| `/period/not-sequentially-closable` | Period close is out of order | 409 | Tried to close a month while an earlier month with postings is still open. | Close the earliest open active month first, then work forward. |
+| `/period/not-most-recently-closed` | Period reopen requires the most-recently-closed period | 409 | Tried to reopen a month that isn't the latest closed one. | Reopen the most-recently-closed month first. |
 | `/period/not-found` | Period not found | 404 | Looked up a period row that doesn't exist. | Most months are implicitly `OPEN` and have no row — a 404 here means "open, never closed". |
 
 ### Example body
@@ -170,11 +220,40 @@ Returned by the period-close/reopen endpoints (`POST /periods/{yyyymm}/close`,
 {
   "type": "https://embracejoy.co/problems/period/not-sequentially-closable",
   "title": "Period close is out of order",
-  "status": 400,
+  "status": 409,
   "detail": "Cannot close 2026-03; close 2026-01 (or an earlier month) first.",
   "instance": "/periods/2026-03/close"
 }
 ```
+
+---
+
+## Admin errors
+
+Returned by the tenant endpoints (`/admin/tenants`) and the user-role endpoints
+(`/admin/users`).
+
+| `type` (relative to the base) | title | status | cause | resolution |
+|---|---|---|---|---|
+| `/admin/tenant-not-found` | Tenant not found | 404 | The tenant `{id}` in the URL does not exist (including a value that is not a UUID). | Check the id. |
+| `/admin/tenant-invalid-name` | Tenant name is invalid | 400 | `POST /admin/tenants` was given a blank name. | Supply a non-blank name. |
+| `/admin/tenant-deactivated` | Tenant is deactivated | 409 | An operation needed an active tenant. No endpoint returns this today. | Reactivation is not offered; use another tenant. |
+| `/admin/user-role-not-found` | User role not found | 404 | No role assignment exists for `{userSub}` in your tenant. | Check the user id. |
+| `/admin/cannot-orphan-self` | Cannot orphan the lone tenant admin | 409 | `PUT` or `DELETE /admin/users/{userSub}` would demote or remove the tenant's only Admin. | Grant Admin to another user first, then retry. |
+
+---
+
+## Authentication and authorisation errors
+
+Returned by any endpoint. Unlike the problem types above, these are produced by
+the security layer and currently carry a *relative* `type` reference
+(`/problems/auth/...`) rather than a URI under the base.
+
+| `type` | title | status | cause | resolution |
+|---|---|---|---|---|
+| `/problems/auth/unauthenticated` | Unauthorized | 401 | No valid credential. | Send a valid bearer token. |
+| `/problems/auth/unknown-tenant` | Forbidden | 403 | The token's tenant claim names a tenant that does not exist. | Use a token for an existing tenant. |
+| `/problems/auth/insufficient-role` | Forbidden | 403 | Your role does not allow this endpoint. | Ask a tenant Admin for the role the endpoint needs. |
 
 ---
 

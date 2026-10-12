@@ -130,8 +130,8 @@ class AccountControllerTest {
   }
 
   @Test
-  @DisplayName("POST /accounts returns 400 + code-already-exists when code is taken")
-  void shouldReturn400WhenCodeAlreadyExists() throws Exception {
+  @DisplayName("POST /accounts returns 409 + code-already-exists when code is taken")
+  void shouldReturn409WhenCodeAlreadyExists() throws Exception {
     Mockito.when(
             service.create(
                 Mockito.any(),
@@ -150,8 +150,9 @@ class AccountControllerTest {
                     {"code":"1000","name":"Cash","type":"ASSET","currency":"USD"}
                     """)
                 .with(withTestAuth(Role.ADMIN)))
-        .andExpect(status().isBadRequest())
+        .andExpect(status().isConflict())
         .andExpect(content().contentType("application/problem+json"))
+        .andExpect(jsonPath("$.status").value(409))
         .andExpect(jsonPath("$.type").value(endsWith("/account/code-already-exists")))
         .andExpect(jsonPath("$.detail", containsString("1000")));
   }
@@ -245,8 +246,29 @@ class AccountControllerTest {
   }
 
   @Test
-  @DisplayName("PATCH /accounts/{code} returns 400 + cycle-would-be-created")
-  void shouldReturn400WhenCycleDetected() throws Exception {
+  @DisplayName("PATCH /accounts/{code} returns 409 + code-in-use-by-posting when newCode is taken")
+  void shouldReturn409WhenRenameTargetCodeIsTaken() throws Exception {
+    Mockito.when(service.rename(Mockito.any(), Mockito.any()))
+        .thenReturn(Result.failure(new AccountError.CodeInUseByPosting(new AccountCode("1001"))));
+
+    mvc.perform(
+            patch("/accounts/1000")
+                .contentType(MediaType.APPLICATION_JSON)
+                .content(
+                    """
+                    {"newCode":"1001"}
+                    """)
+                .with(withTestAuth(Role.ADMIN)))
+        .andExpect(status().isConflict())
+        .andExpect(content().contentType("application/problem+json"))
+        .andExpect(jsonPath("$.status").value(409))
+        .andExpect(jsonPath("$.type").value(endsWith("/account/code-in-use-by-posting")))
+        .andExpect(jsonPath("$.detail", containsString("1001")));
+  }
+
+  @Test
+  @DisplayName("PATCH /accounts/{code} returns 409 + cycle-would-be-created")
+  void shouldReturn409WhenCycleDetected() throws Exception {
     Mockito.when(service.setParent(Mockito.any(), Mockito.any()))
         .thenReturn(
             Result.failure(
@@ -260,8 +282,9 @@ class AccountControllerTest {
                     {"newParentCode":"1001"}
                     """)
                 .with(withTestAuth(Role.ADMIN)))
-        .andExpect(status().isBadRequest())
+        .andExpect(status().isConflict())
         .andExpect(content().contentType("application/problem+json"))
+        .andExpect(jsonPath("$.status").value(409))
         .andExpect(jsonPath("$.type").value(endsWith("/account/cycle-would-be-created")));
   }
 
