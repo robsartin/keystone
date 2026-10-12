@@ -219,8 +219,8 @@ class UserRoleUiControllerTest {
   }
 
   @Test
-  @DisplayName("PUT /admin/ui/users/{sub} returns 400 alert fragment when orphaning the lone admin")
-  void shouldReturn400WhenPutOrphansSelf() throws Exception {
+  @DisplayName("PUT /admin/ui/users/{sub} returns 409 alert fragment when orphaning the lone admin")
+  void shouldReturn409WhenPutOrphansSelf() throws Exception {
     Mockito.when(
             service.grant(
                 Tenants.DEFAULT_TENANT_ID, "auth0|test-admin", Role.BOOKKEEPER, "auth0|test-admin"))
@@ -236,7 +236,7 @@ class UserRoleUiControllerTest {
                     SecurityMockMvcRequestPostProcessors.oidcLogin()
                         .authorities(new SimpleGrantedAuthority("ROLE_ADMIN"))
                         .idToken(t -> t.claim("sub", "auth0|test-admin"))))
-        .andExpect(status().isBadRequest())
+        .andExpect(status().isConflict())
         .andExpect(content().string(containsString("Cannot orphan the lone tenant admin")));
   }
 

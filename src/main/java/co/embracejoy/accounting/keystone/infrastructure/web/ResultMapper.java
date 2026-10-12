@@ -124,7 +124,7 @@ public final class ResultMapper {
 
   private static ProblemDetail securityCannotOrphanSelf(SecurityError.CannotOrphanSelf c) {
     return problem(
-        HttpStatus.BAD_REQUEST,
+        HttpStatus.CONFLICT,
         "/admin/cannot-orphan-self",
         "Cannot orphan the lone tenant admin",
         "User '"
