@@ -1,11 +1,12 @@
 # ADR-0024: HTTP status policy for domain errors
 
-- **Status:** Proposed
+- **Status:** Accepted
 - **Date:** 2026-10-11
 
-Proposed for review in the PR that adds it (issue #86). Accepting it settles
-issue #85 (`AlreadyReversed` returns 400, not 409). It changes no code; the
-implementation follows in a separate, test-first issue.
+Proposed for review in the PR that added it (issue #86, PR #87) and accepted
+when that PR merged. Accepting it settles issue #85 (`AlreadyReversed` returns
+400, not 409). It changes no code; the implementation follows in a separate,
+test-first issue.
 
 ## Context
 
@@ -35,7 +36,7 @@ attached to a `type` is a breaking change, so this is a contract decision and
 has to be made deliberately. Issue #85 raised the first instance
 (`AlreadyReversed`); the audit under #86 found it is one of eleven.
 
-## Decision (proposed)
+## Decision
 
 Classify every error by **what it means**, then give each class one status.
 The classes and their statuses are the policy; which variant belongs to which
