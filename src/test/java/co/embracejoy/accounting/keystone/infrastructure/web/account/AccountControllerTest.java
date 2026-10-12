@@ -246,8 +246,8 @@ class AccountControllerTest {
   }
 
   @Test
-  @DisplayName("PATCH /accounts/{code} returns 400 + cycle-would-be-created")
-  void shouldReturn400WhenCycleDetected() throws Exception {
+  @DisplayName("PATCH /accounts/{code} returns 409 + cycle-would-be-created")
+  void shouldReturn409WhenCycleDetected() throws Exception {
     Mockito.when(service.setParent(Mockito.any(), Mockito.any()))
         .thenReturn(
             Result.failure(
@@ -261,8 +261,9 @@ class AccountControllerTest {
                     {"newParentCode":"1001"}
                     """)
                 .with(withTestAuth(Role.ADMIN)))
-        .andExpect(status().isBadRequest())
+        .andExpect(status().isConflict())
         .andExpect(content().contentType("application/problem+json"))
+        .andExpect(jsonPath("$.status").value(409))
         .andExpect(jsonPath("$.type").value(endsWith("/account/cycle-would-be-created")));
   }
 

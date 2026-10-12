@@ -215,7 +215,7 @@ public final class ResultMapper {
 
   private static ProblemDetail accountCycleWouldBeCreated(AccountError.CycleWouldBeCreated c) {
     return problem(
-        HttpStatus.BAD_REQUEST,
+        HttpStatus.CONFLICT,
         "/account/cycle-would-be-created",
         "Account hierarchy would form a cycle",
         "Setting '"

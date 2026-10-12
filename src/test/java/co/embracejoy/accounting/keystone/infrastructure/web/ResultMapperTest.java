@@ -104,13 +104,13 @@ class ResultMapperTest {
   }
 
   @Test
-  @DisplayName("CycleWouldBeCreated maps to 400 with child and proposed parent in detail")
+  @DisplayName("CycleWouldBeCreated maps to 409 with child and proposed parent in detail")
   void shouldMapCycleWouldBeCreatedToProblemDetail() {
     ProblemDetail pd =
         ResultMapper.toProblemDetail(
             new AccountError.CycleWouldBeCreated(new AccountCode("1000"), new AccountCode("1001")));
 
-    assertThat(pd.getStatus()).isEqualTo(HttpStatus.BAD_REQUEST.value());
+    assertThat(pd.getStatus()).isEqualTo(HttpStatus.CONFLICT.value());
     assertThat(pd.getType().toString()).endsWith("/account/cycle-would-be-created");
     assertThat(pd.getDetail()).contains("1000").contains("1001");
   }
