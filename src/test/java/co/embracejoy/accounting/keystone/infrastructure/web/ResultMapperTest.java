@@ -8,10 +8,13 @@ import co.embracejoy.accounting.keystone.domain.journal.JournalError;
 import co.embracejoy.accounting.keystone.domain.journal.Side;
 import co.embracejoy.accounting.keystone.domain.money.Money;
 import co.embracejoy.accounting.keystone.domain.period.PeriodError;
+import co.embracejoy.accounting.keystone.domain.tenancy.TenantError;
+import co.embracejoy.accounting.keystone.domain.tenancy.TenantId;
 import java.time.YearMonth;
 import java.util.Currency;
 import java.util.Optional;
 import java.util.Set;
+import java.util.UUID;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.springframework.http.HttpStatus;
@@ -239,5 +242,22 @@ class ResultMapperTest {
     assertThat(pd.getType().toString()).endsWith("/journal/posting-in-closed-period");
     assertThat(pd.getTitle()).isEqualTo("Posting falls in a closed period");
     assertThat(pd.getDetail()).contains("2026-05");
+  }
+
+  // --- TenantError variants ---
+
+  @Test
+  @DisplayName("TenantError.Deactivated maps to 409 with tenant id in detail")
+  void shouldMapTenantDeactivatedToProblemDetail() {
+    // No endpoint produces this as a failure today (TenantController turns it into a 200), so
+    // the mapper is the only place its status can be pinned.
+    TenantId id = new TenantId(UUID.fromString("01902f9f-0000-7000-8000-00000000d1f1"));
+
+    ProblemDetail pd = ResultMapper.toProblemDetail(new TenantError.Deactivated(id));
+
+    assertThat(pd.getStatus()).isEqualTo(HttpStatus.CONFLICT.value());
+    assertThat(pd.getType().toString()).endsWith("/admin/tenant-deactivated");
+    assertThat(pd.getTitle()).isEqualTo("Tenant is deactivated");
+    assertThat(pd.getDetail()).contains(id.value().toString());
   }
 }

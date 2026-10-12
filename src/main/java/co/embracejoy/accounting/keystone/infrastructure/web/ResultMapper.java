@@ -93,7 +93,7 @@ public final class ResultMapper {
               in.reason());
       case TenantError.Deactivated d ->
           problem(
-              HttpStatus.BAD_REQUEST,
+              HttpStatus.CONFLICT,
               "/admin/tenant-deactivated",
               "Tenant is deactivated",
               "Tenant '" + d.id().value() + "' is deactivated.");
