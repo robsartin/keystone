@@ -130,8 +130,8 @@ class AccountControllerTest {
   }
 
   @Test
-  @DisplayName("POST /accounts returns 400 + code-already-exists when code is taken")
-  void shouldReturn400WhenCodeAlreadyExists() throws Exception {
+  @DisplayName("POST /accounts returns 409 + code-already-exists when code is taken")
+  void shouldReturn409WhenCodeAlreadyExists() throws Exception {
     Mockito.when(
             service.create(
                 Mockito.any(),
@@ -150,8 +150,9 @@ class AccountControllerTest {
                     {"code":"1000","name":"Cash","type":"ASSET","currency":"USD"}
                     """)
                 .with(withTestAuth(Role.ADMIN)))
-        .andExpect(status().isBadRequest())
+        .andExpect(status().isConflict())
         .andExpect(content().contentType("application/problem+json"))
+        .andExpect(jsonPath("$.status").value(409))
         .andExpect(jsonPath("$.type").value(endsWith("/account/code-already-exists")))
         .andExpect(jsonPath("$.detail", containsString("1000")));
   }

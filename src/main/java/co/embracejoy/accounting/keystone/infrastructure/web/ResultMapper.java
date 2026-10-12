@@ -191,7 +191,7 @@ public final class ResultMapper {
 
   private static ProblemDetail accountCodeAlreadyExists(AccountError.CodeAlreadyExists c) {
     return problem(
-        HttpStatus.BAD_REQUEST,
+        HttpStatus.CONFLICT,
         "/account/code-already-exists",
         "Account code already exists",
         "An account with code '" + c.code().value() + "' already exists.");

@@ -69,12 +69,12 @@ class ResultMapperTest {
   // --- AccountError variants ---
 
   @Test
-  @DisplayName("CodeAlreadyExists maps to 400 with code in detail")
+  @DisplayName("CodeAlreadyExists maps to 409 with code in detail")
   void shouldMapCodeAlreadyExistsToProblemDetail() {
     ProblemDetail pd =
         ResultMapper.toProblemDetail(new AccountError.CodeAlreadyExists(new AccountCode("1000")));
 
-    assertThat(pd.getStatus()).isEqualTo(HttpStatus.BAD_REQUEST.value());
+    assertThat(pd.getStatus()).isEqualTo(HttpStatus.CONFLICT.value());
     assertThat(pd.getType().toString()).endsWith("/account/code-already-exists");
     assertThat(pd.getTitle()).isEqualTo("Account code already exists");
     assertThat(pd.getDetail()).contains("1000");
