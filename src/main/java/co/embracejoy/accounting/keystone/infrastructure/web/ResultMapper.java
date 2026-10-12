@@ -318,7 +318,7 @@ public final class ResultMapper {
 
   private static ProblemDetail journalAlreadyReversed(JournalError.AlreadyReversed ar) {
     return problem(
-        HttpStatus.BAD_REQUEST,
+        HttpStatus.CONFLICT,
         "/journal/already-reversed",
         "Journal entry has already been reversed",
         "Journal entry '" + ar.id().value() + "' has already been reversed.");

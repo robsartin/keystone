@@ -593,13 +593,13 @@ class JournalEntryControllerTest {
   }
 
   @Test
-  @DisplayName("ResultMapper maps JournalError.AlreadyReversed to 400 /journal/already-reversed")
-  void shouldMapAlreadyReversedTo400() {
+  @DisplayName("ResultMapper maps JournalError.AlreadyReversed to 409 /journal/already-reversed")
+  void shouldMapAlreadyReversedTo409() {
     JournalEntryId id = new JournalEntryId(UUID.fromString("01902f9f-0000-7000-8000-000000000abc"));
 
     ProblemDetail pd = ResultMapper.toProblemDetail(new JournalError.AlreadyReversed(id));
 
-    assertThat(pd.getStatus()).isEqualTo(400);
+    assertThat(pd.getStatus()).isEqualTo(409);
     assertThat(pd.getType().toString()).endsWith("/journal/already-reversed");
     assertThat(pd.getDetail()).contains(id.value().toString());
   }
@@ -650,8 +650,8 @@ class JournalEntryControllerTest {
   }
 
   @Test
-  @DisplayName("POST /journal-entries/{id}/reverse returns 400 when already reversed")
-  void shouldReturn400WhenAlreadyReversed() throws Exception {
+  @DisplayName("POST /journal-entries/{id}/reverse returns 409 when already reversed")
+  void shouldReturn409WhenAlreadyReversed() throws Exception {
     JournalEntryId originalId = new JournalEntryId(UUID.randomUUID());
     Mockito.when(
             reverseService.reverse(
@@ -663,8 +663,9 @@ class JournalEntryControllerTest {
                 .contentType(MediaType.APPLICATION_JSON)
                 .content("{ \"reason\": \"typo\" }")
                 .with(withTestAuth(Role.BOOKKEEPER)))
-        .andExpect(status().isBadRequest())
+        .andExpect(status().isConflict())
         .andExpect(content().contentType("application/problem+json"))
+        .andExpect(jsonPath("$.status").value(409))
         .andExpect(jsonPath("$.type").value(endsWith("/journal/already-reversed")));
   }
 
