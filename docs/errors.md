@@ -182,8 +182,18 @@ the (de)activation endpoints).
 | `/account/code-already-exists` | Account code already exists | 409 | Creating an account with a code already in the chart. | Choose a different code, or update the existing account. |
 | `/account/not-found` | Account not found | 404 | Referenced a code that isn't in the chart. | Create the account, or correct the code. |
 | `/account/parent-not-found` | Parent account not found | 400 | `parentCode` points at an account that doesn't exist. | Create the parent first, or drop/fix `parentCode`. |
-| `/account/cycle-would-be-created` | Account hierarchy would form a cycle | 409 | Re-parenting would make an account its own ancestor (a request to make an account its own parent can never succeed). | Choose a parent that isn't the account or one of its descendants. |
+| `/account/self-parent` | Account cannot be its own parent | 400 | `PATCH /accounts/{code}` set `newParentCode` to the account's own code. No change to the chart can make this succeed, so it is invalid input, not a state conflict. | Choose a different parent, or send an empty `newParentCode` to detach. |
+| `/account/cycle-would-be-created` | Account hierarchy would form a cycle | 409 | Re-parenting would make an account its own ancestor through *other* accounts (the proposed parent is a descendant). It could succeed after the tree changes. | Choose a parent that isn't one of the account's descendants, or re-parent the descendant first. |
 | `/account/code-in-use-by-posting` | Account code already in use | 409 | `PATCH /accounts/{code}` renamed the account to a code another account already holds. | Pick a different code, or free the code first. |
+
+> **Change note, 2026-10-12 (additive).** `/account/self-parent` is new (issue #92).
+> Before it, re-parenting an account under itself returned
+> `/account/cycle-would-be-created` with `409`; that case now returns
+> `/account/self-parent` with `400`, per rule 2 of
+> [ADR-0024](adr/0024-http-status-policy-for-domain-errors.md). The status of
+> `/account/cycle-would-be-created` is unchanged (`409`, real cycles only), and
+> no existing `type` was renamed or re-statused. Clients that branched on the
+> old `type` for the self-parent request should also handle the new one.
 
 ### Example body
 

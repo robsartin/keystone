@@ -93,8 +93,9 @@ public class AccountController {
       summary = "Rename or re-parent an account",
       description =
           "Applies optional rename (newCode) and/or re-parent (newParentCode). Pass an empty"
-              + " newParentCode to detach the account from its current parent. Cycles are"
-              + " rejected.")
+              + " newParentCode to detach the account from its current parent. An account cannot be its"
+              + " own parent (400); a re-parent that would form a cycle through other accounts is"
+              + " a conflict (409).")
   public ResponseEntity<?> update(
       @PathVariable String code, @Valid @RequestBody UpdateAccountRequest req) {
     AccountCode existing = new AccountCode(code);
