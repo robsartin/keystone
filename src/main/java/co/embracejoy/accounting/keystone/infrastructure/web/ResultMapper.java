@@ -50,7 +50,7 @@ public final class ResultMapper {
     return switch (err) {
       case PeriodError.NotSequentiallyClosable n ->
           problem(
-              HttpStatus.BAD_REQUEST,
+              HttpStatus.CONFLICT,
               "/period/not-sequentially-closable",
               "Period close is out of order",
               "Cannot close "

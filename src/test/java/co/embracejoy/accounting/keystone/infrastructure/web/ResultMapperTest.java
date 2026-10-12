@@ -190,14 +190,14 @@ class ResultMapperTest {
   // --- PeriodError variants ---
 
   @Test
-  @DisplayName("PeriodError.NotSequentiallyClosable maps to 400 with months in detail")
+  @DisplayName("PeriodError.NotSequentiallyClosable maps to 409 with months in detail")
   void shouldMapNotSequentiallyClosableToProblemDetail() {
     YearMonth attempted = YearMonth.of(2026, 6);
     YearMonth earliest = YearMonth.of(2026, 5);
     ProblemDetail pd =
         ResultMapper.toProblemDetail(new PeriodError.NotSequentiallyClosable(attempted, earliest));
 
-    assertThat(pd.getStatus()).isEqualTo(HttpStatus.BAD_REQUEST.value());
+    assertThat(pd.getStatus()).isEqualTo(HttpStatus.CONFLICT.value());
     assertThat(pd.getType().toString()).endsWith("/period/not-sequentially-closable");
     assertThat(pd.getTitle()).isEqualTo("Period close is out of order");
     assertThat(pd.getDetail()).contains("2026-06").contains("2026-05");
